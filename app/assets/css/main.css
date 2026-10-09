@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@layer base {
+  /* 18px body text for young readers; Tailwind sizes scale from this. */
+  html {
+    font-size: 112.5%;
+  }
+
+  body {
+    @apply bg-emerald-50 text-slate-900;
+  }
+
+  :focus-visible {
+    @apply outline-4 outline-offset-2 outline-indigo-700;
+  }
+}
