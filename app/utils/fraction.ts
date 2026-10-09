@@ -258,7 +258,7 @@ function solve(problem: Problem): Solution {
   const { op } = problem
   const a = normalize(problem.a)
   const b = normalize(problem.b)
-  const sym = op === 'add' ? '+' : '-'
+  const symbol = op === 'add' ? '+' : '-'
   const lcd = lcm(a.den, b.den)
   const aRenamed = a.num * (lcd / a.den)
   const bRenamed = b.num * (lcd / b.den)
@@ -269,7 +269,7 @@ function solve(problem: Problem): Solution {
     steps.push({
       kind: 'rename',
       description: `Rename both fractions so they share the denominator ${lcd}.`,
-      expression: `${rawStr(a.whole, aRenamed, lcd)} ${sym} ${rawStr(b.whole, bRenamed, lcd)}`,
+      expression: `${rawStr(a.whole, aRenamed, lcd)} ${symbol} ${rawStr(b.whole, bRenamed, lcd)}`,
     })
   }
 
@@ -319,14 +319,14 @@ function solve(problem: Problem): Solution {
     steps.push({
       kind: op === 'add' ? 'addWholes' : 'subtractWholes',
       description: `${op === 'add' ? 'Add' : 'Subtract'} the whole numbers.`,
-      expression: `${aWhole} ${sym} ${b.whole} = ${whole}`,
+      expression: `${aWhole} ${symbol} ${b.whole} = ${whole}`,
     })
   }
   if (aRenamed > 0 || bRenamed > 0) {
     steps.push({
       kind: op === 'add' ? 'addNumerators' : 'subtractNumerators',
       description: `${op === 'add' ? 'Add' : 'Subtract'} the numerators and keep the denominator ${lcd}.`,
-      expression: `${aNum}/${lcd} ${sym} ${bRenamed}/${lcd} = ${num}/${lcd}`,
+      expression: `${aNum}/${lcd} ${symbol} ${bRenamed}/${lcd} = ${num}/${lcd}`,
     })
   }
 
@@ -385,8 +385,11 @@ export function subtractSteps(a: Operand, b: Operand): Step[] {
 export function checkAnswer(expected: Operand, studentInput: string): AnswerResult {
   const simplestForm = formatMixed(expected)
   const parsed = parseMixed(studentInput)
-  if (!parsed || !equals(expected, toImproper(parsed))) return { status: 'wrong', simplestForm }
-  return { status: isSimplestMixed(parsed) ? 'correct' : 'correctNotSimplest', simplestForm }
+  let status: AnswerStatus = 'wrong'
+  if (parsed && equals(expected, toImproper(parsed))) {
+    status = isSimplestMixed(parsed) ? 'correct' : 'correctNotSimplest'
+  }
+  return { status, simplestForm }
 }
 
 const HINTS: Record<Slip, string> = {
@@ -516,9 +519,9 @@ export function verifyByInverse(
   result: Operand,
 ): { holds: boolean; expression: string } {
   const back = op === 'subtract' ? add(result, b) : subtract(result, b)
-  const sym = op === 'subtract' ? '+' : '-'
+  const symbol = op === 'subtract' ? '+' : '-'
   return {
     holds: equals(back, a),
-    expression: `${formatMixed(result)} ${sym} ${formatMixed(b)} = ${formatMixed(a)}`,
+    expression: `${formatMixed(result)} ${symbol} ${formatMixed(b)} = ${formatMixed(a)}`,
   }
 }
