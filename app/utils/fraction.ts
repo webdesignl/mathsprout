@@ -392,22 +392,16 @@ export function checkAnswer(expected: Operand, studentInput: string): AnswerResu
   return { status, simplestForm }
 }
 
+// Hints are one short question each, so they never lecture and never give the answer.
 const HINTS: Record<Slip, string> = {
   none: '',
-  addedDenominators:
-    'Can you add the bottom numbers when you add fractions? What size pieces should both fractions be cut into first?',
-  noCommonDenominator:
-    'Are the pieces the same size in both fractions? What could you do to make the denominators match before you combine them?',
-  forgotRegroup:
-    'Look at the numerators once the denominators match. Do you have enough pieces to take away? Where could you get more?',
-  numeratorArithmetic:
-    'Your whole number and denominator look good. Can you redo the numerator step slowly and check it?',
-  wholeArithmetic:
-    'Your fraction part looks good. Can you check the whole numbers again, and did any whole move to or from the fraction?',
-  notSimplified:
-    'You have the right amount! Is the fraction part still 1 whole or more, or can its top and bottom be divided by the same number?',
-  unknown:
-    'Let’s go one step at a time. What do you need to check about the denominators before you start?',
+  addedDenominators: 'Do the bottom numbers get added? What should match first?',
+  noCommonDenominator: 'Are the pieces the same size? How could you match them?',
+  forgotRegroup: 'Can you take away that many pieces? Where could you borrow from?',
+  numeratorArithmetic: 'Whole number looks good. Check the top numbers again?',
+  wholeArithmetic: 'Fraction looks good. Check the whole numbers again?',
+  notSimplified: 'Right amount! Can the fraction be written smaller?',
+  unknown: 'What should you check about the denominators first?',
 }
 
 function stepIndex(steps: Step[], ...kinds: StepKind[]): number | null {
@@ -524,4 +518,13 @@ export function verifyByInverse(
     holds: equals(back, a),
     expression: `${formatMixed(result)} ${symbol} ${formatMixed(b)} = ${formatMixed(a)}`,
   }
+}
+
+/**
+ * The opposite problem used to prove an answer: for a - b = r it is r + b (should give a back),
+ * for a + b = r it is r - b (should give a back). The inverse's own answer is always `a`.
+ */
+export function inverseProblem(problem: Problem): Problem {
+  const result = (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
+  return { op: problem.op === 'add' ? 'subtract' : 'add', a: result, b: problem.b }
 }

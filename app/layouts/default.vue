@@ -1,8 +1,10 @@
 <script setup lang="ts">
-const comingSoon = [
-  { label: 'Deep Check', hint: 'Deep Check, coming soon' },
-  { label: 'Parent', hint: 'Parent, coming soon' },
-]
+import { usePracticeStore } from '../stores/practice'
+
+const comingSoon = [{ label: 'Deep Check', hint: 'Deep Check, coming soon' }]
+
+/** Ideas waiting for a parent's stars, shown as a small number on the Parent link. */
+const pending = computed(() => usePracticeStore().pendingReviewCount)
 </script>
 
 <template>
@@ -38,6 +40,22 @@ const comingSoon = [
                 active-class="bg-emerald-100 underline underline-offset-4"
               >
                 Practice
+              </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink
+                to="/parent"
+                class="inline-flex min-h-12 items-center gap-2 rounded-lg px-4 font-semibold text-emerald-900 hover:bg-emerald-100"
+                active-class="bg-emerald-100 underline underline-offset-4"
+              >
+                Parent
+                <span
+                  v-if="pending > 0"
+                  class="rounded-full bg-amber-200 px-2 py-0.5 text-sm text-amber-950"
+                  :aria-label="`${pending} to review`"
+                >
+                  {{ pending }}
+                </span>
               </NuxtLink>
             </li>
             <li v-for="item in comingSoon" :key="item.label">

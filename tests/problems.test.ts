@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { subtractSteps, type MixedNumber } from '../app/utils/fraction'
-import { describeProblem, generateProblem, type Random } from '../app/utils/problems'
+import {
+  describeProblem,
+  generateProblem,
+  generateSimilarProblem,
+  problemNeedsRegroup,
+  type Random,
+} from '../app/utils/problems'
 import { boxesToText, isAnswerEmpty, isFractionIncomplete } from '../app/utils/answer'
 
 /** A small seeded generator (mulberry32) so failures are reproducible. */
@@ -128,5 +134,51 @@ describe('answer boxes', () => {
     expect(isAnswerEmpty({ whole: '', num: ' ', den: '' })).toBe(true)
     expect(isFractionIncomplete({ whole: '3', num: '9', den: '' })).toBe(true)
     expect(isFractionIncomplete({ whole: '3', num: '', den: '' })).toBe(false)
+  })
+})
+
+describe('generateSimilarProblem', () => {
+  const regroup = { op: 'subtract', a: { whole: 8, num: 1, den: 5 }, b: { whole: 4, num: 3, den: 4 } } as const
+  const plainSub = { op: 'subtract', a: { whole: 6, num: 3, den: 4 }, b: { whole: 1, num: 1, den: 3 } } as const
+  const plainAdd = { op: 'add', a: { whole: 4, num: 1, den: 3 }, b: { whole: 2, num: 5, den: 12 } } as const
+
+  it('knows which problems need regrouping', () => {
+    expect(problemNeedsRegroup(regroup)).toBe(true)
+    expect(problemNeedsRegroup(plainSub)).toBe(false)
+    expect(problemNeedsRegroup(plainAdd)).toBe(false)
+  })
+
+  it('keeps the same operation', () => {
+    const rng = seeded(11)
+    for (let i = 0; i < RUNS; i++) {
+      expect(generateSimilarProblem(plainAdd, 12, rng).op).toBe('add')
+      expect(generateSimilarProblem(regroup, 12, rng).op).toBe('subtract')
+    }
+  })
+
+  it('keeps the regroup setting: borrowing problems stay borrowing', () => {
+    const rng = seeded(12)
+    for (let i = 0; i < RUNS; i++) {
+      expect(problemNeedsRegroup(generateSimilarProblem(regroup, 12, rng))).toBe(true)
+    }
+  })
+
+  it('does not hand back the exact same problem', () => {
+    const rng = seeded(13)
+    for (let i = 0; i < RUNS; i++) {
+      expect(describeProblem(generateSimilarProblem(regroup, 12, rng))).not.toBe(describeProblem(regroup))
+    }
+  })
+
+  it('stays inside the usual limits', () => {
+    const rng = seeded(14)
+    for (let i = 0; i < RUNS; i++) {
+      const p = generateSimilarProblem(plainAdd, 12, rng)
+      for (const m of [asMixed(p.a), asMixed(p.b)]) {
+        expect(m.den).toBeGreaterThanOrEqual(2)
+        expect(m.den).toBeLessThanOrEqual(12)
+        expect(m.whole).toBeLessThanOrEqual(9)
+      }
+    }
   })
 })
