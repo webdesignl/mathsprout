@@ -8,6 +8,7 @@ import {
   equals,
   formatMixed,
   gcd,
+  inverseProblem,
   isNegative,
   isSimplestMixed,
   lcm,
@@ -401,5 +402,24 @@ describe('properties (fast-check, 1000 runs each)', () => {
       }),
       runs,
     )
+  })
+})
+
+describe('inverseProblem', () => {
+  it('turns a subtraction into the add-back and gives the first number again', () => {
+    const problem = { op: 'subtract', a: mixed(8, 1, 5), b: mixed(4, 3, 4) } as const
+    const inverse = inverseProblem(problem)
+    expect(inverse.op).toBe('add')
+    expect(formatMixed(inverse.a)).toBe('3 9/20')
+    expect(formatMixed(inverse.b)).toBe('4 3/4')
+    expect(equals(add(inverse.a, inverse.b), problem.a)).toBe(true)
+  })
+
+  it('turns an addition into the take-away and gives the first number again', () => {
+    const problem = { op: 'add', a: mixed(4, 1, 3), b: mixed(2, 5, 12) } as const
+    const inverse = inverseProblem(problem)
+    expect(inverse.op).toBe('subtract')
+    expect(formatMixed(inverse.a)).toBe('6 3/4')
+    expect(equals(subtract(inverse.a, inverse.b), problem.a)).toBe(true)
   })
 })

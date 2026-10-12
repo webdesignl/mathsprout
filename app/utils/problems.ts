@@ -1,4 +1,4 @@
-import type { MixedNumber, Problem } from './fraction'
+import { subtractSteps, type MixedNumber, type Problem } from './fraction'
 
 export type ProblemOp = 'add' | 'subtract' | 'mixed'
 
@@ -131,4 +131,31 @@ export function describeProblem(problem: Problem): string {
     'whole' in o ? operandText(o) : `${o.numerator}/${o.denominator}`,
   )
   return `${a} ${symbol} ${b}`
+}
+
+/** True when subtracting this problem needs a regroup (borrow). Uses the engine's worked steps. */
+export function problemNeedsRegroup(problem: Problem): boolean {
+  return problem.op === 'subtract' && subtractSteps(problem.a, problem.b).some((s) => s.kind === 'regroup')
+}
+
+/**
+ * A new problem like this one: same operation, and the same regroup setting
+ * (a subtraction that needed borrowing gets another that needs borrowing).
+ * Tries a few times to avoid handing back the exact same problem.
+ */
+export function generateSimilarProblem(
+  problem: Problem,
+  maxDenominator: number,
+  rng: Random = Math.random,
+): Problem {
+  const options: GenerateOptions = {
+    op: problem.op,
+    maxDenominator,
+    needsRegroup: problemNeedsRegroup(problem),
+  }
+  let next = generateProblem(options, rng)
+  for (let i = 0; i < 5 && describeProblem(next) === describeProblem(problem); i++) {
+    next = generateProblem(options, rng)
+  }
+  return next
 }
