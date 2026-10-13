@@ -105,7 +105,8 @@ function interpret(raw: unknown): ReadResult | 'invalid' {
       steps: parsed.data.steps.map((step, i) => ({ ...step, label: safeLabel(step.label, i) })),
     }
     // The engine works out every step; a plan that doesn't add up (a negative, a step that goes nowhere) is rejected.
-    if (!resolvePlan(plan).ok) return failure('unsupported')
+    // A plan that doesn't add up is a misread, not an unsupported problem: ask the model again.
+    if (!resolvePlan(plan).ok) return 'invalid'
     return {
       ok: true,
       plan,
@@ -172,7 +173,8 @@ export async function readProblem(
 
     const result = interpret(extractJson(text))
     if (result !== 'invalid') return result
-    note = 'Your last reply was not valid. Reply with JSON only, in the exact shape described, with operands written like "8 1/5".'
+    note =
+      'Your last reply was not valid. Reply with JSON only, in the exact shape described, with operands written like "8 1/5". For steps, every step must give a positive answer, refer only to earlier steps ("r1" in step 2 or later), and every step except the last must be used by a later step.'
   }
   return failure('unreadable')
 }
