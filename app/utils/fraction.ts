@@ -22,6 +22,18 @@ export interface Problem {
   b: Operand
 }
 
+/** Multiplication and division are separate from Op, so code that only handles add and subtract stays safe. */
+export type MulOp = 'multiply' | 'divide'
+export type AnyOp = Op | MulOp
+
+export interface MulProblem {
+  op: MulOp
+  a: Operand
+  b: Operand
+}
+
+export type AnyProblem = Problem | MulProblem
+
 export type AnswerStatus = 'correct' | 'correctNotSimplest' | 'wrong'
 
 export interface AnswerResult {
@@ -41,6 +53,11 @@ export type StepKind =
   | 'toMixed'
   | 'negative'
   | 'answer'
+  | 'toImproper'
+  | 'cancel'
+  | 'multiplyAcross'
+  | 'flip'
+  | 'divideByZero'
 
 export interface Step {
   kind: StepKind
@@ -59,6 +76,11 @@ export type Slip =
   | 'noCommonDenominator'
   | 'notSimplified'
   | 'wrongOperation'
+  | 'multipliedPartsSeparately'
+  | 'forgotToConvertMixed'
+  | 'forgotReciprocal'
+  | 'flippedWrongFraction'
+  | 'cancellingSlip'
   | 'unknown'
 
 export interface Diagnosis {
@@ -403,7 +425,18 @@ const HINTS: Record<Slip, string> = {
   wholeArithmetic: 'Fraction looks good. Check the whole numbers again?',
   notSimplified: 'Right amount! Can the fraction be written smaller?',
   wrongOperation: 'Are we putting together or taking away?',
+  multipliedPartsSeparately: 'Do wholes and fractions multiply separately, or should you change them first?',
+  forgotToConvertMixed: 'What should you do to a mixed number before multiplying or dividing?',
+  forgotReciprocal: 'What do you do to the second fraction when you divide?',
+  flippedWrongFraction: 'Which fraction gets flipped when you divide?',
+  cancellingSlip: 'Which top number and which bottom number can cancel?',
   unknown: 'What should you check about the denominators first?',
+}
+
+/** For multiplication and division, a few slips need different words than adding and subtracting. */
+const MUL_DIV_HINTS: Partial<Record<Slip, string>> = {
+  numeratorArithmetic: 'Check the top and bottom numbers you multiplied again?',
+  unknown: 'What is the first thing to do with these numbers?',
 }
 
 function stepIndex(steps: Step[], ...kinds: StepKind[]): number | null {
@@ -428,7 +461,15 @@ function matches(value: Fraction, cand: Fraction | null): boolean {
  * Looks at a student's answer and names the most likely slip by comparing it to the worked steps.
  * Returns the step where the slip happened and a hint question that never gives the answer.
  */
-export function diagnose(problem: Problem, studentInput: string): Diagnosis {
+export function diagnose(problem: AnyProblem, studentInput: string): Diagnosis {
+  return isMulProblem(problem) ? diagnoseMulDiv(problem, studentInput) : diagnoseAddSub(problem, studentInput)
+}
+
+function isMulProblem(problem: AnyProblem): problem is MulProblem {
+  return problem.op === 'multiply' || problem.op === 'divide'
+}
+
+function diagnoseAddSub(problem: Problem, studentInput: string): Diagnosis {
   const diagnosis = (slip: Slip, idx: number | null): Diagnosis => ({
     slip,
     stepIndex: idx,
@@ -511,15 +552,30 @@ export function diagnose(problem: Problem, studentInput: string): Diagnosis {
 }
 
 /**
- * Checks a result by working backwards: for subtraction, result + b should equal a;
- * for addition, result - b should equal a. Returns the check as an expression to show the student.
+ * Checks a result by working backwards. For subtraction, result + b should equal a; for addition,
+ * result - b should equal a; for multiplication, result ÷ b should equal a; for division,
+ * result × b should equal a. Returns the check as an expression to show the student.
+ * When the check would divide by zero (a × 0, or a division by zero), it can't hold.
  */
 export function verifyByInverse(
-  op: Op,
+  op: AnyOp,
   a: Operand,
   b: Operand,
   result: Operand,
 ): { holds: boolean; expression: string } {
+  if (op === 'multiply') {
+    const back = divide(result, b)
+    return {
+      holds: back.ok && equals(back.value, a),
+      expression: `${formatMixed(result)} ÷ ${formatMixed(b)} = ${formatMixed(a)}`,
+    }
+  }
+  if (op === 'divide') {
+    return {
+      holds: !isZero(b) && equals(multiply(result, b), a),
+      expression: `${formatMixed(result)} × ${formatMixed(b)} = ${formatMixed(a)}`,
+    }
+  }
   const back = op === 'subtract' ? add(result, b) : subtract(result, b)
   const symbol = op === 'subtract' ? '+' : '-'
   return {
@@ -558,8 +614,10 @@ export interface EstimateCheck {
   estimate: Fraction
   /** How far the answer is from the estimate (never negative). */
   difference: Fraction
-  /** True when the answer is within half a whole of the estimate. */
+  /** True when the answer is within half a whole of the estimate (for × and ÷: inside the range the rounding allows). */
   close: boolean
+  /** False when the numbers are too small to estimate (a divisor under 1/4 rounds to 0). Then `close` is true. */
+  reliable: boolean
 }
 
 /**
@@ -567,7 +625,8 @@ export interface EstimateCheck {
  * and see if the answer is close. Each rounding is off by at most 1/4, so a correct answer is
  * always within 1/2 of the estimate; one that is farther away has gone off track.
  */
-export function estimateCheck(a: Operand, b: Operand, op: Op, answer: Operand): EstimateCheck {
+export function estimateCheck(a: Operand, b: Operand, op: AnyOp, answer: Operand): EstimateCheck {
+  if (op === 'multiply' || op === 'divide') return estimateMulDiv(a, b, op, answer)
   const roundedA = roundToHalf(a)
   const roundedB = roundToHalf(b)
   const estimate = (op === 'add' ? add : subtract)(roundedA, roundedB)
@@ -579,5 +638,428 @@ export function estimateCheck(a: Operand, b: Operand, op: Op, answer: Operand): 
     estimate,
     difference,
     close: difference.numerator * ESTIMATE_TOLERANCE.denominator <= ESTIMATE_TOLERANCE.numerator * difference.denominator,
+    reliable: true,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Multiplication and division
+// ---------------------------------------------------------------------------
+
+/** What division and reciprocal return, because dividing by zero has no answer (and must never throw). */
+export type DivideResult =
+  | { ok: true; value: Fraction }
+  | { ok: false; error: 'divisionByZero'; message: string }
+
+const DIVISION_BY_ZERO: DivideResult = {
+  ok: false,
+  error: 'divisionByZero',
+  message: 'You can’t divide by zero.',
+}
+
+/** True when the value is exactly zero (0, 0/4, "0 0/5"). */
+export function isZero(x: Operand): boolean {
+  return toFraction(x).numerator === 0
+}
+
+/** Negative if a < b, zero if equal, positive if a > b. Integers only. */
+export function compare(a: Operand, b: Operand): number {
+  const x = toFraction(a)
+  const y = toFraction(b)
+  return x.numerator * y.denominator - y.numerator * x.denominator
+}
+
+/** a × b, always simplified. Common factors are cancelled first, which keeps the numbers small. */
+export function multiply(a: Operand, b: Operand): Fraction {
+  const x = toFraction(a)
+  const y = toFraction(b)
+  const g1 = gcd(x.numerator, y.denominator) || 1
+  const g2 = gcd(y.numerator, x.denominator) || 1
+  return simplify(
+    makeFraction(
+      (x.numerator / g1) * (y.numerator / g2),
+      (x.denominator / g2) * (y.denominator / g1),
+    ),
+  )
+}
+
+/** Flips a fraction: 3/4 becomes 4/3, and a whole number n becomes 1/n. The reciprocal of zero is an error. */
+export function reciprocal(a: Operand): DivideResult {
+  const f = toFraction(a)
+  if (f.numerator === 0) return DIVISION_BY_ZERO
+  // Keep the denominator positive: the sign moves to the top.
+  const sign = f.numerator < 0 ? -1 : 1
+  return { ok: true, value: simplify(makeFraction(sign * f.denominator, Math.abs(f.numerator))) }
+}
+
+/** a ÷ b, always simplified. Dividing by zero returns an error result instead of throwing. */
+export function divide(a: Operand, b: Operand): DivideResult {
+  const flipped = reciprocal(b)
+  if (!flipped.ok) return flipped
+  return { ok: true, value: multiply(a, flipped.value) }
+}
+
+// --- Worked steps ---
+
+interface Parts {
+  n: number
+  d: number
+}
+
+/** The top and bottom of an operand written as one fraction, without reducing. Needs a non-negative value. */
+function partsOf(x: Operand): Parts {
+  const f = toFraction(x)
+  if (f.numerator < 0) throw new RangeError('Steps only support non-negative operands')
+  return { n: f.numerator, d: f.denominator }
+}
+
+function shown(x: Operand): string {
+  if ('numerator' in x) return x.denominator === 1 ? String(x.numerator) : `${x.numerator}/${x.denominator}`
+  if (x.num === 0) return String(x.whole)
+  return x.whole === 0 ? `${x.num}/${x.den}` : `${x.whole} ${x.num}/${x.den}`
+}
+
+function frac(p: Parts): string {
+  return `${p.n}/${p.d}`
+}
+
+/** Mixed numbers and whole numbers need changing into plain fractions first. */
+function needsFraction(x: Operand): boolean {
+  return !/^\d+\/\d+$/.test(shown(x))
+}
+
+/** The steps from cancelling onward, for two plain fractions being multiplied. */
+function multiplyCoreSteps(x: Parts, y: Parts): Step[] {
+  const steps: Step[] = []
+  let left = x
+  let right = y
+
+  if (x.n > 0 && y.n > 0) {
+    const g1 = gcd(x.n, y.d)
+    const g2 = gcd(y.n, x.d)
+    if (g1 > 1 || g2 > 1) {
+      const notes: string[] = []
+      if (g1 > 1) notes.push(`${x.n} and ${y.d} can both be divided by ${g1}`)
+      if (g2 > 1) notes.push(`${y.n} and ${x.d} can both be divided by ${g2}`)
+      left = { n: x.n / g1, d: x.d / g2 }
+      right = { n: y.n / g2, d: y.d / g1 }
+      steps.push({
+        kind: 'cancel',
+        description: `Cancel first: ${notes.join(', and ')}.`,
+        expression: `${frac(x)} × ${frac(y)} = ${frac(left)} × ${frac(right)}`,
+      })
+    }
+  }
+
+  const top = left.n * right.n
+  const bottom = left.d * right.d
+  steps.push({
+    kind: 'multiplyAcross',
+    description: 'Multiply the tops, then multiply the bottoms.',
+    expression: `${frac(left)} × ${frac(right)} = ${top}/${bottom}`,
+  })
+
+  let n = top
+  let d = bottom
+  const g = gcd(top, bottom)
+  if (g > 1) {
+    n = top / g
+    d = bottom / g
+    steps.push({
+      kind: 'simplify',
+      description: `Make the fraction smaller by dividing the top and bottom by ${g}.`,
+      expression: `${top}/${bottom} = ${n}/${d}`,
+    })
+  }
+
+  if (d === 1) {
+    steps.push({
+      kind: 'toMixed',
+      description: 'A fraction over 1 is just a whole number.',
+      expression: `${n}/1 = ${n}`,
+    })
+  } else if (n >= d) {
+    const whole = Math.floor(n / d)
+    steps.push({
+      kind: 'toMixed',
+      description: 'The top is bigger than the bottom, so turn it into a mixed number.',
+      expression: `${n}/${d} = ${whole} ${n - whole * d}/${d}`,
+    })
+  }
+  return steps
+}
+
+/** The worked steps for a × b: improper fractions, cancel, multiply across, mixed number, answer. */
+export function multiplySteps(a: Operand, b: Operand): Step[] {
+  const x = partsOf(a)
+  const y = partsOf(b)
+  const steps: Step[] = []
+  if (needsFraction(a) || needsFraction(b)) {
+    steps.push({
+      kind: 'toImproper',
+      description: 'Change mixed numbers and whole numbers into fractions.',
+      expression: `${shown(a)} × ${shown(b)} = ${frac(x)} × ${frac(y)}`,
+    })
+  }
+  steps.push(...multiplyCoreSteps(x, y))
+  steps.push({
+    kind: 'answer',
+    description: 'Put it together for the answer.',
+    expression: formatMixed(multiply(a, b)),
+  })
+  return steps
+}
+
+/** The worked steps for a ÷ b: improper fractions, keep-change-flip, then multiply. Dividing by zero is one step. */
+export function divideSteps(a: Operand, b: Operand): Step[] {
+  const x = partsOf(a)
+  const y = partsOf(b)
+  if (y.n === 0) {
+    return [
+      {
+        kind: 'divideByZero',
+        description: 'You can’t divide by zero, so there is no answer.',
+        expression: `${shown(a)} ÷ ${shown(b)}`,
+      },
+    ]
+  }
+
+  const steps: Step[] = []
+  if (needsFraction(a) || needsFraction(b)) {
+    steps.push({
+      kind: 'toImproper',
+      description: 'Change mixed numbers and whole numbers into fractions.',
+      expression: `${shown(a)} ÷ ${shown(b)} = ${frac(x)} ÷ ${frac(y)}`,
+    })
+  }
+  const flipped = { n: y.d, d: y.n }
+  steps.push({
+    kind: 'flip',
+    description: 'Keep the first fraction, change ÷ to ×, and flip the second fraction.',
+    expression: `${frac(x)} ÷ ${frac(y)} = ${frac(x)} × ${frac(flipped)}`,
+  })
+  steps.push(...multiplyCoreSteps(x, flipped))
+
+  const answer = divide(a, b)
+  steps.push({
+    kind: 'answer',
+    description: 'Put it together for the answer.',
+    expression: answer.ok ? formatMixed(answer.value) : '',
+  })
+  return steps
+}
+
+/** The worked steps for any problem. */
+export function workedSteps(problem: AnyProblem): Step[] {
+  switch (problem.op) {
+    case 'add':
+      return addSteps(problem.a, problem.b)
+    case 'subtract':
+      return subtractSteps(problem.a, problem.b)
+    case 'multiply':
+      return multiplySteps(problem.a, problem.b)
+    case 'divide':
+      return divideSteps(problem.a, problem.b)
+  }
+}
+
+// --- Slip diagnosis ---
+
+/** A mixed number with both a whole part and a fraction part, such as 2 1/2. */
+function mixedParts(x: Operand): { whole: Fraction; part: Fraction } | null {
+  if ('numerator' in x) {
+    if (x.denominator === 1 || x.numerator < x.denominator) return null
+    const m = toMixed(x)
+    return m.num > 0 && m.whole > 0 ? { whole: makeFraction(m.whole, 1), part: makeFraction(m.num, m.den) } : null
+  }
+  return x.whole > 0 && x.num > 0 ? { whole: makeFraction(x.whole, 1), part: makeFraction(x.num, x.den) } : null
+}
+
+/** A candidate wrong answer, or null if it can't be worked out (bad numbers, zero divisor). */
+function guess(make: () => Fraction | DivideResult): Fraction | null {
+  try {
+    const result = make()
+    if ('ok' in result) return result.ok ? result.value : null
+    return result
+  } catch {
+    return null
+  }
+}
+
+function sameValue(value: Fraction, candidate: Fraction | null): boolean {
+  return candidate !== null && equals(value, candidate)
+}
+
+function diagnoseMulDiv(problem: MulProblem, studentInput: string): Diagnosis {
+  const { a, b } = problem
+  const isDivide = problem.op === 'divide'
+  const diagnosis = (slip: Slip, idx: number | null): Diagnosis => ({
+    slip,
+    stepIndex: idx,
+    hint: MUL_DIV_HINTS[slip] ?? HINTS[slip],
+  })
+
+  const p = parseMixed(studentInput)
+  if (!p) return diagnosis('unknown', null)
+
+  const answer = isDivide ? divide(a, b) : { ok: true as const, value: multiply(a, b) }
+  if (!answer.ok) return diagnosis('unknown', null)
+  const expected = answer.value
+
+  let steps: Step[]
+  try {
+    steps = workedSteps(problem)
+  } catch {
+    return diagnosis('unknown', null)
+  }
+  const value = toImproper(p)
+  const last = steps.length - 1
+
+  if (equals(expected, value)) {
+    return isSimplestMixed(p)
+      ? diagnosis('none', null)
+      : diagnosis('notSimplified', stepIndex(steps, 'simplify', 'toMixed') ?? last)
+  }
+
+  const convertStep = stepIndex(steps, 'toImproper') ?? 0
+  const ma = mixedParts(a)
+  const mb = mixedParts(b)
+  const operate = (x: Operand, y: Operand): Fraction | DivideResult => (isDivide ? divide(x, y) : multiply(x, y))
+
+  // 2 1/2 × 3 1/3 answered as 6 1/6: wholes and fractions multiplied on their own.
+  if (ma && mb) {
+    const separate = guess(() => add(guess(() => operate(ma.whole, mb.whole))!, guess(() => operate(ma.part, mb.part))!))
+    if (sameValue(value, separate)) {
+      return diagnosis(isDivide ? 'forgotToConvertMixed' : 'multipliedPartsSeparately', convertStep)
+    }
+  }
+  // One mixed number: only its whole part, or only its fraction part, was multiplied or divided.
+  if (ma && !mb && (!isDivide || mixedParts(a))) {
+    const other = b
+    const wholeOnly = guess(() => add(guess(() => operate(ma.whole, other))!, ma.part))
+    const partOnly = guess(() => add(ma.whole, guess(() => operate(ma.part, other))!))
+    if (sameValue(value, wholeOnly) || sameValue(value, partOnly)) return diagnosis('forgotToConvertMixed', convertStep)
+  }
+  if (mb && !ma && !isDivide) {
+    const wholeOnly = guess(() => add(guess(() => multiply(a, mb.whole))!, mb.part))
+    const partOnly = guess(() => add(mb.whole, guess(() => multiply(a, mb.part))!))
+    if (sameValue(value, wholeOnly) || sameValue(value, partOnly)) return diagnosis('forgotToConvertMixed', convertStep)
+  }
+
+  if (isDivide) {
+    const flipIndex = stepIndex(steps, 'flip') ?? 0
+    // 2/3 ÷ 4/9 answered as 8/27: multiplied without flipping.
+    if (sameValue(value, guess(() => multiply(a, b)))) return diagnosis('forgotReciprocal', flipIndex)
+    // 2/3 ÷ 4/9 answered as 2/3: flipped the first fraction instead of the second.
+    if (sameValue(value, guess(() => multiply(guess(() => reciprocal(a))!, b)))) {
+      return diagnosis('flippedWrongFraction', flipIndex)
+    }
+  }
+
+  // Cancelled top with top, or bottom with bottom, which is not allowed.
+  const x = partsOf(a)
+  const y = isDivide ? { n: partsOf(b).d, d: partsOf(b).n } : partsOf(b)
+  const topCommon = gcd(x.n, y.n)
+  const bottomCommon = gcd(x.d, y.d)
+  const wrongCancels: Array<Fraction | null> = []
+  if (topCommon > 1) {
+    wrongCancels.push(guess(() => makeFraction((x.n / topCommon) * (y.n / topCommon), x.d * y.d)))
+  }
+  if (bottomCommon > 1) {
+    wrongCancels.push(guess(() => makeFraction(x.n * y.n, (x.d / bottomCommon) * (y.d / bottomCommon))))
+  }
+  if (wrongCancels.some((c) => sameValue(value, c))) {
+    return diagnosis('cancellingSlip', stepIndex(steps, 'cancel', 'multiplyAcross'))
+  }
+
+  // Right bottom number, wrong top number: an arithmetic slip while multiplying.
+  const target = simplify(expected)
+  const across = steps.find((s) => s.kind === 'multiplyAcross')
+  const acrossBottom = across ? Number(across.expression.split(' = ').pop()?.split('/')[1]) : NaN
+  if (value.denominator === target.denominator || value.denominator === acrossBottom) {
+    return diagnosis('numeratorArithmetic', stepIndex(steps, 'multiplyAcross'))
+  }
+
+  return diagnosis('unknown', null)
+}
+
+// --- Estimating and the size rule ---
+
+const QUARTER: Fraction = { numerator: 1, denominator: 4 }
+const HALF: Fraction = { numerator: 1, denominator: 2 }
+
+/**
+ * Estimating for × and ÷. Each number is rounded to the nearest half or whole and so can be off by up to
+ * 1/4. Adding 1/2 doesn't work for products (8 1/5 × 4 3/4 is nearly 39 but 8 × 5 is 40), so "close"
+ * means inside the range the answer could really be in, which a correct answer always is.
+ */
+function estimateMulDiv(a: Operand, b: Operand, op: MulOp, answer: Operand): EstimateCheck {
+  const roundedA = roundToHalf(a)
+  let roundedB = roundToHalf(b)
+  // A divisor under 1/4 rounds to 0, which can't be divided by. Estimating is too rough there.
+  const unreliable = op === 'divide' && (isZero(b) || isZero(roundedB))
+  if (unreliable) roundedB = HALF
+
+  const quotient = divide(roundedA, roundedB)
+  const estimate = op === 'multiply' ? multiply(roundedA, roundedB) : quotient.ok ? quotient.value : HALF
+  const gap = subtract(estimate, answer)
+  const difference = { numerator: Math.abs(gap.numerator), denominator: gap.denominator }
+  if (unreliable) return { roundedA, roundedB, estimate, difference, close: true, reliable: false }
+
+  const below = (x: Fraction): Fraction => {
+    const lower = subtract(x, QUARTER)
+    return lower.numerator < 0 ? { numerator: 0, denominator: 1 } : lower
+  }
+  const above = (x: Fraction): Fraction => add(x, QUARTER)
+  const low = op === 'multiply' ? multiply(below(roundedA), below(roundedB)) : guess(() => divide(below(roundedA), above(roundedB)))
+  const high = op === 'multiply' ? multiply(above(roundedA), above(roundedB)) : guess(() => divide(above(roundedA), below(roundedB)))
+  const close = low !== null && high !== null && compare(answer, low) >= 0 && compare(answer, high) <= 0
+  return { roundedA, roundedB, estimate, difference, close, reliable: true }
+}
+
+export interface SizeCheck {
+  /** False when the rule has nothing to say (neither number is a fraction between 0 and 1). */
+  applies: boolean
+  /** False when the answer breaks the rule. */
+  ok: boolean
+  /** A kid-friendly sentence when the rule is broken, otherwise null. */
+  message: string | null
+}
+
+const isBetweenZeroAndOne = (x: Operand): boolean => compare(x, { numerator: 0, denominator: 1 }) > 0 && compare(x, { numerator: 1, denominator: 1 }) < 0
+const isPositive = (x: Operand): boolean => compare(x, { numerator: 0, denominator: 1 }) > 0
+
+/**
+ * The size rule for deep understanding. Multiplying by a fraction less than 1 makes the number smaller,
+ * so the answer must be smaller than it. Dividing by a fraction less than 1 makes the number bigger,
+ * so the answer must be bigger than it. Returns a message when an answer breaks the rule.
+ */
+export function sizeCheck(op: MulOp, a: Operand, b: Operand, answer: Operand): SizeCheck {
+  if (op === 'multiply') {
+    // Either factor can be the fraction, since a × b = b × a.
+    const pairs: Array<[Operand, Operand]> = [[b, a], [a, b]]
+    let applies = false
+    for (const [factor, other] of pairs) {
+      if (!isBetweenZeroAndOne(factor) || !isPositive(other)) continue
+      applies = true
+      if (compare(answer, other) >= 0) {
+        return {
+          applies,
+          ok: false,
+          message: `${formatMixed(factor)} is less than 1, so multiplying makes ${formatMixed(other)} smaller. Check your answer.`,
+        }
+      }
+    }
+    return { applies, ok: true, message: null }
+  }
+
+  if (!isBetweenZeroAndOne(b) || !isPositive(a)) return { applies: false, ok: true, message: null }
+  if (compare(answer, a) <= 0) {
+    return {
+      applies: true,
+      ok: false,
+      message: `${formatMixed(b)} is less than 1, so dividing makes ${formatMixed(a)} bigger. Check your answer.`,
+    }
+  }
+  return { applies: true, ok: true, message: null }
 }

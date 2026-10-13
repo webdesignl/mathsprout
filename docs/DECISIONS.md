@@ -312,6 +312,41 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 
 ---
 
+## Multiplication and division engine (feature-0012)
+
+### D-37: Multiplication and division are added next to add and subtract, not into `Op`
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** `Op` stays `'add' | 'subtract'`. New types `MulOp` (`'multiply' | 'divide'`), `AnyOp`, `MulProblem` and `AnyProblem` cover the new operations. `diagnose`, `verifyByInverse`, `estimateCheck` and `workedSteps` accept all four. Code that only handles add and subtract (Practice, the Tutor routes and their zod schemas) cannot receive a multiply by mistake, because it would have been read as a subtract.
+- **Why:** Many places contain `op === 'add' ? add : subtract`. Widening `Op` would make those silently wrong for a new operation.
+- **Status:** Active. Not wired to the generator, Practice, Learn or the Tutor routes yet.
+
+### D-38: Dividing by zero is an error result, never a throw or Infinity
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** `divide` and `reciprocal` return `{ ok: true, value } | { ok: false, error: 'divisionByZero', message }`. `multiply` always has an answer, so it returns a fraction like `add` does. A zero divisor (0, 0/4, 0 0/5) is caught everywhere: `divideSteps` gives one kind step, `diagnose` says `unknown`, `verifyByInverse` says the check does not hold, and nothing throws.
+- **Status:** Active
+
+### D-39: Worked steps for multiplication and division
+- **Date:** 2026-10
+- **Source:** User spec (Singapore Math method)
+- **Decision:** Multiplication: change mixed and whole numbers to fractions, cancel common factors across (the step names which numbers cancelled), multiply across, simplify, convert to a mixed number. Division: the same, with a "keep, change, flip" step first. Whole numbers are written n/1. New step kinds: `toImproper`, `cancel`, `multiplyAcross`, `flip`, `divideByZero`. Hand-written hints exist for each at three levels.
+- **Status:** Active
+
+### D-40: Slips for multiplication and division are matched by recomputing the wrong method
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** `diagnose` recomputes what each common slip would produce and compares it to her answer: parts multiplied separately (2 1/2 × 3 1/3 as 6 1/6), a mixed number not converted, not flipping (2/3 ÷ 4/9 as 8/27), flipping the first fraction (as 2/3), and cancelling top with top or bottom with bottom. Anything else with the right bottom number is `numeratorArithmetic`; a right but unsimplified answer is `notSimplified`.
+- **Status:** Active. Known gap: these are the patterns we thought of. An answer that fits none is `unknown`.
+
+### D-41: Estimating and the size rule for multiplication and division
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** For multiplication and division, "close" means inside the range the answer could really be in, given each number is rounded to the nearest half or whole and so can be off by up to 1/4. A fixed 1/2 does not work for products (8 1/5 × 4 3/4 is about 39 but 8 × 5 is 40). A correct answer is always close (a property test checks it). A divisor under 1/4 rounds to 0, so the estimate is marked `reliable: false` and is never called wrong. `sizeCheck` applies the deep-understanding rule: multiplying by a fraction between 0 and 1 must make the number smaller, and dividing by one must make it bigger. It returns a kid-friendly message when the answer breaks the rule, and does nothing otherwise.
+- **Status:** Active
+
+---
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
@@ -319,3 +354,4 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - Should "first 2 proofs per type" reset per set instead of per session?
 - Move the tutor rate limit to shared storage once the app runs on more than one server.
 - Add the server-side refusal fallback for the photo reader if refusals show up in practice.
+- Add multiplication and division to the problem generator, Practice, Learn and the Tutor routes (their schemas only allow add and subtract today).

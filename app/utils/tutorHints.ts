@@ -65,6 +65,31 @@ export const LEVEL_HINTS: Record<StepKind, [string, string, string]> = {
     'What do the whole number and the fraction make together?',
     'Write the whole number first, then the fraction. What does it look like?',
   ],
+  toImproper: [
+    'What should you do with mixed numbers before multiplying or dividing?',
+    'How many pieces is the whole number worth, and how many are left over?',
+    'Multiply the whole by the bottom, then add the top. What fraction is that?',
+  ],
+  cancel: [
+    'Is there a top number and a bottom number that share a factor?',
+    'Which top number and which bottom number can both be divided by the same thing?',
+    'Pick a top and a bottom on opposite sides. What can you divide both by?',
+  ],
+  multiplyAcross: [
+    'What do you do with the tops and the bottoms when you multiply fractions?',
+    'Do you multiply the tops together and the bottoms together?',
+    'Multiply the two tops, then the two bottoms. What fraction do you get?',
+  ],
+  flip: [
+    'What changes when you turn a division into a multiplication?',
+    'Which of the two fractions gets flipped?',
+    'Keep the first, change ÷ to ×, and flip the second. What do you write now?',
+  ],
+  divideByZero: [
+    'What happens when you share something among zero groups?',
+    'Can you make equal groups of a number when there are none?',
+    'Is dividing by zero possible, or is there no answer?',
+  ],
 }
 
 /** Extra level 2 and 3 hints for mixing up the operation, since no step is at fault. */

@@ -44,6 +44,11 @@ export const STEP_HINTS: Record<StepKind, string> = {
   toMixed: 'Is there a whole hiding in the fraction?',
   negative: 'Which number should come first?',
   answer: 'Put the whole and fraction together. What do you get?',
+  toImproper: 'How can a mixed number be written as one fraction?',
+  cancel: 'Is there a top and a bottom that share a factor?',
+  multiplyAcross: 'What do you get when you multiply the tops and the bottoms?',
+  flip: 'Which fraction do you flip when you divide?',
+  divideByZero: 'What happens when you try to share among zero groups?',
 }
 
 /** A second hint for slips that happen before any step (so there is no step to point at). */
@@ -77,6 +82,16 @@ export function slipName(slip: Slip, op: Op): string | null {
       return 'a not-simplest slip'
     case 'wrongOperation':
       return 'using the other operation'
+    case 'multipliedPartsSeparately':
+      return 'multiplying the parts separately'
+    case 'forgotToConvertMixed':
+      return 'a mixed number slip'
+    case 'forgotReciprocal':
+      return 'forgetting to flip'
+    case 'flippedWrongFraction':
+      return 'flipping the wrong fraction'
+    case 'cancellingSlip':
+      return 'a cancelling slip'
     default:
       return null
   }
