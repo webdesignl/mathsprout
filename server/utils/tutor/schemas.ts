@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { AnyProblem } from '../../../app/utils/fraction'
 
 /** The most a typed or photographed number can be, so nothing overflows the engine. */
 const MAX_WHOLE = 99
@@ -10,11 +11,16 @@ export const mixedSchema = z.object({
   den: z.number().int().min(1).max(MAX_PART),
 })
 
-export const problemSchema = z.object({
-  op: z.enum(['add', 'subtract']),
-  a: mixedSchema,
-  b: mixedSchema,
-})
+export const OPERATIONS = ['add', 'subtract', 'multiply', 'divide'] as const
+
+export const problemSchema = z
+  .object({
+    op: z.enum(OPERATIONS),
+    a: mixedSchema,
+    b: mixedSchema,
+  })
+  // The shape is checked above, so it is safe to treat as the engine's problem type.
+  .transform((problem) => problem as AnyProblem)
 
 export const MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
 
@@ -36,7 +42,7 @@ export const readInputSchema = z.union([imageInput, textInput])
 export const modelReadSchema = z.union([
   z.object({ unsupported: z.literal(true) }),
   z.object({
-    operation: z.enum(['add', 'subtract']),
+    operation: z.enum(OPERATIONS),
     operands: z.array(z.string().max(30)).min(2).max(6),
     problemText: z.string().max(600),
     confidence: z.enum(['high', 'low']),

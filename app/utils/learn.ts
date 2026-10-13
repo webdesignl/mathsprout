@@ -1,12 +1,4 @@
-import {
-  addSteps,
-  diagnose,
-  parseMixed,
-  subtractSteps,
-  type Problem,
-  type Slip,
-  type Step,
-} from './fraction'
+import { diagnose, parseMixed, workedSteps, type AnyProblem, type Slip, type Step } from './fraction'
 import { slipName } from './messages'
 
 export interface LearnStep {
@@ -49,6 +41,15 @@ function noteFor(slip: Slip, step: Step, answer: string, index: number): string 
     if (m) return `${lead} ${m[1]} ${minus(m[2]!)} ${m[3]} = ${m[4]}, but your answer used ${student.whole}.`
   }
   if (slip === 'forgotRegroup') return `${lead} Here we borrow 1 whole.`
+  if (slip === 'forgotReciprocal') return `${lead} Here we flip the second fraction.`
+  if (slip === 'flippedWrongFraction') return `${lead} The second fraction is the one to flip.`
+  if (slip === 'multipliedPartsSeparately' || slip === 'forgotToConvertMixed') {
+    return `${lead} Mixed numbers become fractions first.`
+  }
+  if (slip === 'cancellingSlip') return `${lead} A top cancels with a bottom, not with another top.`
+  if (slip === 'numeratorArithmetic' && step.kind === 'multiplyAcross') {
+    return `${lead} Multiply the tops, then multiply the bottoms.`
+  }
   if (slip === 'addedDenominators' || slip === 'noCommonDenominator') {
     return `${lead} Make the bottom numbers match first.`
   }
@@ -60,8 +61,8 @@ function noteFor(slip: Slip, step: Step, answer: string, index: number): string 
  * The correct method for a problem, step by step, with the step where her answer went off highlighted.
  * Uses the engine's worked steps and diagnose(); it does no fraction math of its own.
  */
-export function buildLearn(problem: Problem, answer: string): LearnContent {
-  const steps = problem.op === 'add' ? addSteps(problem.a, problem.b) : subtractSteps(problem.a, problem.b)
+export function buildLearn(problem: AnyProblem, answer: string): LearnContent {
+  const steps = workedSteps(problem)
   const diagnosis = answer.trim() === '' ? null : diagnose(problem, answer)
   const index = diagnosis && diagnosis.slip !== 'none' ? diagnosis.stepIndex : null
   const slip = diagnosis?.slip ?? 'unknown'

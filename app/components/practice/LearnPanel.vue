@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { Problem } from '../../utils/fraction'
+import type { AnyProblem } from '../../utils/fraction'
 import { buildLearn } from '../../utils/learn'
 
-const props = withDefaults(defineProps<{ problem: Problem; answer: string; showTryLike?: boolean; showBack?: boolean }>(), {
+const props = withDefaults(defineProps<{ problem: AnyProblem; answer: string; showTryLike?: boolean; showBack?: boolean }>(), {
   showTryLike: true,
   showBack: true,
 })

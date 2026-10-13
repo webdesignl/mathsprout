@@ -433,6 +433,11 @@ const HINTS: Record<Slip, string> = {
   unknown: 'What should you check about the denominators first?',
 }
 
+/** Multiplying is repeated adding, so an answer that adds is a good time to say so. */
+export const REPEATED_ADDITION_HINT = 'Multiplying is repeated adding. How many times should you add it?'
+/** For mixing up multiplying and dividing: taking a part of something, or splitting it up. */
+export const PART_OR_SPLIT_HINT = 'Are we taking a part of it, or splitting it up?'
+
 /** For multiplication and division, a few slips need different words than adding and subtracting. */
 const MUL_DIV_HINTS: Partial<Record<Slip, string>> = {
   numeratorArithmetic: 'Check the top and bottom numbers you multiplied again?',
@@ -584,15 +589,53 @@ export function verifyByInverse(
   }
 }
 
+/** The correct answer to any problem, or null when it has none (dividing by zero). */
+export function problemAnswer(problem: AnyProblem): Fraction | null {
+  switch (problem.op) {
+    case 'add':
+      return add(problem.a, problem.b)
+    case 'subtract':
+      return subtract(problem.a, problem.b)
+    case 'multiply':
+      return multiply(problem.a, problem.b)
+    case 'divide': {
+      const result = divide(problem.a, problem.b)
+      return result.ok ? result.value : null
+    }
+  }
+}
+
+/** The sign used to write an operation: + − × ÷ */
+export function opSymbol(op: AnyOp): string {
+  return { add: '+', subtract: '−', multiply: '×', divide: '÷' }[op]
+}
+
+/** The operation as a word, for reading aloud: "plus", "minus", "times", "divided by". */
+export function opWord(op: AnyOp): string {
+  return { add: 'plus', subtract: 'minus', multiply: 'times', divide: 'divided by' }[op]
+}
+
 /**
- * The opposite problem used to prove an answer: for a - b = r it is r + b (should give a back),
- * for a + b = r it is r - b (should give a back). The inverse's own answer is always `a`.
+ * The opposite problem used to prove an answer: for a - b = r it is r + b, for a + b = r it is r - b,
+ * for a × b = r it is r ÷ b, and for a ÷ b = r it is r × b. The inverse's own answer is always `a`.
  * Pass `answer` to build it from a student's answer instead of the correct one; if that answer
  * is wrong, the inverse does not give `a` back, which is how a wrong answer gets caught.
  */
-export function inverseProblem(problem: Problem, answer?: Operand): Problem {
-  const result = answer ?? (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
-  return { op: problem.op === 'add' ? 'subtract' : 'add', a: result, b: problem.b }
+export function inverseProblem(problem: Problem, answer?: Operand): Problem
+export function inverseProblem(problem: MulProblem, answer?: Operand): MulProblem
+export function inverseProblem(problem: AnyProblem, answer?: Operand): AnyProblem
+export function inverseProblem(problem: AnyProblem, answer?: Operand): AnyProblem {
+  const result = answer ?? problemAnswer(problem) ?? { numerator: 0, denominator: 1 }
+  switch (problem.op) {
+    case 'add':
+      return { op: 'subtract', a: result, b: problem.b }
+    case 'subtract':
+      return { op: 'add', a: result, b: problem.b }
+    case 'multiply':
+      return { op: 'divide', a: result, b: problem.b }
+    case 'divide':
+      return { op: 'multiply', a: result, b: problem.b }
+  }
 }
 
 /** Rounds a non-negative value to the nearest half or whole (2 1/4 -> 2 1/2, 2 1/8 -> 2). Ties round up. */
@@ -954,6 +997,19 @@ function diagnoseMulDiv(problem: MulProblem, studentInput: string): Diagnosis {
     if (sameValue(value, guess(() => multiply(guess(() => reciprocal(a))!, b)))) {
       return diagnosis('flippedWrongFraction', flipIndex)
     }
+  }
+
+  // Her answer is the right answer to a different operation.
+  const gap = (x: Operand, y: Operand): Fraction => (compare(x, y) >= 0 ? subtract(x, y) : subtract(y, x))
+  if (!isDivide && sameValue(value, add(a, b))) {
+    // 2/3 × 3/4 answered as 2/3 + 3/4: she added. Multiplying is repeated adding.
+    return { slip: 'wrongOperation', stepIndex: null, hint: REPEATED_ADDITION_HINT }
+  }
+  const others = isDivide
+    ? [guess(() => add(a, b)), guess(() => gap(a, b))]
+    : [guess(() => gap(a, b)), guess(() => divide(a, b)), guess(() => divide(b, a))]
+  if (others.some((candidate) => sameValue(value, candidate))) {
+    return { slip: 'wrongOperation', stepIndex: null, hint: PART_OR_SPLIT_HINT }
   }
 
   // Cancelled top with top, or bottom with bottom, which is not allowed.

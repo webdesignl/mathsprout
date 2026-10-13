@@ -570,3 +570,73 @@ describe('properties (fast-check, 1000 runs each)', () => {
     )
   })
 })
+
+describe('wrong operation for multiplication and division', () => {
+  const REPEATED = 'Multiplying is repeated adding. How many times should you add it?'
+  const PART_OR_SPLIT = 'Are we taking a part of it, or splitting it up?'
+
+  it('multiplying answered by adding: "Multiplying is repeated adding. How many times should you add it?"', () => {
+    // 2/3 × 3/4 = 1/2, but 2/3 + 3/4 = 1 5/12
+    const d = diagnose(mulProblem('multiply', f(2, 3), f(3, 4)), '1 5/12')
+    expect(d).toEqual({ slip: 'wrongOperation', stepIndex: null, hint: REPEATED })
+    // 3/5 × 10 answered as 3/5 + 10
+    expect(diagnose(mulProblem('multiply', f(3, 5), whole(10)), '10 3/5').hint).toBe(REPEATED)
+    // 2 1/2 × 3 1/3 answered as the sum 5 5/6
+    expect(diagnose(mulProblem('multiply', m(2, 1, 2), m(3, 1, 3)), '5 5/6').hint).toBe(REPEATED)
+  })
+
+  it('multiplying answered by subtracting or dividing: "taking a part of it, or splitting it up?"', () => {
+    const p = mulProblem('multiply', f(2, 3), f(3, 4))
+    expect(diagnose(p, '1/12').hint).toBe(PART_OR_SPLIT) // 3/4 - 2/3
+    expect(diagnose(p, '8/9').hint).toBe(PART_OR_SPLIT) // 2/3 ÷ 3/4
+    expect(diagnose(p, '1 1/8').hint).toBe(PART_OR_SPLIT) // 3/4 ÷ 2/3 (divided the other way round)
+    expect(diagnose(p, '1/12').slip).toBe('wrongOperation')
+  })
+
+  it('dividing answered by adding or subtracting: "taking a part of it, or splitting it up?"', () => {
+    const p = mulProblem('divide', whole(6), f(2, 3))
+    expect(diagnose(p, '6 2/3')).toMatchObject({ slip: 'wrongOperation', hint: PART_OR_SPLIT, stepIndex: null }) // 6 + 2/3
+    expect(diagnose(p, '5 1/3').hint).toBe(PART_OR_SPLIT) // 6 - 2/3
+  })
+
+  it('dividing answered by multiplying is still "forgot the reciprocal", which is more specific', () => {
+    expect(diagnose(mulProblem('divide', f(2, 3), f(4, 9)), '8/27').slip).toBe('forgotReciprocal')
+    expect(diagnose(mulProblem('divide', whole(6), f(2, 3)), '4').slip).toBe('forgotReciprocal')
+  })
+
+  it('a right answer is never called a wrong operation, even when two operations agree (2 × 2 = 2 + 2)', () => {
+    expect(diagnose(mulProblem('multiply', whole(2), whole(2)), '4').slip).toBe('none')
+    expect(diagnose(mulProblem('divide', whole(2), whole(1)), '2').slip).toBe('none')
+  })
+
+  it('does not call a different wrong answer a wrong operation', () => {
+    expect(diagnose(mulProblem('multiply', f(2, 3), f(3, 4)), '17').slip).toBe('unknown')
+  })
+
+  it('does not mix up the add and subtract hint for add and subtract problems', () => {
+    expect(diagnose({ op: 'subtract', a: m(8, 1, 5), b: m(4, 3, 4) }, '12 19/20').hint).toBe('Are we putting together or taking away?')
+  })
+
+  it('every hint is one short question, never the answer, and ends with a question mark', () => {
+    for (const hint of [REPEATED, PART_OR_SPLIT]) {
+      expect(hint).toMatch(/\?$/)
+      expect((hint.match(/\?/g) ?? []).length).toBe(1)
+      expect(words(hint)).toBeLessThanOrEqual(12)
+      expect(hint).not.toMatch(/\d/)
+    }
+  })
+
+  it('works for every generated multiply and divide problem: the sum is always caught for multiplying', () => {
+    for (let wa = 1; wa <= 5; wa++) {
+      for (const [na, da] of [[1, 2], [2, 3], [3, 4]] as const) {
+        for (const [nb, db] of [[1, 3], [5, 6], [3, 8]] as const) {
+          const a = m(wa, na, da)
+          const b = m(wa + 1, nb, db)
+          if (equals(add(a, b), multiply(a, b))) continue // the sum is the right answer here, so it is not a slip
+          const sum = formatMixed(add(a, b))
+          expect(diagnose(mulProblem('multiply', a, b), sum).hint).toBe(REPEATED)
+        }
+      }
+    }
+  })
+})

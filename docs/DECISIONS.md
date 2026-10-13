@@ -319,7 +319,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Source:** User spec
 - **Decision:** `Op` stays `'add' | 'subtract'`. New types `MulOp` (`'multiply' | 'divide'`), `AnyOp`, `MulProblem` and `AnyProblem` cover the new operations. `diagnose`, `verifyByInverse`, `estimateCheck` and `workedSteps` accept all four. Code that only handles add and subtract (Practice, the Tutor routes and their zod schemas) cannot receive a multiply by mistake, because it would have been read as a subtract.
 - **Why:** Many places contain `op === 'add' ? add : subtract`. Widening `Op` would make those silently wrong for a new operation.
-- **Status:** Active. Not wired to the generator, Practice, Learn or the Tutor routes yet.
+- **Status:** Active. Wired into the generator, Practice, Learn, the Tutor and the playground by D-42 to D-45.
 
 ### D-38: Dividing by zero is an error result, never a throw or Infinity
 - **Date:** 2026-10
@@ -347,6 +347,42 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 
 ---
 
+## Multiplication and division everywhere (feature-0013)
+
+### D-42: The generator makes multiplication and division at eight levels, and "all"
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** `generateProblem` accepts `multiply`, `divide` and `all` (a mix of all four). Multiply levels: fraction × whole, fraction × fraction, mixed × whole, mixed × mixed. Divide levels: whole ÷ fraction, fraction ÷ whole, fraction ÷ fraction, mixed ÷ mixed. Denominators run from 2 to 12, wholes from 2 to 9 (never 0 or 1), and every fraction has a numerator of at least 1, so nothing is ever divided by zero and no answer is zero. `levelOf` names a problem's level, and "Try one like it" stays at the same level. `mixed` still means a mix of adding and subtracting, for older code.
+- **Status:** Active
+
+### D-43: Practice works for all four operations
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** The picker shows Add, Subtract, Multiply, Divide and All (the old "Mixed" button is replaced by All). The proof is the opposite operation (r ÷ b for multiplying, r × b for dividing) and is asked on the first 2 problems of each of the four types. Retry, Learn, hints, worked steps and the add-back after three hints all use the engine's steps and `diagnose`. After a wrong multiply or divide answer, `sizeCheck` runs and its message is shown in the feedback if the answer is the wrong size. Story problems have templates for multiplying and dividing too, and the end-of-set ideas cover them.
+- **Status:** Active
+
+### D-44: The Tutor reads and teaches multiplication and division
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** The read route accepts `multiply` and `divide`. The prompt tells the model that ×, x, · and "of" mean multiply (so "2/3 of 12" is 2/3 × 12), that ÷ and "divided by" mean divide, and to write simple words like "half" as fractions. Dividing by zero returns a kind "zero_divisor" message instead of starting an unsolvable problem. Hints, teach steps and the explanation checklist use the new steps and `diagnose`. The leak guard treats numbers already on the left of "=" as known (so "3/5 × 10 = 3/5 × 10/1" only guards 10/1) and no longer guards a bare 0 or 1 as a step result ("1 whole" is a normal hint). The estimate way is hidden when the numbers are too small to estimate (a divisor under 1/4); she uses the opposite operation instead. The typed-problem form has Add, Subtract, Multiply and Divide.
+- **Status:** Active
+
+### D-45: The engine playground is dev-only
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** `/dev/engine` shows the answer (mixed and improper), every worked step, `verifyByInverse`, `estimateCheck`, `sizeCheck`, and for a student answer `checkAnswer` and `diagnose` (slip, step index, hint). It has a Random button that uses the generator and example buttons for the engine test cases. All of the analysis is in a pure function (`analyze`) with tests, and each example's expected answer is verified against the engine. In a production build a Nuxt hook removes every `/dev` route (so it is an ordinary 404), and the page also refuses to render unless `import.meta.dev` is true.
+- **Status:** Active
+
+### D-46: Wrong-operation hints for multiplication and division
+- **Date:** 2026-10
+- **Source:** User (hint wording chosen by the user)
+- **Decision:** `diagnose` now recognises a multiplication or division answer that is the right answer to a different operation, and returns the slip `wrongOperation` with no step index. If she **added** on a multiplication, the hint stresses that multiplying is repeated adding: "Multiplying is repeated adding. How many times should you add it?" If she multiplied and got the answer to a subtraction or a division (either way round), or divided and got the answer to an addition or subtraction, the hint is "Are we taking a part of it, or splitting it up?" A division answered by multiplying stays `forgotReciprocal`, because that is more specific. A correct answer is never a wrong operation, even when two operations agree (2 × 2 = 2 + 2). The second hint has clue words for each operation ("each", "of" and "times" for multiplying; "shared equally" and "how many fit" for dividing). The Tutor's three hint levels have templates for each operation, and the AI hint writer is told the same ideas.
+- **Why:** Story problems hide the operation card (D-17), so she has to choose the operation herself, and "added instead of multiplied" is the most likely mix-up.
+- **Alternatives:** One general "check the operation" hint for all four.
+- **Status:** Active. Not covered: an add/subtract problem answered with a multiplication or division result still gets the add/subtract hint.
+
+---
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
@@ -354,4 +390,3 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - Should "first 2 proofs per type" reset per set instead of per session?
 - Move the tutor rate limit to shared storage once the app runs on more than one server.
 - Add the server-side refusal fallback for the photo reader if refusals show up in practice.
-- Add multiplication and division to the problem generator, Practice, Learn and the Tutor routes (their schemas only allow add and subtract today).

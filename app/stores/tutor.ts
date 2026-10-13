@@ -1,22 +1,21 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
-  add,
-  addSteps,
   checkAnswer,
   diagnose,
   equals,
   estimateCheck,
   formatMixed,
   inverseProblem,
+  opSymbol,
   parseMixed,
-  subtract,
-  subtractSteps,
+  problemAnswer,
   toImproper,
+  workedSteps,
   type AnswerStatus,
+  type AnyProblem,
   type EstimateCheck,
   type Operand,
-  type Problem,
   type Slip,
   type Step,
 } from '../utils/fraction'
@@ -71,12 +70,13 @@ const MAX_EXPLANATION_TRIES = 2
 
 export const SUMMARY_NOT_CLEAR = 'We can look at the explanation together next time.'
 
-function answerOf(problem: Problem): Operand {
-  return (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
+/** The correct answer. A problem that divides by zero never gets this far (it is rejected on entry). */
+function answerOf(problem: AnyProblem): Operand {
+  return problemAnswer(problem) ?? { numerator: 0, denominator: 1 }
 }
 
-function stepsOf(problem: Problem): Step[] {
-  return problem.op === 'add' ? addSteps(problem.a, problem.b) : subtractSteps(problem.a, problem.b)
+function stepsOf(problem: AnyProblem): Step[] {
+  return workedSteps(problem)
 }
 
 function levelOf(state: 'hint1' | 'hint2' | 'hint3'): 1 | 2 | 3 {
@@ -96,7 +96,7 @@ export const useTutorStore = defineStore('tutor', () => {
 
   const state = ref<TutorState>('capture')
   const source = ref<ProblemSource | null>(null)
-  const problem = ref<Problem | null>(null)
+  const problem = ref<AnyProblem | null>(null)
   const problemText = ref('')
   const confidence = ref<'high' | 'low'>('high')
 
@@ -164,11 +164,14 @@ export const useTutorStore = defineStore('tutor', () => {
     return estimateCheck(problem.value.a, problem.value.b, problem.value.op, toImproper(parsed))
   })
 
+  /** False when the numbers are too small to estimate (a divisor under 1/4). She uses the opposite operation then. */
+  const estimateAvailable = computed(() => estimateInfo.value?.reliable !== false)
+
   /** The add-back, in the shape the shared proof component expects. */
   const addBackProof = computed<Proof | null>(() => {
     if (!problem.value || chosenCheck.value !== 'addBack') return null
     const inverse = inverseProblem(problem.value)
-    const symbol = inverse.op === 'add' ? '+' : '−'
+    const symbol = opSymbol(inverse.op)
     return {
       equation: `${formatMixed(inverse.a)} ${symbol} ${formatMixed(inverse.b)} = ?`,
       done: addBack.value.done,
@@ -207,7 +210,7 @@ export const useTutorStore = defineStore('tutor', () => {
   }
 
   /** Every problem goes to "confirm" first, however it was captured: the AI can misread handwriting. */
-  function takeProblem(next: Problem, from: ProblemSource, text = '', how: 'high' | 'low' = 'high') {
+  function takeProblem(next: AnyProblem, from: ProblemSource, text = '', how: 'high' | 'low' = 'high') {
     problem.value = next
     source.value = from
     problemText.value = text
@@ -217,7 +220,7 @@ export const useTutorStore = defineStore('tutor', () => {
   }
 
   /** A typed problem (two numbers and + or -). Returns a message if it can't be used. */
-  function enterTyped(next: Problem): string | null {
+  function enterTyped(next: AnyProblem): string | null {
     if (state.value !== 'capture') return null
     const message = problemError(next)
     if (message) {
@@ -251,7 +254,7 @@ export const useTutorStore = defineStore('tutor', () => {
   }
 
   /** "Fix it": she changes the numbers. She is asked to confirm again. */
-  function editProblem(next: Problem): string | null {
+  function editProblem(next: AnyProblem): string | null {
     if (state.value !== 'confirm') return null
     const message = problemError(next)
     if (message) {
@@ -495,6 +498,7 @@ export const useTutorStore = defineStore('tutor', () => {
     canAnswer,
     canBeStuck,
     estimateInfo,
+    estimateAvailable,
     addBackProof,
     canSkipExplanation,
     setApi,

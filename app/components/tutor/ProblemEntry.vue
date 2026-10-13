@@ -1,37 +1,35 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { MixedNumber, Op, Problem } from '../../utils/fraction'
-import type { AnswerBoxes } from '../../utils/answer'
+import { opSymbol, type AnyOp, type AnyProblem, type MixedNumber } from '../../utils/fraction'
+import { mixedToBoxes, type AnswerBoxes } from '../../utils/answer'
 
 const props = defineProps<{
   /** Fill the boxes with a problem already read (for "Fix it"). */
-  initial?: Problem | null
+  initial?: AnyProblem | null
   submitLabel: string
   /** A short message from outside, for example "Put the bigger number first". */
   error?: string | null
 }>()
-const emit = defineEmits<{ submit: [problem: Problem] }>()
+const emit = defineEmits<{ submit: [problem: AnyProblem] }>()
 
-const op = ref<Op>('add')
+const op = ref<AnyOp>('add')
+const OPERATIONS: Array<{ op: AnyOp; label: string }> = [
+  { op: 'add', label: 'Add' },
+  { op: 'subtract', label: 'Subtract' },
+  { op: 'multiply', label: 'Multiply' },
+  { op: 'divide', label: 'Divide' },
+]
 const first = ref<AnswerBoxes>({ whole: '', num: '', den: '' })
 const second = ref<AnswerBoxes>({ whole: '', num: '', den: '' })
 const message = ref('')
-
-function toBoxes(m: MixedNumber): AnswerBoxes {
-  return {
-    whole: m.whole === 0 && m.num > 0 ? '' : String(m.whole),
-    num: m.num > 0 ? String(m.num) : '',
-    den: m.num > 0 ? String(m.den) : '',
-  }
-}
 
 watch(
   () => props.initial,
   (problem) => {
     if (!problem) return
     op.value = problem.op
-    first.value = toBoxes(problem.a as MixedNumber)
-    second.value = toBoxes(problem.b as MixedNumber)
+    first.value = mixedToBoxes(problem.a as MixedNumber)
+    second.value = mixedToBoxes(problem.b as MixedNumber)
   },
   { immediate: true },
 )
@@ -70,24 +68,17 @@ const symbolButton = 'inline-flex size-16 items-center justify-center rounded-xl
   <form class="space-y-6" @submit.prevent="go">
     <PracticeMixedNumberInput v-model="first" @submit="go" />
 
-    <div class="flex justify-center gap-3" role="group" aria-label="Add or subtract">
+    <div class="flex justify-center gap-3" role="group" aria-label="Operation">
       <button
+        v-for="choice in OPERATIONS"
+        :key="choice.op"
         type="button"
-        :aria-pressed="op === 'add'"
-        aria-label="Add"
-        :class="[symbolButton, op === 'add' ? 'bg-emerald-700 text-white' : 'bg-white text-emerald-900 ring-2 ring-emerald-700']"
-        @click="op = 'add'"
+        :aria-pressed="op === choice.op"
+        :aria-label="choice.label"
+        :class="[symbolButton, op === choice.op ? 'bg-emerald-700 text-white' : 'bg-white text-emerald-900 ring-2 ring-emerald-700']"
+        @click="op = choice.op"
       >
-        +
-      </button>
-      <button
-        type="button"
-        :aria-pressed="op === 'subtract'"
-        aria-label="Subtract"
-        :class="[symbolButton, op === 'subtract' ? 'bg-emerald-700 text-white' : 'bg-white text-emerald-900 ring-2 ring-emerald-700']"
-        @click="op = 'subtract'"
-      >
-        −
+        {{ opSymbol(choice.op) }}
       </button>
     </div>
 

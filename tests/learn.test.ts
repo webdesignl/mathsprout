@@ -4,6 +4,7 @@ import { buildLearn } from '../app/utils/learn'
 import {
   GENERIC_STEP_HINT,
   SLIP_NUDGES,
+  slipNudge,
   NOT_SIMPLEST_MESSAGE,
   PROOF_SLIP_MESSAGES,
   STEP_HINTS,
@@ -105,6 +106,14 @@ describe('messages', () => {
     for (const m of PROOF_SLIP_MESSAGES) expect(m).toMatch(/proof|check|answer|step/i)
   })
 
+  it('the "wrong operation" nudge is different for adding, multiplying and dividing', () => {
+    expect(slipNudge('wrongOperation', 'add')).toBe('Words like “in all” add. Words like “left” subtract.')
+    expect(slipNudge('wrongOperation', 'subtract')).toBe(slipNudge('wrongOperation', 'add'))
+    expect(slipNudge('wrongOperation', 'multiply')).toMatch(/“each”, “of” and “times”/)
+    expect(slipNudge('wrongOperation', 'divide')).toMatch(/“shared equally”/)
+    expect(slipNudge('numeratorArithmetic', 'multiply')).toBeUndefined()
+  })
+
   it('falls back gracefully with a one-item list', () => {
     expect(pickDifferent(['Only'], 'Only')).toBe('Only')
   })
@@ -118,6 +127,8 @@ describe('messages', () => {
       ...PROOF_SLIP_MESSAGES,
       ...Object.values(STEP_HINTS),
       ...Object.values(SLIP_NUDGES),
+      slipNudge('wrongOperation', 'multiply')!,
+      slipNudge('wrongOperation', 'divide')!,
       proofHint('subtract', '4 3/4'),
       proofHint('add', '2 5/12'),
     ]

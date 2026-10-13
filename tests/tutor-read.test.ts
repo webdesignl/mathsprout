@@ -28,7 +28,10 @@ describe('read input validation (zod)', () => {
   it('checks the shape of what the model returns', () => {
     expect(modelReadSchema.safeParse(JSON.parse(subtractJson)).success).toBe(true)
     expect(modelReadSchema.safeParse({ unsupported: true }).success).toBe(true)
-    expect(modelReadSchema.safeParse({ operation: 'multiply', operands: ['1', '2'], problemText: '', confidence: 'high' }).success).toBe(false)
+    expect(modelReadSchema.safeParse({ operation: 'power', operands: ['1', '2'], problemText: '', confidence: 'high' }).success).toBe(false)
+    for (const operation of ['add', 'subtract', 'multiply', 'divide']) {
+      expect(modelReadSchema.safeParse({ operation, operands: ['1', '2'], problemText: '', confidence: 'high' }).success).toBe(true)
+    }
     expect(modelReadSchema.safeParse({ operation: 'add', operands: ['1'], problemText: '', confidence: 'high' }).success).toBe(false)
     expect(modelReadSchema.safeParse({ operation: 'add', operands: ['1', '2'], problemText: '', confidence: 'maybe' }).success).toBe(false)
   })
@@ -101,7 +104,7 @@ describe('readProblem', () => {
     const result = await readProblem(client, { text: 'What is 3 x 4?' })
     expect(create).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ ok: false, reason: 'unsupported' })
-    expect(result.ok === false && result.message).toMatch(/adding and subtracting fractions/)
+    expect(result.ok === false && result.message).toMatch(/adding, subtracting, multiplying and dividing/)
   })
 
   it('treats a longer chain as unsupported', async () => {

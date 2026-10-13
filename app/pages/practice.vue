@@ -8,7 +8,7 @@ import {
   isFractionIncomplete,
   type AnswerBoxes,
 } from '../utils/answer'
-import type { Problem } from '../utils/fraction'
+import type { AnyProblem } from '../utils/fraction'
 import type { ProblemOp } from '../utils/problems'
 
 useHead({ title: 'Practice · MathSprout' })
@@ -22,7 +22,9 @@ const showPad = computed(() => scratch.open && store.view === 'playing' && store
 const choices: Array<{ value: ProblemOp; label: string }> = [
   { value: 'add', label: 'Add' },
   { value: 'subtract', label: 'Subtract' },
-  { value: 'mixed', label: 'Mixed' },
+  { value: 'multiply', label: 'Multiply' },
+  { value: 'divide', label: 'Divide' },
+  { value: 'all', label: 'All' },
 ]
 const op = ref<ProblemOp>('add')
 const needsRegroup = ref(false)
@@ -40,7 +42,7 @@ const nextButton = ref<HTMLButtonElement | null>(null)
 const submitButton = ref<HTMLButtonElement | null>(null)
 
 /** The problem and answer shown in the Learn panel, or null when it is closed. */
-const learnTarget = ref<{ problem: Problem; answer: string } | null>(null)
+const learnTarget = ref<{ problem: AnyProblem; answer: string } | null>(null)
 
 const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6 text-xl font-bold'
 

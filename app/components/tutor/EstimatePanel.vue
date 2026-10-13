@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useTutorStore } from '../../stores/tutor'
 import { boxesToText, isAnswerEmpty, isFractionIncomplete, type AnswerBoxes } from '../../utils/answer'
-import { formatMixed, type MixedNumber } from '../../utils/fraction'
+import { formatMixed, opSymbol, type MixedNumber } from '../../utils/fraction'
 
 const store = useTutorStore()
 
@@ -15,7 +15,7 @@ const message = ref('')
 
 const info = computed(() => store.estimateInfo)
 const problem = computed(() => store.problem)
-const symbol = computed(() => (problem.value?.op === 'add' ? '+' : '−'))
+const symbol = computed(() => (problem.value ? opSymbol(problem.value.op) : ''))
 const numbers = computed(() => (problem.value ? [problem.value.a as MixedNumber, problem.value.b as MixedNumber] : []))
 
 function text(m: MixedNumber): string {

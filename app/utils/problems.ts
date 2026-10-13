@@ -1,13 +1,38 @@
-import { subtractSteps, type MixedNumber, type Problem } from './fraction'
+import {
+  opSymbol,
+  subtractSteps,
+  type AnyProblem,
+  type MixedNumber,
+  type Operand,
+  type Problem,
+} from './fraction'
 
-export type ProblemOp = 'add' | 'subtract' | 'mixed'
+/**
+ * 'mixed' is a mix of adding and subtracting (kept for older code). 'all' is a mix of all four operations.
+ */
+export type ProblemOp = 'add' | 'subtract' | 'multiply' | 'divide' | 'mixed' | 'all'
+
+/** What kinds of numbers a multiplication or division uses. */
+export type MultiplyLevel = 'fractionTimesWhole' | 'fractionTimesFraction' | 'mixedTimesWhole' | 'mixedTimesMixed'
+export type DivideLevel = 'wholeByFraction' | 'fractionByWhole' | 'fractionByFraction' | 'mixedByMixed'
+export type MulLevel = MultiplyLevel | DivideLevel
+
+export const MULTIPLY_LEVELS: MultiplyLevel[] = [
+  'fractionTimesWhole',
+  'fractionTimesFraction',
+  'mixedTimesWhole',
+  'mixedTimesMixed',
+]
+export const DIVIDE_LEVELS: DivideLevel[] = ['wholeByFraction', 'fractionByWhole', 'fractionByFraction', 'mixedByMixed']
 
 export interface GenerateOptions {
   op: ProblemOp
-  /** Largest denominator to use. Denominators run from 2 up to this (at least 3, so they can differ). */
+  /** Largest denominator to use. Denominators run from 2 up to this (at least 3 for adding and subtracting, so they can differ). */
   maxDenominator: number
   /** Subtraction only: the first fraction part must be smaller than the second after renaming. */
   needsRegroup?: boolean
+  /** Multiplying and dividing only: which kinds of numbers to use. Random when left out. */
+  level?: MulLevel
 }
 
 /** A function returning a number in [0, 1), like Math.random. Inject a fake one in tests. */
@@ -103,17 +128,114 @@ function valueCompare(a: MixedNumber, b: MixedNumber): number {
   return x.numerator * y.denominator - y.numerator * x.denominator
 }
 
+// --- Multiplication and division ---
+
+/** A whole number from 2 to 9 (never 0, so nothing divides by zero, and never 1, so it is never trivial). */
+function wholeNumber(rng: Random): MixedNumber {
+  return { whole: randInt(rng, 2, MAX_WHOLE), num: 0, den: 1 }
+}
+
+/** A proper fraction with a numerator of at least 1. */
+function fractionNumber(rng: Random, max: number): MixedNumber {
+  const den = randInt(rng, 2, max)
+  return { whole: 0, num: randInt(rng, 1, den - 1), den }
+}
+
+/** A mixed number with a whole part of 1 to 9 and a proper fraction part. */
+function mixedNumber(rng: Random, max: number): MixedNumber {
+  const part = fractionNumber(rng, max)
+  return { whole: randInt(rng, 1, MAX_WHOLE), num: part.num, den: part.den }
+}
+
+function pick<T>(rng: Random, list: readonly T[]): T {
+  return list[Math.min(Math.floor(rng() * list.length), list.length - 1)]!
+}
+
+function generateMultiply(rng: Random, max: number, level?: MulLevel): AnyProblem {
+  const chosen = MULTIPLY_LEVELS.find((l) => l === level) ?? pick(rng, MULTIPLY_LEVELS)
+  switch (chosen) {
+    case 'fractionTimesWhole':
+      return { op: 'multiply', a: fractionNumber(rng, max), b: wholeNumber(rng) }
+    case 'fractionTimesFraction':
+      return { op: 'multiply', a: fractionNumber(rng, max), b: fractionNumber(rng, max) }
+    case 'mixedTimesWhole':
+      return { op: 'multiply', a: mixedNumber(rng, max), b: wholeNumber(rng) }
+    default:
+      return { op: 'multiply', a: mixedNumber(rng, max), b: mixedNumber(rng, max) }
+  }
+}
+
+function generateDivide(rng: Random, max: number, level?: MulLevel): AnyProblem {
+  const chosen = DIVIDE_LEVELS.find((l) => l === level) ?? pick(rng, DIVIDE_LEVELS)
+  switch (chosen) {
+    case 'wholeByFraction':
+      return { op: 'divide', a: wholeNumber(rng), b: fractionNumber(rng, max) }
+    case 'fractionByWhole':
+      return { op: 'divide', a: fractionNumber(rng, max), b: wholeNumber(rng) }
+    case 'fractionByFraction':
+      return { op: 'divide', a: fractionNumber(rng, max), b: fractionNumber(rng, max) }
+    default:
+      return { op: 'divide', a: mixedNumber(rng, max), b: mixedNumber(rng, max) }
+  }
+}
+
+type NumberKind = 'whole' | 'fraction' | 'mixed'
+
+function kindOf(x: Operand): NumberKind {
+  if ('numerator' in x) {
+    if (x.denominator === 1) return 'whole'
+    return x.numerator < x.denominator ? 'fraction' : 'mixed'
+  }
+  if (x.num === 0) return 'whole'
+  return x.whole === 0 ? 'fraction' : 'mixed'
+}
+
+/** Which level a multiplication or division problem is at, or null if it fits none of the eight (or is add/subtract). */
+export function levelOf(problem: AnyProblem): MulLevel | null {
+  const a = kindOf(problem.a)
+  const b = kindOf(problem.b)
+  if (problem.op === 'multiply') {
+    if (a === 'fraction' && b === 'whole') return 'fractionTimesWhole'
+    if (a === 'fraction' && b === 'fraction') return 'fractionTimesFraction'
+    if (a === 'mixed' && b === 'whole') return 'mixedTimesWhole'
+    if (a === 'mixed' && b === 'mixed') return 'mixedTimesMixed'
+  }
+  if (problem.op === 'divide') {
+    if (a === 'whole' && b === 'fraction') return 'wholeByFraction'
+    if (a === 'fraction' && b === 'whole') return 'fractionByWhole'
+    if (a === 'fraction' && b === 'fraction') return 'fractionByFraction'
+    if (a === 'mixed' && b === 'mixed') return 'mixedByMixed'
+  }
+  return null
+}
+
 /**
  * Creates one original practice problem.
- * Mixed numbers use unlike denominators and wholes 0 to 9; subtraction answers are always positive.
- * `needsRegroup` only affects subtraction; with op 'mixed' it applies to the subtraction problems.
+ * Adding and subtracting use mixed numbers with unlike denominators and wholes 0 to 9; subtraction answers
+ * are always positive. Multiplying and dividing use the eight levels (denominators 2 to the maximum), and
+ * nothing is ever divided by zero. `needsRegroup` only affects subtraction.
+ * 'mixed' mixes adding and subtracting; 'all' mixes all four operations.
  */
-export function generateProblem(options: GenerateOptions, rng: Random = Math.random): Problem {
+export function generateProblem(options: GenerateOptions, rng: Random = Math.random): AnyProblem {
+  const choice: ProblemOp = options.op
+  const op =
+    choice === 'mixed'
+      ? rng() < 0.5
+        ? 'add'
+        : 'subtract'
+      : choice === 'all'
+        ? pick(rng, ['add', 'subtract', 'multiply', 'divide'] as const)
+        : choice
+
+  if (op === 'multiply' || op === 'divide') {
+    if (options.maxDenominator < 2) throw new RangeError('maxDenominator must be at least 2')
+    return op === 'multiply'
+      ? generateMultiply(rng, options.maxDenominator, options.level)
+      : generateDivide(rng, options.maxDenominator, options.level)
+  }
   if (options.maxDenominator < 3) {
     throw new RangeError('maxDenominator must be at least 3 so denominators can differ')
   }
-  const op =
-    options.op === 'mixed' ? (rng() < 0.5 ? 'add' : 'subtract') : options.op
   return op === 'add'
     ? generateAdd(rng, options.maxDenominator)
     : generateSubtract(rng, options.maxDenominator, options.needsRegroup === true)
@@ -125,33 +247,33 @@ function operandText(m: MixedNumber): string {
 }
 
 /** The problem as plain text for summaries, without simplifying anything: "8 1/5 − 4 3/4". */
-export function describeProblem(problem: Problem): string {
-  const symbol = problem.op === 'add' ? '+' : '−'
+export function describeProblem(problem: AnyProblem): string {
   const [a, b] = [problem.a, problem.b].map((o) =>
     'whole' in o ? operandText(o) : `${o.numerator}/${o.denominator}`,
   )
-  return `${a} ${symbol} ${b}`
+  return `${a} ${opSymbol(problem.op)} ${b}`
 }
 
 /** True when subtracting this problem needs a regroup (borrow). Uses the engine's worked steps. */
-export function problemNeedsRegroup(problem: Problem): boolean {
+export function problemNeedsRegroup(problem: AnyProblem): boolean {
   return problem.op === 'subtract' && subtractSteps(problem.a, problem.b).some((s) => s.kind === 'regroup')
 }
 
 /**
- * A new problem like this one: same operation, and the same regroup setting
- * (a subtraction that needed borrowing gets another that needs borrowing).
+ * A new problem like this one: same operation, and the same regroup setting (a subtraction that needed
+ * borrowing gets another that needs borrowing) or the same level (a fraction ÷ whole gets another fraction ÷ whole).
  * Tries a few times to avoid handing back the exact same problem.
  */
 export function generateSimilarProblem(
-  problem: Problem,
+  problem: AnyProblem,
   maxDenominator: number,
   rng: Random = Math.random,
-): Problem {
+): AnyProblem {
   const options: GenerateOptions = {
     op: problem.op,
     maxDenominator,
     needsRegroup: problemNeedsRegroup(problem),
+    level: levelOf(problem) ?? undefined,
   }
   let next = generateProblem(options, rng)
   for (let i = 0; i < 5 && describeProblem(next) === describeProblem(problem); i++) {

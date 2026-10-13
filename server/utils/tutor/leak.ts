@@ -1,11 +1,10 @@
 import {
-  add,
   formatMixed,
+  problemAnswer,
   simplify,
-  subtract,
   toFraction,
   toMixed,
-  type Problem,
+  type AnyProblem,
   type Step,
 } from '../../../app/utils/fraction'
 
@@ -41,15 +40,17 @@ function unique<T>(items: T[]): T[] {
 }
 
 /** The numbers that stand for the result of one step. */
-export function stepResultTokens(problem: Problem, steps: Step[], index: number): string[] {
+export function stepResultTokens(problem: AnyProblem, steps: Step[], index: number): string[] {
   const step = steps[index]
   if (!step) return []
 
   const eq = step.expression.lastIndexOf(' = ')
   if (eq !== -1) {
     // "24/20 - 15/20 = 9/20": the result is "9/20", and its top number "9" gives it away too.
-    const result = tokensOf(step.expression.slice(eq + 3))
-    const tops = result.flatMap((t) => (t.includes('/') ? [t.split('/')[0]!] : []))
+    // Numbers that were already on the left side ("3/5 × 10 = 3/5 × 10/1") are not new, so they are not results.
+    const known = new Set(tokensOf(step.expression.slice(0, eq)))
+    const result = tokensOf(step.expression.slice(eq + 3)).filter((t) => !known.has(t))
+    const tops = result.flatMap((t) => (t.includes('/') ? [t.split('/')[0]!] : [])).filter((t) => !known.has(t))
     return unique([...result, ...tops])
   }
 
@@ -71,12 +72,12 @@ function fraction(n: string, d: string): string {
 }
 
 /** Regular expressions for everything a hint must not say. */
-export function forbiddenPatterns(problem: Problem, steps: Step[], flaggedIndex: number): RegExp[] {
+export function forbiddenPatterns(problem: AnyProblem, steps: Step[], flaggedIndex: number): RegExp[] {
   const patterns: string[] = []
   const bareNumbers: string[] = []
 
-  const answer = (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
-  if (answer.numerator >= 0) {
+  const answer = problemAnswer(problem)
+  if (answer && answer.numerator >= 0) {
     const m = toMixed(answer)
     const improper = simplify(toFraction(answer))
     if (m.num === 0) {
@@ -95,7 +96,8 @@ export function forbiddenPatterns(problem: Problem, steps: Step[], flaggedIndex:
     if (token.includes('/')) {
       const [n, d] = token.split('/')
       patterns.push(fraction(n!, d!))
-    } else {
+    } else if (token !== '0' && token !== '1') {
+      // 0 and 1 turn up in ordinary hints ("1 whole"), so they are only guarded when they are the final answer.
       bareNumbers.push(token)
     }
   }
@@ -109,7 +111,7 @@ export function forbiddenPatterns(problem: Problem, steps: Step[], flaggedIndex:
 }
 
 /** True when the hint states the final answer or the result of the flagged step. */
-export function leaksAnswer(hint: string, problem: Problem, steps: Step[], flaggedIndex: number): boolean {
+export function leaksAnswer(hint: string, problem: AnyProblem, steps: Step[], flaggedIndex: number): boolean {
   const text = hint.replace(/\s+/g, ' ')
   return forbiddenPatterns(problem, steps, flaggedIndex).some((re) => re.test(text))
 }

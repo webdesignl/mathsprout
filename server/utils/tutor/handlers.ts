@@ -75,7 +75,7 @@ export async function handleHint(body: unknown, deps: TutorDeps): Promise<TutorR
   if (deps.demo) {
     // Canned: the hand-written hint for this level, with no API call.
     const ctx = buildHintContext(input.data)
-    const hint = templateHint(ctx.diagnosis, ctx.steps[ctx.flaggedIndex]?.kind ?? 'rename', input.data.level)
+    const hint = templateHint(ctx.diagnosis, ctx.steps[ctx.flaggedIndex]?.kind ?? 'rename', input.data.level, ctx.problem.op)
     return { status: 200, body: { ok: true, hint, source: 'demo', level: input.data.level } }
   }
 

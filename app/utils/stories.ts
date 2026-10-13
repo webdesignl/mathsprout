@@ -1,10 +1,10 @@
-import type { MixedNumber, Op, Problem } from './fraction'
+import type { AnyOp, AnyProblem, MixedNumber } from './fraction'
 
 /** Where a story happens. Also used to pick real-world ideas at the end of a set. */
 export type Topic = 'kitchen' | 'building' | 'sport' | 'art'
 
 /** A practice problem, optionally wrapped in a short story. The numbers and the answer don't change. */
-export interface PracticeProblem extends Problem {
+export type PracticeProblem = AnyProblem & {
   story?: string
   topic?: Topic
 }
@@ -18,7 +18,7 @@ interface Template {
 }
 
 // All stories are original. They are short, use no names, and read well with fractions.
-const TEMPLATES: Record<Op, Template[]> = {
+const TEMPLATES: Record<AnyOp, Template[]> = {
   add: [
     {
       topic: 'kitchen',
@@ -55,6 +55,19 @@ const TEMPLATES: Record<Op, Template[]> = {
       text: 'A roll of ribbon is {a} meters long. A crafter uses {b} meters for a bow. How much ribbon is left?',
     },
   ],
+  // For multiplying, {a} is how many and {b} is how much each. For dividing, {a} is the total and {b} is the size of each part.
+  multiply: [
+    { topic: 'kitchen', text: 'One batch of muffins uses {b} cups of flour. How many cups do you need for {a} batches?' },
+    { topic: 'building', text: 'Each shelf needs a board {b} meters long. How many meters of board for {a} shelves?' },
+    { topic: 'sport', text: 'A runner goes {b} kilometers each day. How far is that in {a} days?' },
+    { topic: 'art', text: 'One painting uses {b} liters of paint. How much paint do {a} paintings use?' },
+  ],
+  divide: [
+    { topic: 'kitchen', text: 'A bag has {a} cups of rice. Each serving uses {b} cups. How many servings is that?' },
+    { topic: 'building', text: 'A rope is {a} meters long. It is cut into pieces {b} meters long. How many pieces is that?' },
+    { topic: 'sport', text: 'A trail is {a} kilometers long. A hiker walks {b} kilometers each hour. How many hours does it take?' },
+    { topic: 'art', text: '{a} liters of paint fill jars that each hold {b} liters. How many jars is that?' },
+  ],
 }
 
 function written(m: MixedNumber): string {
@@ -62,8 +75,8 @@ function written(m: MixedNumber): string {
   return m.whole === 0 ? `${m.num}/${m.den}` : `${m.whole} ${m.num}/${m.den}`
 }
 
-/** Wraps a generated problem in a story. Subtraction stories always take the smaller amount away. */
-export function withStory(problem: Problem, rng: Random = Math.random): PracticeProblem {
+/** Wraps a generated problem in a story. Subtraction stories always take the smaller amount away; division stories ask "how many". */
+export function withStory(problem: AnyProblem, rng: Random = Math.random): PracticeProblem {
   const options = TEMPLATES[problem.op]
   const template = options[Math.min(Math.floor(rng() * options.length), options.length - 1)]!
   const a = problem.a as MixedNumber

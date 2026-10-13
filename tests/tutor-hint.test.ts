@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { addSteps, subtractSteps } from '../app/utils/fraction'
+import { addSteps, subtractSteps, workedSteps } from '../app/utils/fraction'
 import { HINT_MODEL } from '../server/utils/anthropic'
 import {
   HINT_TIMEOUT_MS,
@@ -29,7 +29,8 @@ describe('hint input validation (zod)', () => {
     expect(hintInputSchema.safeParse({ ...ok, stuck: 'yes' }).success).toBe(false)
     expect(hintInputSchema.safeParse({ ...ok, studentAnswer: 'x'.repeat(41) }).success).toBe(false)
     expect(hintInputSchema.safeParse({ ...ok, problem: { ...SUB, a: { whole: 1, num: 1, den: 0 } } }).success).toBe(false)
-    expect(hintInputSchema.safeParse({ ...ok, problem: { op: 'multiply', a: SUB.a, b: SUB.b } }).success).toBe(false)
+    expect(hintInputSchema.safeParse({ ...ok, problem: { op: 'power', a: SUB.a, b: SUB.b } }).success).toBe(false)
+    expect(hintInputSchema.safeParse({ ...ok, problem: { op: 'multiply', a: SUB.a, b: SUB.b } }).success).toBe(true)
   })
 })
 
@@ -91,6 +92,12 @@ describe('answer-leak guard', () => {
     expect(leaksAnswer('Is the answer 6 3/4?', ADD, addSt, 0)).toBe(true)
     expect(leaksAnswer('Is it 27/4?', ADD, addSt, 0)).toBe(true)
     expect(leaksAnswer('What do you add first?', ADD, addSt, 0)).toBe(false)
+  })
+
+  it('does not treat a bare 0 or 1 in a step result as a leak ("1 whole" is an ordinary hint)', () => {
+    const st = workedSteps({ op: 'multiply', a: { whole: 2, num: 1, den: 2 }, b: { whole: 3, num: 1, den: 3 } })
+    const mixedStep = st.findIndex((s) => s.kind === 'toMixed')
+    expect(leaksAnswer('Is the fraction part bigger than 1 whole?', { op: 'multiply', a: { whole: 2, num: 1, den: 2 }, b: { whole: 3, num: 1, den: 3 } }, st, mixedStep)).toBe(false)
   })
 
   it('spells out numbers up to 99', () => {

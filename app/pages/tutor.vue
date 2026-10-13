@@ -5,7 +5,7 @@ import { boxesToText, isAnswerEmpty, isFractionIncomplete, type AnswerBoxes } fr
 import { slipName } from '../utils/messages'
 import { NOT_SIMPLEST_MESSAGE } from '../utils/messages'
 import { resizePhoto } from '../utils/image'
-import type { Problem } from '../utils/fraction'
+import type { AnyProblem } from '../utils/fraction'
 
 useHead({ title: 'Tutor · MathSprout' })
 
@@ -74,12 +74,12 @@ function readWord() {
   store.readProblem({ text: wordText.value })
 }
 
-function typed(problem: Problem) {
+function typed(problem: AnyProblem) {
   store.enterTyped(problem)
 }
 
 // --- confirm ---
-function saveFix(problem: Problem) {
+function saveFix(problem: AnyProblem) {
   if (store.editProblem(problem) === null) fixing.value = false
 }
 
@@ -254,6 +254,7 @@ function another() {
           Add back
         </button>
         <button
+          v-if="store.estimateAvailable"
           type="button"
           :aria-pressed="store.chosenCheck === 'estimate'"
           :class="[button, 'min-h-16 px-8 text-2xl', store.chosenCheck === 'estimate' ? 'bg-emerald-700 text-white' : 'bg-white text-emerald-900 ring-2 ring-emerald-700']"

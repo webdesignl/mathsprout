@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { MixedNumber } from '../../utils/fraction'
+import { opSymbol, opWord, type MixedNumber } from '../../utils/fraction'
 import type { PracticeProblem } from '../../utils/stories'
 
 const props = defineProps<{ problem: PracticeProblem }>()
 
 /** Problems from the generator are always mixed numbers. */
 const parts = computed(() => [props.problem.a, props.problem.b] as MixedNumber[])
-const symbol = computed(() => (props.problem.op === 'add' ? '+' : '−'))
+const symbol = computed(() => opSymbol(props.problem.op))
 
 function spoken(m: MixedNumber): string {
   const fraction = `${m.num} over ${m.den}`
@@ -17,7 +17,7 @@ function spoken(m: MixedNumber): string {
 
 const label = computed(
   () =>
-    `${spoken(parts.value[0]!)} ${props.problem.op === 'add' ? 'plus' : 'minus'} ${spoken(parts.value[1]!)}`,
+    `${spoken(parts.value[0]!)} ${opWord(props.problem.op)} ${spoken(parts.value[1]!)}`,
 )
 </script>
 

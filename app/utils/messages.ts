@@ -1,4 +1,4 @@
-import type { Op, Slip, StepKind } from './fraction'
+import type { AnyOp, Slip, StepKind } from './fraction'
 
 /** A function returning a number in [0, 1), like Math.random. */
 type Random = () => number
@@ -56,20 +56,39 @@ export const SLIP_NUDGES: Partial<Record<Slip, string>> = {
   wrongOperation: 'Words like “in all” add. Words like “left” subtract.',
 }
 
+/**
+ * A second hint for slips that happen before any step. For mixing up the operation it depends on the problem:
+ * adding and subtracting, multiplying, or dividing each have their own clue words.
+ */
+export function slipNudge(slip: Slip, op: AnyOp): string | undefined {
+  if (slip === 'wrongOperation') {
+    if (op === 'multiply') return 'Words like “each”, “of” and “times” point to multiplying.'
+    if (op === 'divide') return 'Words like “shared equally” and “how many fit” point to dividing.'
+  }
+  return SLIP_NUDGES[slip]
+}
+
 export const GENERIC_STEP_HINT = 'Go one step at a time. What comes first?'
 
 /** A hint for the proof step, aimed at the opposite operation. */
-export function proofHint(op: Op, other: string): string {
-  return op === 'subtract'
-    ? `To undo subtracting, add ${other} back. What do you get?`
-    : `To undo adding, take ${other} away. What do you get?`
+export function proofHint(op: AnyOp, other: string): string {
+  switch (op) {
+    case 'subtract':
+      return `To undo subtracting, add ${other} back. What do you get?`
+    case 'add':
+      return `To undo adding, take ${other} away. What do you get?`
+    case 'multiply':
+      return `To undo multiplying, divide by ${other}. What do you get?`
+    case 'divide':
+      return `To undo dividing, multiply by ${other}. What do you get?`
+  }
 }
 
 /** Kind names for slips, used in the Learn panel. */
-export function slipName(slip: Slip, op: Op): string | null {
+export function slipName(slip: Slip, op: AnyOp): string | null {
   switch (slip) {
     case 'numeratorArithmetic':
-      return op === 'add' ? 'an adding slip' : 'a subtracting slip'
+      return { add: 'an adding slip', subtract: 'a subtracting slip', multiply: 'a multiplying slip', divide: 'a dividing slip' }[op]
     case 'wholeArithmetic':
       return 'a whole-number slip'
     case 'forgotRegroup':
