@@ -47,6 +47,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
             </span>
             <span class="font-bold">{{ item.number }}.</span> {{ describeProblem(item.problem) }}
             <span v-if="item.retryCorrect && !item.firstTry" class="text-lg text-slate-700"> (retry)</span>
+            <span v-else-if="item.unanswered && !item.correct" class="text-lg text-slate-700"> (not answered)</span>
           </p>
           <div v-if="!item.correct" class="flex flex-wrap gap-2">
             <button

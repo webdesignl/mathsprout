@@ -17,3 +17,5 @@ npm run test:run: run tests once with coverage
 npm run typecheck: type check
 Before finishing any task
 Run npm run test:run and npm run typecheck, and fix anything failing.
+Decisions
+Record product and engineering decisions in docs/DECISIONS.md (what, why, alternatives, status). Check it before changing behavior, and update it in the same PR when a decision is made or replaced.

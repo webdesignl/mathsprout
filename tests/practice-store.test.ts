@@ -827,3 +827,211 @@ describe('mixing up the operation (story problems)', () => {
     expect(fb.hints[0]).toBe('Are we putting together or taking away?')
   })
 })
+
+describe('test navigation: skip, back and submit', () => {
+  const three = [sub, add, sub]
+
+  it('skips an unsolved problem and moves on without scoring it', () => {
+    const store = setup(three)
+    expect(store.canSkip).toBe(true)
+    expect(store.skip()).toBe(true)
+    expect(store.index).toBe(1)
+    expect(store.score).toBe(0)
+    expect(store.status[0]).toBe('unanswered')
+    expect(store.unansweredCount).toBe(3)
+  })
+
+  it('cannot skip a solved problem (Next is used instead) or the last problem', () => {
+    const store = setup(three)
+    store.submit('3 9/20')
+    expect(store.canSkip).toBe(false)
+    expect(store.skip()).toBe(false)
+    store.submitProof('8 1/5')
+    store.next()
+    expect(store.index).toBe(1)
+    store.skip() // problem 2 is not solved, so it can be skipped
+    expect(store.isLastProblem).toBe(true)
+    expect(store.canSkip).toBe(false)
+    expect(store.skip()).toBe(false)
+  })
+
+  it('goes back and forth and keeps each problem as she left it', () => {
+    const store = setup(three)
+    store.submit('3 11/20') // wrong on problem 1, hint showing
+    store.skip()
+    expect(store.canGoBack).toBe(true)
+    store.back()
+    expect(store.index).toBe(0)
+    expect(store.feedback?.kind).toBe('wrong')
+    expect(store.wrongAttempts[0]).toBe(1)
+    expect(store.back()).toBe(false) // already at the first problem
+  })
+
+  it('keeps what she typed in the answer boxes for each problem', () => {
+    const store = setup(three)
+    store.setDraft({ whole: '3', num: '9', den: '' })
+    store.skip()
+    expect(store.draft).toEqual({ whole: '', num: '', den: '' })
+    store.setDraft({ whole: '6', num: '', den: '' })
+    store.back()
+    expect(store.draft).toEqual({ whole: '3', num: '9', den: '' })
+    store.skip()
+    expect(store.draft.whole).toBe('6')
+  })
+
+  it('a correct problem she revisits stays solved, with her answer and result', () => {
+    const store = setup(three)
+    solveAndProve(store, '3 9/20')
+    store.next()
+    store.back()
+    expect(store.isSolved).toBe(true)
+    expect(store.feedback?.kind).toBe('correct')
+    expect(store.submit('1')).toBeNull() // read-only
+    expect(store.score).toBe(1)
+    expect(store.works[0]!.solvedAnswer).toBe('3 9/20')
+  })
+
+  it('a skipped problem can be answered after coming back to it', () => {
+    const store = setup(three)
+    store.skip()
+    solveAndProve(store, '6 3/4')
+    store.back()
+    expect(store.index).toBe(0)
+    expect(store.submit('3 9/20')).toBe('correct')
+    expect(store.score).toBe(2)
+    expect(store.firstTryCorrect[0]).toBe(true)
+  })
+
+  it('a solved problem with a proof waiting cannot be left forward, but Back still works', () => {
+    const store = setup([sub, sub])
+    store.submit('3 9/20')
+    expect(store.proof?.done).toBe(false)
+    expect(store.canLeaveForward).toBe(false)
+    expect(store.next()).toBe(false)
+    store.submitProof('8 1/5')
+    expect(store.canLeaveForward).toBe(true)
+    store.next()
+    store.back()
+    expect(store.index).toBe(0)
+  })
+
+  it('Submit is only on the last problem', () => {
+    const store = setup(three)
+    expect(store.canSubmit).toBe(false)
+    expect(store.submitTest(true)).toBe(false)
+    expect(store.finished).toBe(false)
+    store.skip()
+    store.skip()
+    expect(store.isLastProblem).toBe(true)
+    expect(store.canSubmit).toBe(true)
+  })
+
+  it('Submit with unanswered problems needs confirming, then counts them as missed', () => {
+    const store = setup(three)
+    store.skip()
+    solveAndProve(store, '6 3/4')
+    store.next()
+    expect(store.isLastProblem).toBe(true)
+    expect(store.unansweredCount).toBe(2)
+    expect(store.submitTest()).toBe(false) // asks "Submit anyway?"
+    expect(store.finished).toBe(false)
+    expect(store.submitTest(true)).toBe(true)
+    expect(store.finished).toBe(true)
+    leaveUnlock(store)
+    expect(store.summary.items.map((i) => i.correct)).toEqual([false, true, false])
+    expect(store.summary.items.map((i) => i.unanswered)).toEqual([true, false, true])
+    expect(store.summary.missed).toEqual([0, 2])
+  })
+
+  it('Submit with everything answered needs no confirmation', () => {
+    const store = setup([sub, add])
+    solveAndProve(store, '3 9/20')
+    store.next()
+    store.submit('6 3/4')
+    store.submitProof('4 1/3')
+    expect(store.unansweredCount).toBe(0)
+    expect(store.canSubmit).toBe(true)
+    expect(store.submitTest()).toBe(true)
+    expect(store.view).toBe('unlock')
+  })
+
+  it('Submit waits for a pending proof on the last problem', () => {
+    const store = setup([sub])
+    store.submit('3 9/20')
+    expect(store.canSubmit).toBe(false)
+    store.submitProof('8 1/5')
+    expect(store.canSubmit).toBe(true)
+  })
+
+  it('a skipped problem can be retried from the summary and counts as retry, not first try', () => {
+    const store = setup([sub, add])
+    store.skip()
+    solveAndProve(store, '6 3/4')
+    expect(store.submitTest()).toBe(false)
+    expect(store.submitTest(true)).toBe(true)
+    leaveUnlock(store)
+    store.retryProblem(0)
+    solveAndProve(store, '3 9/20')
+    store.next()
+    expect(store.retryCorrect).toEqual([true, false])
+    expect(store.firstTryCorrect).toEqual([false, true])
+    expect(store.summary.firstTryCount).toBe(1)
+    expect(store.summary.afterRetryCount).toBe(2)
+  })
+
+  it('has no Back or Skip during a retry', () => {
+    const store = setup([sub, add])
+    store.skip()
+    solveAndProve(store, '6 3/4')
+    store.back()
+    solveAndProve(store, '3 9/20')
+    store.next()
+    expect(store.submitTest()).toBe(true) // everything answered
+    leaveUnlock(store)
+    expect(store.canNavigate).toBe(false) // summary
+    store.retryProblem(0) // not missed, so this does nothing
+    expect(store.isRetry).toBe(false)
+  })
+
+  it('a retry has no Back or Skip of its own', () => {
+    const store = setup([sub, add])
+    store.submit('1') // wrong, then solved later so it is a missed problem
+    solveAndProve(store, '3 9/20')
+    store.next()
+    solveAndProve(store, '6 3/4')
+    store.submitTest()
+    leaveUnlock(store)
+    store.retryProblem(0)
+    expect(store.isRetry).toBe(true)
+    expect(store.canGoBack).toBe(false)
+    expect(store.canSkip).toBe(false)
+    expect(store.canSubmit).toBe(false)
+  })
+
+  it('"try one like it" has its own state and no navigation', () => {
+    const store = setup(three)
+    store.skip()
+    store.startSimilar(store.current!, () => 0.4)
+    expect(store.canNavigate).toBe(false)
+    expect(store.canSkip).toBe(false)
+    expect(store.canGoBack).toBe(false)
+    store.endSimilar()
+    expect(store.index).toBe(1)
+    expect(store.canGoBack).toBe(true)
+  })
+
+  it('each problem has its own rough-work page', () => {
+    const store = setup(three)
+    const first = store.scratchKey
+    store.skip()
+    expect(store.scratchKey).not.toBe(first)
+    store.back()
+    expect(store.scratchKey).toBe(first)
+    store.startSimilar(store.current!, () => 0.4)
+    const similarKey = store.scratchKey
+    expect(similarKey).toMatch(/^similar-/)
+    store.endSimilar()
+    store.startSimilar(store.current!, () => 0.4)
+    expect(store.scratchKey).not.toBe(similarKey) // a new similar problem gets a fresh page
+  })
+})

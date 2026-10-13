@@ -34,6 +34,7 @@ import {
   type ProblemOp,
   type Random,
 } from '../utils/problems'
+import type { AnswerBoxes } from '../utils/answer'
 import { buildUnlockCards, cleanExamples, type UnlockCard } from '../utils/realWorld'
 import { withStory, type PracticeProblem } from '../utils/stories'
 
@@ -119,6 +120,8 @@ export interface SummaryItem {
   wrongAttempts: number
   hintsShown: number
   stepsShown: number
+  /** She never submitted an answer for this problem (skipped or left blank). */
+  unanswered: boolean
 }
 
 /** Wrong answers before the app offers the worked steps. */
@@ -162,6 +165,10 @@ interface Work {
   /** Her latest answer that wasn't fully right; Learn compares against it. */
   lastAnswer: string
   message: string
+  /** What she typed in the three boxes, kept while she moves between problems. */
+  draft: AnswerBoxes
+  /** The answer that was accepted, shown when she revisits a solved problem. */
+  solvedAnswer: string
   /** Whether this problem asks her to prove a correct answer (first 2 of each type). */
   proofAsked: boolean
   proof: ProofWork
@@ -186,6 +193,8 @@ function newWork(): Work {
     hintEvents: 0,
     lastAnswer: '',
     message: '',
+    draft: { whole: '', num: '', den: '' },
+    solvedAnswer: '',
     proofAsked: false,
     proof: { wrong: 0, hint: null, steps: [], result: null, done: false, helped: false },
     wrongCheck: newWrongCheck(),
@@ -241,12 +250,17 @@ export const usePracticeStore = defineStore('practice', () => {
   /** How many proofs have been asked so far for each type of problem. */
   const proofsAsked = ref<Record<Op, number>>({ add: 0, subtract: 0 })
 
-  const work = ref<Work>(newWork())
+  /** One saved state per problem in the first pass, so she can skip, go back and forth. */
+  const works = ref<Work[]>([])
+  /** The state of a problem reopened from the summary. */
+  const retryWork = ref<Work>(newWork())
   /** A missed problem reopened from the summary, plus the missed ones still waiting. */
   const retry = ref<{ index: number; queue: number[] } | null>(null)
   /** A "try one like it" problem. Its own work, so the problem underneath is left as it was. */
   const similar = ref<{ problem: PracticeProblem; work: Work } | null>(null)
 
+  /** Counts "try one like it" problems, so each gets its own rough-work page. */
+  const similarCount = ref(0)
   const lastHint = ref<string | null>(null)
   const lastSuccess = ref<string | null>(null)
   const lastWrongMessage = ref<string | null>(null)
@@ -270,15 +284,43 @@ export const usePracticeStore = defineStore('practice', () => {
     if (finished.value && !retry.value) return null
     return problems.value[activeIndex.value] ?? null
   })
-  const activeWork = computed<Work>(() => (similar.value ? similar.value.work : work.value))
+  const activeWork = computed<Work>(() => {
+    if (similar.value) return similar.value.work
+    if (retry.value) return retryWork.value
+    return works.value[index.value] ?? newWork()
+  })
 
   const isSolved = computed(() => activeWork.value.solved)
   const isSimilar = computed(() => similar.value !== null)
   const isRetry = computed(() => retry.value !== null && similar.value === null)
+  const lastIndex = computed(() => problems.value.length - 1)
+  /** Only the first pass has free navigation; retries and "try one like it" have their own Back button. */
+  const canNavigate = computed(() => inFirstPass.value && problems.value.length > 0)
+  const isLastProblem = computed(() => canNavigate.value && index.value === lastIndex.value)
+  /** Problems she has not solved yet (skipped, not started, or still wrong). */
+  const unansweredCount = computed(() => works.value.filter((w) => !w.solved).length)
   /** Moving on needs the proof only when this problem asked for one. */
   const canAdvance = computed(
     () => activeWork.value.solved && (!activeWork.value.proofAsked || activeWork.value.proof.done),
   )
+  /** A solved problem with a pending proof can't be left going forward (Back is still fine). */
+  const canLeaveForward = computed(() => !activeWork.value.solved || canAdvance.value)
+  const canGoBack = computed(() => canNavigate.value && index.value > 0)
+  const canSkip = computed(
+    () => canNavigate.value && !isLastProblem.value && !activeWork.value.solved,
+  )
+  /** Submit is for the last problem, and not while a proof is waiting. */
+  const canSubmit = computed(() => isLastProblem.value && canLeaveForward.value)
+  /** Where her rough work for the problem on screen is kept. */
+  const scratchKey = computed(() => {
+    if (similar.value) return `similar-${similarCount.value}`
+    if (retry.value) return `retry-${retry.value.index}`
+    return `set-${index.value}`
+  })
+  /** What she typed in the answer boxes for the problem on screen. */
+  const draft = computed(() => activeWork.value.draft)
+  /** The accepted answer for a solved problem, shown when she revisits it. */
+  const solvedAnswer = computed(() => activeWork.value.solvedAnswer)
   /** Her latest answer that wasn't fully right, for the Learn panel. */
   const currentMissedAnswer = computed(() => activeWork.value.lastAnswer)
 
@@ -364,6 +406,7 @@ export const usePracticeStore = defineStore('practice', () => {
         wrongAttempts: wrongAttempts.value[i] ?? 0,
         hintsShown: hintsShown.value[i] ?? 0,
         stepsShown: stepsShown.value[i] ?? 0,
+        unanswered: (attempts.value[i] ?? 0) === 0,
       }
     })
     return {
@@ -386,7 +429,8 @@ export const usePracticeStore = defineStore('practice', () => {
   function sync() {
     if (!inFirstPass.value) return
     const i = index.value
-    const w = work.value
+    const w = works.value[i]
+    if (!w) return
     attempts.value[i] = w.attempts
     wrongAttempts.value[i] = w.wrongAttempts
     hintsShown.value[i] = w.hintsShown
@@ -415,7 +459,8 @@ export const usePracticeStore = defineStore('practice', () => {
     resetUnlock()
     retry.value = null
     similar.value = null
-    work.value = newWork()
+    works.value = list.map(() => newWork())
+    retryWork.value = newWork()
   }
 
   function resetUnlock() {
@@ -449,6 +494,7 @@ export const usePracticeStore = defineStore('practice', () => {
 
     if (result.status === 'correct') {
       w.solved = true
+      w.solvedAnswer = answer.trim()
       w.hintTexts = []
       // Proofs are asked on the first few problems of each type, then not at all.
       w.proofAsked = proofsAsked.value[problem.op] < PROOFS_PER_TYPE
@@ -576,6 +622,36 @@ export const usePracticeStore = defineStore('practice', () => {
     return result.status
   }
 
+  /** Goes to the previous problem. Her work on both problems is kept. */
+  function back(): boolean {
+    if (!canGoBack.value) return false
+    index.value -= 1
+    return true
+  }
+
+  /** Moves past a problem she hasn't solved. She can come back to it later. */
+  function skip(): boolean {
+    if (!canSkip.value) return false
+    index.value += 1
+    return true
+  }
+
+  /**
+   * Finishes the test from the last problem. Returns false when problems are unanswered and she hasn't
+   * confirmed yet (the page then asks "Submit anyway?"). Unanswered problems count as missed.
+   */
+  function submitTest(confirmed = false): boolean {
+    if (!canSubmit.value) return false
+    if (unansweredCount.value > 0 && !confirmed) return false
+    finished.value = true
+    return true
+  }
+
+  /** Keeps what she has typed so it is still there when she comes back to this problem. */
+  function setDraft(boxes: AnswerBoxes) {
+    activeWork.value.draft = { ...boxes }
+  }
+
   /** Moves on once the problem is solved and, when asked, proved. Returns false if not ready. */
   function next(): boolean {
     if (!current.value || !canAdvance.value) return false
@@ -587,7 +663,7 @@ export const usePracticeStore = defineStore('practice', () => {
     if (retry.value) {
       const [following, ...rest] = retry.value.queue
       retry.value = following === undefined ? null : { index: following, queue: rest }
-      work.value = newWork()
+      retryWork.value = newWork()
       return true
     }
     if (index.value >= problems.value.length - 1) {
@@ -595,7 +671,6 @@ export const usePracticeStore = defineStore('practice', () => {
     } else {
       index.value += 1
     }
-    work.value = newWork()
     return true
   }
 
@@ -637,7 +712,7 @@ export const usePracticeStore = defineStore('practice', () => {
     if (!unlockDone.value || summary.value.items[i]?.correct !== false) return
     similar.value = null
     retry.value = { index: i, queue: [] }
-    work.value = newWork()
+    retryWork.value = newWork()
   }
 
   /** Reopens every missed problem, one after another. */
@@ -647,14 +722,14 @@ export const usePracticeStore = defineStore('practice', () => {
     if (first === undefined) return
     similar.value = null
     retry.value = { index: first, queue: rest }
-    work.value = newWork()
+    retryWork.value = newWork()
   }
 
   /** Leaves a retry and goes back to the summary. */
   function backToSummary() {
     retry.value = null
     similar.value = null
-    work.value = newWork()
+    retryWork.value = newWork()
   }
 
   /** "Try one like it": a new problem with the same operation and regroup setting. Doesn't change the score. */
@@ -663,6 +738,7 @@ export const usePracticeStore = defineStore('practice', () => {
     if (!source) return
     const like = generateSimilarProblem(source, MAX_DENOMINATOR, rng)
     const hasStory = 'story' in source && source.story !== undefined
+    similarCount.value += 1
     similar.value = { problem: hasStory ? withStory(like, rng) : like, work: newWork() }
   }
 
@@ -679,7 +755,8 @@ export const usePracticeStore = defineStore('practice', () => {
     score.value = 0
     retry.value = null
     similar.value = null
-    work.value = newWork()
+    works.value = []
+    retryWork.value = newWork()
   }
 
   return {
@@ -708,9 +785,11 @@ export const usePracticeStore = defineStore('practice', () => {
     proofStreak,
     proofMaster,
     proofsAsked,
-    work,
+    works,
+    retryWork,
     retry,
     similar,
+    similarCount,
     lastHint,
     lastSuccess,
     lastWrongMessage,
@@ -721,6 +800,16 @@ export const usePracticeStore = defineStore('practice', () => {
     isSimilar,
     isRetry,
     canAdvance,
+    canNavigate,
+    canLeaveForward,
+    isLastProblem,
+    unansweredCount,
+    canGoBack,
+    canSkip,
+    canSubmit,
+    scratchKey,
+    draft,
+    solvedAnswer,
     currentMissedAnswer,
     feedback,
     proof,
@@ -740,6 +829,10 @@ export const usePracticeStore = defineStore('practice', () => {
     skipExamples,
     continueToSummary,
     next,
+    back,
+    skip,
+    submitTest,
+    setDraft,
     retryProblem,
     retryMissed,
     backToSummary,

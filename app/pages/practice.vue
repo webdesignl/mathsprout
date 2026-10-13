@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { usePracticeStore, SET_SIZE } from '../stores/practice'
+import { useScratchStore } from '../stores/scratch'
 import {
   boxesToText,
   isAnswerEmpty,
@@ -13,6 +14,10 @@ import type { ProblemOp } from '../utils/problems'
 useHead({ title: 'Practice · MathSprout' })
 
 const store = usePracticeStore()
+const scratch = useScratchStore()
+
+/** Rough work is for working on problems, not for choosing a set or reading results. */
+const showPad = computed(() => scratch.open && store.view === 'playing' && store.current !== null)
 
 const choices: Array<{ value: ProblemOp; label: string }> = [
   { value: 'add', label: 'Add' },
@@ -23,11 +28,16 @@ const op = ref<ProblemOp>('add')
 const needsRegroup = ref(false)
 const stories = ref(true)
 
-const emptyAnswer = (): AnswerBoxes => ({ whole: '', num: '', den: '' })
-const answer = ref<AnswerBoxes>(emptyAnswer())
+/** The answer boxes belong to the problem on screen, so what she typed is kept when she moves around. */
+const answer = computed<AnswerBoxes>({
+  get: () => store.draft,
+  set: (boxes) => store.setDraft(boxes),
+})
+const confirmingSubmit = ref(false)
 const message = ref('')
 const input = ref<{ focus: () => void } | null>(null)
 const nextButton = ref<HTMLButtonElement | null>(null)
+const submitButton = ref<HTMLButtonElement | null>(null)
 
 /** The problem and answer shown in the Learn panel, or null when it is closed. */
 const learnTarget = ref<{ problem: Problem; answer: string } | null>(null)
@@ -39,14 +49,14 @@ async function focusInput() {
   input.value?.focus()
 }
 
-// A new problem (next, retry, or "try one like it") starts with empty boxes.
+// A different problem (next, back, skip, retry, or "try one like it"): clear messages, focus the boxes.
 watch(
   () => store.current,
   () => {
-    answer.value = emptyAnswer()
     message.value = ''
     learnTarget.value = null
-    focusInput()
+    confirmingSubmit.value = false
+    if (!store.isSolved) focusInput()
   },
 )
 
@@ -56,11 +66,12 @@ watch(
   async (ready) => {
     if (!ready) return
     await nextTick()
-    nextButton.value?.focus()
+    ;(nextButton.value ?? submitButton.value)?.focus()
   },
 )
 
 function begin() {
+  scratch.reset()
   store.start({ op: op.value, needsRegroup: needsRegroup.value, stories: stories.value })
   focusInput()
 }
@@ -97,6 +108,16 @@ function tryOneLikeIt() {
   learnTarget.value = null
 }
 
+function startOver() {
+  scratch.reset()
+  store.reset()
+}
+
+/** Submit from the last problem. With unanswered problems she is asked to confirm first. */
+function submitTest() {
+  if (!store.submitTest()) confirmingSubmit.value = store.unansweredCount > 0
+}
+
 function leave() {
   if (store.isSimilar) store.endSimilar()
   else store.backToSummary()
@@ -104,7 +125,13 @@ function leave() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl space-y-6">
+  <div
+    :class="[
+      'mx-auto',
+      showPad ? 'max-w-6xl lg:grid lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-start lg:gap-8' : 'max-w-3xl',
+    ]"
+  >
+    <div :class="['min-w-0 space-y-6', showPad ? 'pb-[60vh] lg:pb-0' : '']">
     <!-- Choose what to practice -->
     <section v-if="store.view === 'idle'" class="space-y-6">
       <h1 class="text-4xl font-bold text-emerald-900">Practice</h1>
@@ -176,7 +203,7 @@ function leave() {
         @retry="store.retryProblem($event)"
         @retry-all="store.retryMissed()"
         @learn="openLearnFromSummary($event)"
-        @again="store.reset()"
+        @again="startOver"
       />
     </template>
 
@@ -196,6 +223,18 @@ function leave() {
         </p>
         <div class="flex flex-wrap items-center justify-between gap-2">
           <PracticeProofStreak :streak="store.proofStreak" :master="store.proofMaster" />
+          <button
+            type="button"
+            aria-controls="rough-work"
+            :aria-expanded="showPad"
+            class="inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-4 text-lg font-semibold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+            @click="scratch.toggle()"
+          >
+            <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+              <path d="M4 20l1-4L16 5l3 3L8 19l-4 1Z" stroke-linejoin="round" />
+            </svg>
+            Rough work
+          </button>
           <button
             v-if="store.isSimilar || store.isRetry"
             type="button"
@@ -235,6 +274,10 @@ function leave() {
           </div>
         </form>
 
+        <p v-if="store.isSolved && store.solvedAnswer" class="text-center text-xl text-slate-900">
+          Your answer: <span class="font-bold">{{ store.solvedAnswer }}</span>
+        </p>
+
         <PracticeFeedbackPanel
           :feedback="store.feedback"
           @hint="store.nextHint()"
@@ -255,25 +298,86 @@ function leave() {
           @submit="store.submitProof($event)"
         />
 
-        <div v-if="store.canAdvance" class="flex justify-center">
+        <!-- Asked before submitting with unanswered problems; they count as missed. -->
+        <section
+          v-if="confirmingSubmit && store.unansweredCount > 0"
+          role="alert"
+          class="space-y-3 rounded-2xl border-2 border-amber-700 bg-amber-100 p-5"
+        >
+          <p class="text-2xl font-bold text-amber-950">
+            You have {{ store.unansweredCount }} unanswered. Submit anyway?
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <button
+              type="button"
+              :class="[button, 'bg-white text-amber-950 ring-2 ring-amber-700 hover:bg-amber-50']"
+              @click="confirmingSubmit = false"
+            >
+              Keep working
+            </button>
+            <button
+              type="button"
+              :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']"
+              @click="store.submitTest(true)"
+            >
+              Submit anyway
+            </button>
+          </div>
+        </section>
+
+        <div
+          v-if="store.canNavigate || store.canAdvance"
+          class="flex flex-wrap items-center justify-between gap-3"
+        >
           <button
-            ref="nextButton"
+            v-if="store.canGoBack"
             type="button"
-            :class="[button, 'min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800']"
-            @click="store.next()"
+            :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']"
+            @click="store.back()"
           >
-            {{
-              store.isSimilar
-                ? 'Done'
-                : store.isRetry
-                  ? 'Next'
-                  : store.index === store.total - 1
-                    ? 'See my results'
-                    : 'Next problem'
-            }}
+            Back
           </button>
+          <div class="ml-auto flex flex-wrap items-center gap-3">
+            <button
+              v-if="store.canSkip"
+              type="button"
+              :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']"
+              @click="store.skip()"
+            >
+              Skip
+            </button>
+            <button
+              v-if="store.canAdvance && !store.isLastProblem"
+              ref="nextButton"
+              type="button"
+              :class="[button, 'min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800']"
+              @click="store.next()"
+            >
+              {{ store.isSimilar ? 'Done' : store.isRetry ? 'Next' : 'Next problem' }}
+            </button>
+            <button
+              v-if="store.canSubmit"
+              ref="submitButton"
+              type="button"
+              :class="[button, 'min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800']"
+              @click="submitTest"
+            >
+              Submit
+            </button>
+          </div>
         </div>
       </template>
     </section>
+    </div>
+
+    <!-- Rough work: beside the problem on wide screens, a bottom sheet on narrow ones. -->
+    <aside
+      v-if="showPad && store.current"
+      id="rough-work"
+      aria-label="Rough work"
+      class="fixed inset-x-0 bottom-0 z-20 max-h-[60vh] overflow-y-auto rounded-t-2xl border-t-4 border-slate-700 bg-emerald-50 p-4 shadow-2xl lg:sticky lg:top-4 lg:max-h-none lg:self-start lg:overflow-visible lg:rounded-2xl lg:border-4 lg:shadow-md"
+    >
+      <PracticeScratchPad :page-key="store.scratchKey" @close="scratch.toggle()" />
+    </aside>
   </div>
 </template>
