@@ -170,7 +170,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 ### D-19: Free navigation during a test (Skip, Back, Submit)
 - **Date:** 2026-10
 - **Source:** User request; behaviours chosen by user
-- **Decision:** In the first pass she can Skip an unsolved problem, go Back to an earlier one, and press Submit at the last problem. Each problem keeps its own state (answer draft, hints, feedback) while she moves around. Retries and "Try one like it" keep their own simple Back button. Back, Skip and Submit sit directly under "Check my answer" (user request, tight spacing); "Next problem" stays below the feedback and proof.
+- **Decision:** In the first pass she can Skip an unsolved problem, go Back to an earlier one, and press Submit at the last problem. Each problem keeps its own state (answer draft, hints, feedback) while she moves around. Retries and "Try one like it" keep their own simple Back button. Back (left) and Skip / Submit (right) sit in one row directly under "Check my answer" with tight spacing (user request; a centered-together version was tried and rejected as clumsy); "Next problem" is right-aligned below the feedback and proof.
 - **Why:** Flexibility in taking a test.
 - **Status:** Active
 

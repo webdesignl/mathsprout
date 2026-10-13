@@ -258,7 +258,7 @@ function leave() {
       />
 
       <template v-else>
-        <!-- The answer boxes, Check, and Back / Skip / Submit sit together, close under each other. -->
+        <!-- The answer boxes and Check, with Back on the left and Skip / Submit on the right just beneath. -->
         <div class="space-y-3">
           <form v-if="!store.isSolved" class="space-y-3" @submit.prevent="check">
             <p class="text-center text-xl font-semibold">Write your answer as a mixed number.</p>
@@ -282,7 +282,7 @@ function leave() {
 
           <div
             v-if="store.canGoBack || store.canSkip || store.canSubmit"
-            class="flex flex-wrap items-center justify-center gap-3"
+            class="flex flex-wrap items-center justify-between gap-3"
           >
             <button
               v-if="store.canGoBack"
@@ -292,23 +292,25 @@ function leave() {
             >
               Back
             </button>
-            <button
-              v-if="store.canSkip"
-              type="button"
-              :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']"
-              @click="store.skip()"
-            >
-              Skip
-            </button>
-            <button
-              v-if="store.canSubmit"
-              ref="submitButton"
-              type="button"
-              :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']"
-              @click="submitTest"
-            >
-              Submit
-            </button>
+            <div class="ml-auto flex flex-wrap items-center gap-3">
+              <button
+                v-if="store.canSkip"
+                type="button"
+                :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']"
+                @click="store.skip()"
+              >
+                Skip
+              </button>
+              <button
+                v-if="store.canSubmit"
+                ref="submitButton"
+                type="button"
+                :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']"
+                @click="submitTest"
+              >
+                Submit
+              </button>
+            </div>
           </div>
 
           <!-- Asked before submitting with unanswered problems; they count as missed. -->
@@ -360,7 +362,7 @@ function leave() {
         />
 
         <!-- After solving (and proving, when asked), the next problem comes below. -->
-        <div v-if="store.canAdvance && !store.isLastProblem" class="flex justify-center">
+        <div v-if="store.canAdvance && !store.isLastProblem" class="flex justify-end">
           <button
             ref="nextButton"
             type="button"
