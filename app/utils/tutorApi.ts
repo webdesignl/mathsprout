@@ -1,3 +1,4 @@
+import type { Plan } from './plan'
 import { isNegative, isZero, subtract, type AnyProblem, type MixedNumber } from './fraction'
 
 /** What the Tutor routes send back. Failures always carry a short, kind message. */
@@ -5,6 +6,8 @@ export type Failure = { ok: false; reason: string; message: string }
 
 export type ReadReply =
   | { ok: true; problem: AnyProblem; operands: [string, string]; problemText: string; confidence: 'high' | 'low' }
+  /** A problem in several steps, each one an operation the engine has already checked. */
+  | { ok: true; plan: Plan; problemText: string; confidence: 'high' | 'low' }
   | Failure
 
 export type HintReply = { ok: true; hint: string; source: string; level: number } | Failure
