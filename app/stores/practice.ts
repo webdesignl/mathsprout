@@ -1,26 +1,26 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
-  add,
-  addSteps,
   checkAnswer,
   diagnose,
   formatMixed,
   inverseProblem,
   isNegative,
+  opSymbol,
   parseMixed,
-  subtract,
+  problemAnswer,
+  sizeCheck,
   toImproper,
-  subtractSteps,
+  workedSteps,
   type AnswerStatus,
-  type Op,
+  type AnyOp,
+  type AnyProblem,
   type Operand,
-  type Problem,
   type Step,
 } from '../utils/fraction'
 import {
   GENERIC_STEP_HINT,
-  SLIP_NUDGES,
+  slipNudge,
   NOT_SIMPLEST_MESSAGE,
   PROOF_SLIP_MESSAGES,
   STEP_HINTS,
@@ -43,7 +43,7 @@ export const SET_SIZE = 10
 export const MAX_DENOMINATOR = 12
 /** Proofs done without help, in a row, to earn the badge. */
 export const PROOF_MASTER_AT = 3
-/** Proofs are asked on this many problems of each type (add, subtract); after that, none. */
+/** Proofs are asked on this many problems of each type (add, subtract, multiply, divide); after that, none. */
 export const PROOFS_PER_TYPE = 2
 /** After this many hints on a wrong answer, she proves her own answer by adding it back. */
 export const HINTS_BEFORE_CHECK = 3
@@ -63,6 +63,8 @@ export type Feedback =
   | {
       kind: 'wrong'
       message: string
+      /** For multiplying and dividing: a nudge when her answer is the wrong size, or '' when it is fine. */
+      sizeMessage: string
       hints: string[]
       moreHints: boolean
       canShowSteps: boolean
@@ -115,7 +117,7 @@ export type View = 'idle' | 'playing' | 'unlock' | 'summary'
 export interface SummaryItem {
   number: number
   index: number
-  problem: Problem
+  problem: AnyProblem
   firstTry: boolean
   retryCorrect: boolean
   /** Right on the first try, or right after a retry. */
@@ -164,6 +166,8 @@ interface Work {
   learned: boolean
   lastResult: AnswerStatus | null
   hintTexts: string[]
+  /** For × and ÷: a nudge when her last answer is the wrong size (the engine's sizeCheck). */
+  sizeMessage: string
   /** Every hint shown on this problem (the first on each wrong answer, plus extra ones she asks for). */
   hintEvents: number
   /** Her latest answer that wasn't fully right; Learn compares against it. */
@@ -202,6 +206,7 @@ function newWork(): Work {
     lastResult: null,
     hintTexts: [],
     hintEvents: 0,
+    sizeMessage: '',
     lastAnswer: '',
     message: '',
     draft: { whole: '', num: '', den: '' },
@@ -214,16 +219,17 @@ function newWork(): Work {
   }
 }
 
-function answerOf(problem: Problem): Operand {
-  return (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
+/** The correct answer. Practice problems never divide by zero, so there is always one. */
+function answerOf(problem: AnyProblem): Operand {
+  return problemAnswer(problem) ?? { numerator: 0, denominator: 1 }
 }
 
-function stepsOf(problem: Problem): Step[] {
-  return problem.op === 'add' ? addSteps(problem.a, problem.b) : subtractSteps(problem.a, problem.b)
+function stepsOf(problem: AnyProblem): Step[] {
+  return workedSteps(problem)
 }
 
 /** Steps a student may be shown. The final "answer" step is left out so she still finishes it herself. */
-function revealableSteps(problem: Problem): Step[] {
+function revealableSteps(problem: AnyProblem): Step[] {
   return stepsOf(problem).filter((s) => s.kind !== 'answer')
 }
 
@@ -261,7 +267,7 @@ export const usePracticeStore = defineStore('practice', () => {
   const proofStreak = ref(0)
   const proofMaster = ref(false)
   /** How many proofs have been asked so far for each type of problem. */
-  const proofsAsked = ref<Record<Op, number>>({ add: 0, subtract: 0 })
+  const proofsAsked = ref<Record<AnyOp, number>>({ add: 0, subtract: 0, multiply: 0, divide: 0 })
 
   /** One saved state per problem in the first pass, so she can skip, go back and forth. */
   const works = ref<Work[]>([])
@@ -280,6 +286,8 @@ export const usePracticeStore = defineStore('practice', () => {
   const lastProofSlip = ref<string | null>(null)
 
   const total = computed(() => problems.value.length)
+  /** The operations in this set, so the end-of-set question is about the ones she practiced. */
+  const problemOps = computed<AnyOp[]>(() => [...new Set(problems.value.map((p) => p.op))])
   /** Stars a parent has given for this set's ideas. */
   const extraCredit = computed(
     () => ideaReviews.value.filter((r) => r.set === setNumber.value && r.approved === true).length,
@@ -365,6 +373,7 @@ export const usePracticeStore = defineStore('practice', () => {
     return {
       kind: 'wrong',
       message: w.message,
+      sizeMessage: w.sizeMessage,
       hints: w.hintTexts.slice(0, w.hintsVisible),
       moreHints: w.hintsVisible < w.hintTexts.length,
       canShowSteps: w.wrongAttempts >= WRONG_BEFORE_STEPS,
@@ -379,7 +388,7 @@ export const usePracticeStore = defineStore('practice', () => {
     const w = activeWork.value
     if (!problem || !(w.solved || w.pendingProof) || !w.proofAsked) return null
     const inverse = inverseProblem(problem)
-    const symbol = inverse.op === 'add' ? '+' : '−'
+    const symbol = opSymbol(inverse.op)
     return {
       equation: `${formatMixed(inverse.a)} ${symbol} ${formatMixed(inverse.b)} = ?`,
       done: w.proof.done,
@@ -402,7 +411,7 @@ export const usePracticeStore = defineStore('practice', () => {
     if (!problem || w.solved || w.lastResult !== 'wrong' || w.hintEvents < HINTS_BEFORE_CHECK) return null
     const inverse = herInverse(problem, w.lastAnswer)
     if (!inverse) return null
-    const symbol = inverse.op === 'add' ? '+' : '−'
+    const symbol = opSymbol(inverse.op)
     return {
       round: w.attempts,
       equation: `${formatMixed(inverse.a)} ${symbol} ${formatMixed(inverse.b)} = ?`,
@@ -463,7 +472,7 @@ export const usePracticeStore = defineStore('practice', () => {
   }
 
   /** Starts a set from ready-made problems (also used by tests and, later, saved sets). */
-  function startWith(list: Problem[], newOptions?: PracticeOptions) {
+  function startWith(list: AnyProblem[], newOptions?: PracticeOptions) {
     if (newOptions) options.value = { ...newOptions }
     setNumber.value += 1
     problems.value = [...list]
@@ -557,6 +566,7 @@ export const usePracticeStore = defineStore('practice', () => {
         w.hintsShown = Math.max(w.hintsShown, 1)
         w.hintEvents += 1
         w.wrongCheck = newWrongCheck()
+        w.sizeMessage = sizeNudge(problem, answer)
         lastHint.value = w.hintTexts[0] ?? lastHint.value
       }
     }
@@ -839,6 +849,7 @@ export const usePracticeStore = defineStore('practice', () => {
     lastWrongMessage,
     lastProofSlip,
     total,
+    problemOps,
     current,
     view,
     isSolved,
@@ -892,10 +903,10 @@ export const usePracticeStore = defineStore('practice', () => {
  * The diagnose hint and a nudge toward the slip's step (one short question each).
  * Never repeats the hint she just saw: if the first one matches, the other goes first.
  */
-function buildHints(problem: Problem, answer: string, previous: string | null): string[] {
+function buildHints(problem: AnyProblem, answer: string, previous: string | null): string[] {
   const diagnosis = diagnose(problem, answer)
   const step = diagnosis.stepIndex === null ? undefined : stepsOf(problem)[diagnosis.stepIndex]
-  const nudge = SLIP_NUDGES[diagnosis.slip] ?? (step ? STEP_HINTS[step.kind] : GENERIC_STEP_HINT)
+  const nudge = slipNudge(diagnosis.slip, problem.op) ?? (step ? STEP_HINTS[step.kind] : GENERIC_STEP_HINT)
   const hints = [diagnosis.hint, nudge]
   return hints[0] === previous ? [hints[1]!, hints[0]!] : hints
 }
@@ -904,9 +915,20 @@ function buildHints(problem: Problem, answer: string, previous: string | null): 
  * Her wrong answer put into the opposite equation (her answer + b, or her answer - b).
  * Null when her answer can't be read, or the add-back would go below zero (she can't type that).
  */
-function herInverse(problem: Problem, answerText: string): Problem | null {
+function herInverse(problem: AnyProblem, answerText: string): AnyProblem | null {
   const typed = parseMixed(answerText)
   if (!typed) return null
   const inverse = inverseProblem(problem, toImproper(typed))
   return isNegative(answerOf(inverse)) ? null : inverse
+}
+
+/**
+ * For multiplying and dividing: does her answer break the size rule (times a fraction under 1 makes it
+ * smaller, dividing by one makes it bigger)? Returns the engine's kid-friendly message, or '' if fine.
+ */
+function sizeNudge(problem: AnyProblem, answerText: string): string {
+  if (problem.op !== 'multiply' && problem.op !== 'divide') return ''
+  const typed = parseMixed(answerText)
+  if (!typed) return ''
+  return sizeCheck(problem.op, problem.a, problem.b, toImproper(typed)).message ?? ''
 }

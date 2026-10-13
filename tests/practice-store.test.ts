@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { formatMixed, subtract, type Problem } from '../app/utils/fraction'
+import { formatMixed, problemAnswer, subtract, type AnyProblem, type MixedNumber, type MulProblem, type Problem } from '../app/utils/fraction'
 import { SET_SIZE, usePracticeStore } from '../app/stores/practice'
 import { withStory } from '../app/utils/stories'
 import { PROOF_SLIP_MESSAGES } from '../app/utils/messages'
 
 const sub: Problem = { op: 'subtract', a: { whole: 8, num: 1, den: 5 }, b: { whole: 4, num: 3, den: 4 } } // 3 9/20
+const SUB_PROBLEM: Problem = sub
 const add: Problem = { op: 'add', a: { whole: 4, num: 1, den: 3 }, b: { whole: 2, num: 5, den: 12 } } // 6 3/4
 
 /** After the last problem she sees the real-world screen; skip through it to reach the summary. */
@@ -14,7 +15,7 @@ function leaveUnlock(store: ReturnType<typeof usePracticeStore>) {
   store.continueToSummary()
 }
 
-function setup(list: Problem[] = [sub, add]) {
+function setup(list: AnyProblem[] = [sub, add]) {
   const store = usePracticeStore()
   store.startWith(list, { op: 'mixed', needsRegroup: false })
   return store
@@ -618,7 +619,7 @@ describe('proofs are asked on the first 2 problems of each type', () => {
     expect(store.proof).toBeNull()
     expect(store.canAdvance).toBe(true)
     expect(store.submitProof('4 1/3')).toBeNull()
-    expect(store.proofsAsked).toEqual({ add: 2, subtract: 0 })
+    expect(store.proofsAsked).toEqual({ add: 2, subtract: 0, multiply: 0, divide: 0 })
     expect(store.next()).toBe(true)
   })
 
@@ -628,7 +629,7 @@ describe('proofs are asked on the first 2 problems of each type', () => {
       solveAndProve(store, answer)
       store.next()
     }
-    expect(store.proofsAsked).toEqual({ add: 2, subtract: 2 })
+    expect(store.proofsAsked).toEqual({ add: 2, subtract: 2, multiply: 0, divide: 0 })
     store.submit('3 9/20')
     expect(store.proof).toBeNull() // third subtraction
   })
@@ -1201,5 +1202,201 @@ describe('a slip in the proof is not a slip in her answer', () => {
     store.submit('3 9/20')
     store.submitProof('41/5')
     expect(store.proof?.encouragement).toBeNull()
+  })
+})
+
+describe('multiplication and division in Practice', () => {
+  const mul: MulProblem = { op: 'multiply', a: { whole: 2, num: 1, den: 2 }, b: { whole: 3, num: 1, den: 3 } } // 8 1/3
+  const div: MulProblem = { op: 'divide', a: { whole: 0, num: 2, den: 3 }, b: { whole: 0, num: 4, den: 9 } } // 1 1/2
+  const half: MulProblem = { op: 'multiply', a: { whole: 6, num: 0, den: 1 }, b: { whole: 0, num: 1, den: 2 } } // 3
+
+  it('multiply: the proof is the division check, and a correct proof reveals the result', () => {
+    const store = setup([mul])
+    expect(store.submit('8 1/3')).toBe('correct')
+    expect(store.feedback).toBeNull() // proof first
+    expect(store.proof?.equation).toBe('8 1/3 ÷ 3 1/3 = ?')
+    expect(store.submitProof('2 1/2')).toBe('correct')
+    expect(store.feedback?.kind).toBe('correct')
+    expect(store.score).toBe(1)
+  })
+
+  it('divide: the proof multiplies back', () => {
+    const store = setup([div])
+    store.submit('1 1/2')
+    expect(store.proof?.equation).toBe('1 1/2 × 4/9 = ?')
+    expect(store.submitProof('2/3')).toBe('correct')
+  })
+
+  it('proof hints use the right words for each operation', () => {
+    const m = setup([mul])
+    m.submit('8 1/3')
+    m.submitProof('9')
+    expect(m.proof?.hint).toContain('undo multiplying')
+    setActivePinia(createPinia())
+    const d = setup([div])
+    d.submit('1 1/2')
+    d.submitProof('9')
+    expect(d.proof?.hint).toContain('undo dividing')
+  })
+
+  it('counts proofs for each of the four operations separately', () => {
+    const store = setup([mul, mul, mul, div as Problem])
+    for (const [answer, proof] of [['8 1/3', '2 1/2'], ['8 1/3', '2 1/2']] as const) {
+      store.submit(answer)
+      store.submitProof(proof)
+      store.next()
+    }
+    expect(store.proofsAsked).toEqual({ add: 0, subtract: 0, multiply: 2, divide: 0 })
+    store.submit('8 1/3')
+    expect(store.proof).toBeNull() // third multiplication: no proof
+    store.submitProof('2 1/2')
+    store.next()
+    store.submit('1 1/2')
+    expect(store.proof).not.toBeNull() // first division: asked
+  })
+
+  it('a wrong divide answer gets the engine hint about flipping, then a nudge at the flip step', () => {
+    const store = setup([div])
+    expect(store.submit('8/27')).toBe('wrong')
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.hints[0]).toBe('What do you do to the second fraction when you divide?')
+    store.nextHint()
+    const after = store.feedback
+    if (after?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(after.hints[1]).toBe('Which fraction do you flip when you divide?')
+  })
+
+  it('"Show me the steps" reveals the new steps one at a time, without the answer step', () => {
+    const store = setup([div])
+    store.submit('8/27')
+    store.submit('1/3')
+    for (let i = 0; i < 10; i++) store.showSteps()
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.steps.map((s) => s.kind)).toEqual(['flip', 'cancel', 'multiplyAcross', 'toMixed'])
+    expect(fb.moreSteps).toBe(false)
+  })
+
+  it('after three hints a wrong divide answer is added back with multiplication', () => {
+    const store = setup([div])
+    store.submit('8/27')
+    store.nextHint()
+    store.submit('8/27')
+    expect(store.wrongCheck?.equation).toBe('8/27 × 4/9 = ?')
+    expect(store.submitWrongCheck('32/243')).toBe('correct')
+    expect(store.wrongCheck?.message).toBe('That makes 32/243. We started with 2/3.')
+  })
+
+  it('the size rule: 6 x 1/2 answered as 12 gets the engine message', () => {
+    const store = setup([half])
+    expect(store.submit('12')).toBe('wrong')
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.sizeMessage).toBe('1/2 is less than 1, so multiplying makes 6 smaller. Check your answer.')
+  })
+
+  it('the size message goes away when the new answer is the right size, and never shows for add or subtract', () => {
+    const store = setup([half])
+    store.submit('12')
+    store.submit('2')
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.sizeMessage).toBe('') // 2 is smaller than 6, so the size is fine (it is just not 3)
+    setActivePinia(createPinia())
+    const sub = setup([SUB_PROBLEM])
+    sub.submit('99')
+    const subFb = sub.feedback
+    if (subFb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(subFb.sizeMessage).toBe('')
+  })
+
+  it('divide size rule: 6 ÷ 1/2 answered as 3', () => {
+    const store = setup([{ op: 'divide', a: { whole: 6, num: 0, den: 1 }, b: { whole: 0, num: 1, den: 2 } }])
+    store.submit('3')
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.sizeMessage).toBe('1/2 is less than 1, so dividing makes 6 bigger. Check your answer.')
+  })
+
+  it('retry works for a missed multiplication', () => {
+    const store = setup([mul])
+    store.submit('6 1/6')
+    store.submit('8 1/3')
+    store.submitProof('2 1/2')
+    store.next()
+    leaveUnlock(store)
+    expect(store.summary.missed).toEqual([0])
+    store.retryProblem(0)
+    store.submit('8 1/3')
+    store.submitProof('2 1/2')
+    expect(store.retryCorrect).toEqual([true])
+  })
+
+  it('"try one like it" stays at the same level and operation', () => {
+    const store = setup([div])
+    store.startSimilar(store.current!, () => 0.3)
+    expect(store.current?.op).toBe('divide')
+    const like = store.current as unknown as { a: MixedNumber; b: MixedNumber }
+    expect(like.a.whole).toBe(0)
+    expect(like.b.whole).toBe(0)
+  })
+
+  it('start() with each new operation makes ten valid problems', () => {
+    for (const op of ['multiply', 'divide', 'all'] as const) {
+      setActivePinia(createPinia())
+      const store = usePracticeStore()
+      store.start({ op, needsRegroup: false, stories: true }, () => 0.37)
+      expect(store.problems).toHaveLength(SET_SIZE)
+      for (const p of store.problems) {
+        expect(p.story).toBeTruthy()
+        expect(problemAnswer(p)).not.toBeNull()
+      }
+    }
+  })
+
+  it('the end-of-set ideas work after a multiplication and division set', () => {
+    const store = setup([mul])
+    store.submit('8 1/3')
+    store.submitProof('2 1/2')
+    store.next()
+    store.skipExamples()
+    expect(store.unlockCards).toHaveLength(3)
+  })
+})
+
+describe('wrong operation hints for multiplication and division', () => {
+  const times: MulProblem = { op: 'multiply', a: { whole: 0, num: 2, den: 3 }, b: { whole: 0, num: 3, den: 4 } } // 1/2
+  const over: MulProblem = { op: 'divide', a: { whole: 6, num: 0, den: 1 }, b: { whole: 0, num: 2, den: 3 } } // 9
+
+  function hintsFor(problem: MulProblem, wrong: string) {
+    const store = setup([withStory(problem)])
+    store.submit(wrong)
+    store.nextHint()
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    return fb.hints
+  }
+
+  it('multiplying answered by adding: repeated addition first, then clue words for multiplying', () => {
+    expect(hintsFor(times, '1 5/12')).toEqual([
+      'Multiplying is repeated adding. How many times should you add it?',
+      'Words like “each”, “of” and “times” point to multiplying.',
+    ])
+  })
+
+  it('dividing answered by subtracting: part or split first, then clue words for dividing', () => {
+    expect(hintsFor(over, '5 1/3')).toEqual([
+      'Are we taking a part of it, or splitting it up?',
+      'Words like “shared equally” and “how many fit” point to dividing.',
+    ])
+  })
+
+  it('the hint is about the operation, so it is the same hint for a story and for plain numbers', () => {
+    const plain = setup([times])
+    plain.submit('1 5/12')
+    const fb = plain.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.hints[0]).toBe('Multiplying is repeated adding. How many times should you add it?')
   })
 })

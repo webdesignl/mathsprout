@@ -1,4 +1,4 @@
-import type { Op, Slip, StepKind } from './fraction'
+import type { AnyOp, Slip, StepKind } from './fraction'
 
 /** A function returning a number in [0, 1), like Math.random. */
 type Random = () => number
@@ -44,6 +44,11 @@ export const STEP_HINTS: Record<StepKind, string> = {
   toMixed: 'Is there a whole hiding in the fraction?',
   negative: 'Which number should come first?',
   answer: 'Put the whole and fraction together. What do you get?',
+  toImproper: 'How can a mixed number be written as one fraction?',
+  cancel: 'Is there a top and a bottom that share a factor?',
+  multiplyAcross: 'What do you get when you multiply the tops and the bottoms?',
+  flip: 'Which fraction do you flip when you divide?',
+  divideByZero: 'What happens when you try to share among zero groups?',
 }
 
 /** A second hint for slips that happen before any step (so there is no step to point at). */
@@ -51,20 +56,39 @@ export const SLIP_NUDGES: Partial<Record<Slip, string>> = {
   wrongOperation: 'Words like “in all” add. Words like “left” subtract.',
 }
 
+/**
+ * A second hint for slips that happen before any step. For mixing up the operation it depends on the problem:
+ * adding and subtracting, multiplying, or dividing each have their own clue words.
+ */
+export function slipNudge(slip: Slip, op: AnyOp): string | undefined {
+  if (slip === 'wrongOperation') {
+    if (op === 'multiply') return 'Words like “each”, “of” and “times” point to multiplying.'
+    if (op === 'divide') return 'Words like “shared equally” and “how many fit” point to dividing.'
+  }
+  return SLIP_NUDGES[slip]
+}
+
 export const GENERIC_STEP_HINT = 'Go one step at a time. What comes first?'
 
 /** A hint for the proof step, aimed at the opposite operation. */
-export function proofHint(op: Op, other: string): string {
-  return op === 'subtract'
-    ? `To undo subtracting, add ${other} back. What do you get?`
-    : `To undo adding, take ${other} away. What do you get?`
+export function proofHint(op: AnyOp, other: string): string {
+  switch (op) {
+    case 'subtract':
+      return `To undo subtracting, add ${other} back. What do you get?`
+    case 'add':
+      return `To undo adding, take ${other} away. What do you get?`
+    case 'multiply':
+      return `To undo multiplying, divide by ${other}. What do you get?`
+    case 'divide':
+      return `To undo dividing, multiply by ${other}. What do you get?`
+  }
 }
 
 /** Kind names for slips, used in the Learn panel. */
-export function slipName(slip: Slip, op: Op): string | null {
+export function slipName(slip: Slip, op: AnyOp): string | null {
   switch (slip) {
     case 'numeratorArithmetic':
-      return op === 'add' ? 'an adding slip' : 'a subtracting slip'
+      return { add: 'an adding slip', subtract: 'a subtracting slip', multiply: 'a multiplying slip', divide: 'a dividing slip' }[op]
     case 'wholeArithmetic':
       return 'a whole-number slip'
     case 'forgotRegroup':
@@ -77,7 +101,40 @@ export function slipName(slip: Slip, op: Op): string | null {
       return 'a not-simplest slip'
     case 'wrongOperation':
       return 'using the other operation'
+    case 'multipliedPartsSeparately':
+      return 'multiplying the parts separately'
+    case 'forgotToConvertMixed':
+      return 'a mixed number slip'
+    case 'forgotReciprocal':
+      return 'forgetting to flip'
+    case 'flippedWrongFraction':
+      return 'flipping the wrong fraction'
+    case 'cancellingSlip':
+      return 'a cancelling slip'
     default:
       return null
   }
+}
+
+const OP_ING: Record<AnyOp, string> = {
+  add: 'adding',
+  subtract: 'subtracting',
+  multiply: 'multiplying',
+  divide: 'dividing',
+}
+
+/** The operations as words, in a fixed order: "multiplying", "adding and subtracting", "adding, subtracting, multiplying and dividing". */
+export function opsPhrase(ops: AnyOp[]): string {
+  const words = (['add', 'subtract', 'multiply', 'divide'] as const).filter((op) => ops.includes(op)).map((op) => OP_ING[op])
+  if (words.length === 0) return 'adding, subtracting, multiplying and dividing'
+  if (words.length === 1) return words[0]!
+  return `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`
+}
+
+/** Why each operation fits, used when a problem has no story of its own. */
+export const OPERATION_WHY: Record<AnyOp, string> = {
+  add: 'We add because the amounts are put together.',
+  subtract: 'We subtract because some is taken away, or we want what is left.',
+  multiply: 'We multiply because an amount is repeated, or we take a part of it.',
+  divide: 'We divide because something is split into equal parts, or we count how many parts fit.',
 }

@@ -1,4 +1,4 @@
-import type { Op } from './fraction'
+import type { AnyOp } from './fraction'
 import type { Topic } from './stories'
 
 type Random = () => number
@@ -19,7 +19,7 @@ interface Idea {
 }
 
 // Original, short examples of where adding and subtracting fractions shows up in real life.
-const IDEAS: Record<Op, Idea[]> = {
+const IDEAS: Record<AnyOp, Idea[]> = {
   add: [
     { topic: 'kitchen', text: 'Bakers add 1 1/2 cups of flour and 3/4 cup more to double a recipe.' },
     { topic: 'building', text: 'Builders add 2 1/2 feet and 1 3/4 feet to cut a board the right length.' },
@@ -35,6 +35,22 @@ const IDEAS: Record<Op, Idea[]> = {
     { topic: 'art', text: 'Crafters subtract the ribbon they used to know how much is left for the next gift.' },
     { topic: 'time', text: 'You subtract 2/3 hour of homework from 1 1/2 hours to see your free time.' },
     { topic: 'shopping', text: 'Shoppers subtract 3/4 kilo from a 2 kilo bag to see how much they have left.' },
+  ],
+  multiply: [
+    { topic: 'kitchen', text: 'Cooks multiply by 2/3 to make a smaller batch of a recipe.' },
+    { topic: 'building', text: 'Builders multiply 3/4 meter by 6 shelves to know how much board to buy.' },
+    { topic: 'sport', text: 'Runners multiply 1 1/2 miles by 4 days to plan their weekly distance.' },
+    { topic: 'art', text: 'Painters multiply 1/2 liter by 5 paintings to know how much paint to bring.' },
+    { topic: 'time', text: 'You multiply 3/4 hour by 3 to find your total practice time for the week.' },
+    { topic: 'shopping', text: 'Shoppers multiply the price of 1/2 kilo by 3 to pay for 1 1/2 kilos.' },
+  ],
+  divide: [
+    { topic: 'kitchen', text: 'Cooks divide 3 cups of rice by 3/4 cup to count how many servings they can make.' },
+    { topic: 'building', text: 'Carpenters divide a 6 meter board by 3/4 meter to count the shelves it can make.' },
+    { topic: 'sport', text: 'Hikers divide a 5 mile trail by 1 1/4 miles per hour to find how long it takes.' },
+    { topic: 'art', text: 'Crafters divide 4 meters of ribbon by 1/2 meter to count how many bows they can tie.' },
+    { topic: 'time', text: 'You divide 2 hours by 1/3 hour to see how many short games fit.' },
+    { topic: 'shopping', text: 'Shoppers divide a 3 kilo bag into 3/4 kilo parts to see how many they get.' },
   ],
 }
 
@@ -63,13 +79,13 @@ export function cleanExamples(inputs: string[]): string[] {
  * operations (and, when given, the story topics) she practiced, and never repeats an idea.
  */
 export function pickRealWorldExamples(
-  ops: Op[],
+  ops: AnyOp[],
   count: number,
   topics: string[] = [],
   rng: Random = Math.random,
 ): UnlockCard[] {
   const pool: Idea[] = []
-  for (const op of ops.length > 0 ? ops : (['add', 'subtract'] as Op[])) pool.push(...IDEAS[op])
+  for (const op of ops.length > 0 ? ops : (['add', 'subtract'] as AnyOp[])) pool.push(...IDEAS[op])
 
   const remaining = [...pool].sort((x, y) => Number(topics.includes(y.topic)) - Number(topics.includes(x.topic)))
   const picked: UnlockCard[] = []
@@ -86,7 +102,7 @@ export function pickRealWorldExamples(
 /** Cards for the reveal: her ideas first, then ideas from the app to fill up to three. */
 export function buildUnlockCards(
   mine: string[],
-  ops: Op[],
+  ops: AnyOp[],
   topics: string[] = [],
   rng: Random = Math.random,
 ): UnlockCard[] {

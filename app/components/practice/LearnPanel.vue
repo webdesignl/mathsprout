@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { Problem } from '../../utils/fraction'
+import type { PracticeProblem } from '../../utils/stories'
 import { buildLearn } from '../../utils/learn'
 
-const props = withDefaults(defineProps<{ problem: Problem; answer: string; showTryLike?: boolean; showBack?: boolean }>(), {
+const props = withDefaults(defineProps<{ problem: PracticeProblem
+    answer: string
+    /** The problem in words, for problems that have no story of their own (for example one she photographed). */
+    question?: string
+    showTryLike?: boolean
+    showBack?: boolean
+  }>(), {
   showTryLike: true,
   showBack: true,
 })
@@ -20,6 +26,38 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
 <template>
   <section class="space-y-5 rounded-2xl border-2 border-indigo-700 bg-indigo-50 p-5">
     <h2 class="text-2xl font-bold text-indigo-950">Let’s walk through it</h2>
+
+    <!-- 1. The question, so she knows what the problem is. -->
+    <div class="space-y-3">
+      <h3 class="text-xl font-bold text-slate-900">The problem</h3>
+      <p v-if="question && !problem.story" class="rounded-2xl bg-white p-5 text-2xl leading-snug text-slate-900">{{ question }}</p>
+      <PracticeProblemCard :problem="problem" :show-numbers="true" />
+    </div>
+
+    <!-- 2. Why this operation. -->
+    <div class="rounded-xl border-2 border-indigo-700 bg-white p-4">
+      <h3 class="text-xl font-bold text-slate-900">Which operation, and why?</h3>
+      <p class="text-xl text-slate-900">{{ learn.why }}</p>
+    </div>
+
+    <!-- 3. Her answer next to the correct one. -->
+    <div v-if="learn.comparison" class="grid gap-3 sm:grid-cols-2" aria-label="Your answer and the correct answer">
+      <div class="rounded-xl bg-amber-100 p-4">
+        <p class="text-lg font-semibold text-amber-950">
+          {{ learn.comparison.kind === 'wrong' ? 'Your answer' : 'Your answer (not finished yet)' }}
+        </p>
+        <p class="text-3xl font-bold text-amber-950">{{ learn.comparison.yours }}</p>
+      </div>
+      <div class="rounded-xl bg-emerald-100 p-4">
+        <p class="text-lg font-semibold text-emerald-950">
+          {{ learn.comparison.kind === 'wrong' ? 'The correct answer' : 'In simplest form' }}
+        </p>
+        <p class="text-3xl font-bold text-emerald-950">{{ learn.comparison.correct }}</p>
+      </div>
+    </div>
+
+    <!-- 4. How to do it, one step at a time. -->
+    <h3 class="text-xl font-bold text-slate-900">How to do it</h3>
     <p v-if="learn.intro" class="text-xl text-slate-900">{{ learn.intro }}</p>
 
     <ol class="space-y-3" aria-live="polite">

@@ -16,8 +16,14 @@ interface FakeOptions {
 
 function fakeApi(options: FakeOptions = {}) {
   const explainReplies = [...(options.explain ?? [])]
-  const api: TutorApi & { read: ReturnType<typeof vi.fn>; hint: ReturnType<typeof vi.fn>; explain: ReturnType<typeof vi.fn> } = {
+  const api: TutorApi & {
+    read: ReturnType<typeof vi.fn>
+    understand: ReturnType<typeof vi.fn>
+    hint: ReturnType<typeof vi.fn>
+    explain: ReturnType<typeof vi.fn>
+  } = {
     read: vi.fn(async () => options.read ?? { ok: true, problem: SUB, operands: ['8 1/5', '4 3/4'], problemText: 'An elephant has 8 1/5 buckets.', confidence: 'high' }),
+    understand: vi.fn(async () => ({ ok: true, text: 'Imagine the story. What is happening?', source: 'ai' })),
     hint: vi.fn(async ({ level }: { level: 1 | 2 | 3 }) => options.hint?.(level) ?? { ok: true, hint: `Hint ${level}, what do you notice?`, source: 'ai', level }),
     explain: vi.fn(async () => explainReplies.shift() ?? { ok: true, verdict: 'clear', praise: 'You checked your work.', source: 'ai' }),
   }
@@ -30,6 +36,8 @@ async function atAttempt(api = fakeApi()) {
   store.setApi(api)
   await store.readProblem(PHOTO)
   store.confirmProblem()
+  store.chooseOperation(store.problem!.op)
+  store.continueFromUnderstanding()
   return { store, api }
 }
 
@@ -95,6 +103,9 @@ describe('capture and confirm', () => {
     expect(await store.imStuck()).toBe(false)
     expect(store.state).toBe('confirm')
     expect(store.confirmProblem()).toBe(true)
+    expect(store.state).toBe('understand')
+    store.chooseOperation(store.problem!.op)
+    expect(store.continueFromUnderstanding()).toBe(true)
     expect(store.state).toBe('attempt')
   })
 
@@ -106,7 +117,7 @@ describe('capture and confirm', () => {
     expect(store.state).toBe('confirm')
     expect(store.problem).toEqual(ADD)
     expect(store.confirmProblem()).toBe(true)
-    expect(store.state).toBe('attempt')
+    expect(store.state).toBe('understand')
   })
 
   it('"Fix it" rejects numbers that make no sense, with a kind message, and stays on confirm', async () => {
