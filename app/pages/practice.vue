@@ -258,25 +258,86 @@ function leave() {
       />
 
       <template v-else>
-        <form v-if="!store.isSolved" class="space-y-4" @submit.prevent="check">
-          <p class="text-center text-xl font-semibold">Write your answer as a mixed number.</p>
-          <PracticeMixedNumberInput ref="input" v-model="answer" @submit="check" />
-          <p v-if="message" class="text-center text-xl font-semibold text-red-800" role="alert">
-            {{ message }}
+        <!-- The answer boxes, Check, and Back / Skip / Submit sit together, close under each other. -->
+        <div class="space-y-3">
+          <form v-if="!store.isSolved" class="space-y-3" @submit.prevent="check">
+            <p class="text-center text-xl font-semibold">Write your answer as a mixed number.</p>
+            <PracticeMixedNumberInput ref="input" v-model="answer" @submit="check" />
+            <p v-if="message" class="text-center text-xl font-semibold text-red-800" role="alert">
+              {{ message }}
+            </p>
+            <div class="flex justify-center">
+              <button
+                type="submit"
+                :class="[button, 'min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800']"
+              >
+                Check my answer
+              </button>
+            </div>
+          </form>
+
+          <p v-if="store.isSolved && store.solvedAnswer" class="text-center text-xl text-slate-900">
+            Your answer: <span class="font-bold">{{ store.solvedAnswer }}</span>
           </p>
-          <div class="flex justify-center">
+
+          <div
+            v-if="store.canGoBack || store.canSkip || store.canSubmit"
+            class="flex flex-wrap items-center justify-center gap-3"
+          >
             <button
-              type="submit"
-              :class="[button, 'min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800']"
+              v-if="store.canGoBack"
+              type="button"
+              :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']"
+              @click="store.back()"
             >
-              Check my answer
+              Back
+            </button>
+            <button
+              v-if="store.canSkip"
+              type="button"
+              :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']"
+              @click="store.skip()"
+            >
+              Skip
+            </button>
+            <button
+              v-if="store.canSubmit"
+              ref="submitButton"
+              type="button"
+              :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']"
+              @click="submitTest"
+            >
+              Submit
             </button>
           </div>
-        </form>
 
-        <p v-if="store.isSolved && store.solvedAnswer" class="text-center text-xl text-slate-900">
-          Your answer: <span class="font-bold">{{ store.solvedAnswer }}</span>
-        </p>
+          <!-- Asked before submitting with unanswered problems; they count as missed. -->
+          <section
+            v-if="confirmingSubmit && store.unansweredCount > 0"
+            role="alert"
+            class="space-y-3 rounded-2xl border-2 border-amber-700 bg-amber-100 p-5"
+          >
+            <p class="text-2xl font-bold text-amber-950">
+              You have {{ store.unansweredCount }} unanswered. Submit anyway?
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <button
+                type="button"
+                :class="[button, 'bg-white text-amber-950 ring-2 ring-amber-700 hover:bg-amber-50']"
+                @click="confirmingSubmit = false"
+              >
+                Keep working
+              </button>
+              <button
+                type="button"
+                :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']"
+                @click="store.submitTest(true)"
+              >
+                Submit anyway
+              </button>
+            </div>
+          </section>
+        </div>
 
         <PracticeFeedbackPanel
           :feedback="store.feedback"
@@ -298,73 +359,16 @@ function leave() {
           @submit="store.submitProof($event)"
         />
 
-        <!-- Asked before submitting with unanswered problems; they count as missed. -->
-        <section
-          v-if="confirmingSubmit && store.unansweredCount > 0"
-          role="alert"
-          class="space-y-3 rounded-2xl border-2 border-amber-700 bg-amber-100 p-5"
-        >
-          <p class="text-2xl font-bold text-amber-950">
-            You have {{ store.unansweredCount }} unanswered. Submit anyway?
-          </p>
-          <div class="flex flex-wrap gap-3">
-            <button
-              type="button"
-              :class="[button, 'bg-white text-amber-950 ring-2 ring-amber-700 hover:bg-amber-50']"
-              @click="confirmingSubmit = false"
-            >
-              Keep working
-            </button>
-            <button
-              type="button"
-              :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']"
-              @click="store.submitTest(true)"
-            >
-              Submit anyway
-            </button>
-          </div>
-        </section>
-
-        <div
-          v-if="store.canNavigate || store.canAdvance"
-          class="flex flex-wrap items-center justify-between gap-3"
-        >
+        <!-- After solving (and proving, when asked), the next problem comes below. -->
+        <div v-if="store.canAdvance && !store.isLastProblem" class="flex justify-center">
           <button
-            v-if="store.canGoBack"
+            ref="nextButton"
             type="button"
-            :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']"
-            @click="store.back()"
+            :class="[button, 'min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800']"
+            @click="store.next()"
           >
-            Back
+            {{ store.isSimilar ? 'Done' : store.isRetry ? 'Next' : 'Next problem' }}
           </button>
-          <div class="ml-auto flex flex-wrap items-center gap-3">
-            <button
-              v-if="store.canSkip"
-              type="button"
-              :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']"
-              @click="store.skip()"
-            >
-              Skip
-            </button>
-            <button
-              v-if="store.canAdvance && !store.isLastProblem"
-              ref="nextButton"
-              type="button"
-              :class="[button, 'min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800']"
-              @click="store.next()"
-            >
-              {{ store.isSimilar ? 'Done' : store.isRetry ? 'Next' : 'Next problem' }}
-            </button>
-            <button
-              v-if="store.canSubmit"
-              ref="submitButton"
-              type="button"
-              :class="[button, 'min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800']"
-              @click="submitTest"
-            >
-              Submit
-            </button>
-          </div>
         </div>
       </template>
     </section>
