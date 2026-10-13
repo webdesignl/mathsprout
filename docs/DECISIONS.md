@@ -231,8 +231,49 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 
 ---
 
+## Tutor API (feature-0010)
+
+### D-26: AI reads, hints and gives feedback; the engine decides correctness
+- **Date:** 2026-10
+- **Source:** User spec (Tutor flow in docs/PLAN.md)
+- **Decision:** Three server routes: `POST /api/tutor/read` (photo or text to a problem), `/hint` (one guiding question) and `/explain` (feedback on her reasoning). The AI never grades the number and never does fraction math. Every operand it reads is parsed by the fraction engine, and the steps, correct answer and slip diagnosis for hints come from the engine on the server.
+- **Models:** `claude-sonnet-5-5` reads photos and word problems. `claude-haiku-4-5-20251001` (the ID the user named) writes hints and explanation feedback. Both are constants in `server/utils/anthropic.ts`.
+- **Why:** Keeps D-01 true while still using AI where it helps (reading handwriting, wording a hint).
+- **Alternatives:** Letting the model check answers; one model for everything.
+- **Status:** Active. Not done: the optional server-side refusal fallback for Sonnet 5.5. A refusal is treated as "could not read" (read) or falls back to the template (hint, explain).
+
+### D-27: Hints must never state the answer or the step result, and always fall back to a template
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** A hint is one question of at most 20 words. A guard checks every AI hint for the final answer (simplest mixed, "3 and 9/20", improper such as 69/20) and for the result of the flagged step (for example 9/20 and its top number 9, also spelled out). A leak or a badly shaped hint is regenerated once, then replaced by a hand-written template for the flagged step and level. If the API fails or takes longer than 8 seconds, the template is used immediately. The tutor therefore always works.
+- **What counts as "the step's result":** the numbers that are new in that step (the right side of "=", or what changed compared with the step before). Numbers from earlier steps are allowed, so level 2 can say "Is 4/20 enough to take away 15/20?" when the regroup step is the focus.
+- **Alternatives:** Trusting the prompt alone.
+- **Status:** Active. Known gap: the guard matches numbers and spelled numbers, not every possible phrasing (for example "nine twentieths").
+
+### D-28: Explanation feedback judges reasoning only, kindly
+- **Date:** 2026-10
+- **Source:** User spec, plus D-00
+- **Decision:** The model gets a checklist built from the engine's steps (common denominator, regrouping, simplest form, checking). It returns `clear`, `partly` or `missing`, praise of at most 12 words, and one follow-up question when not clear. Replies with harsh words ("wrong", "incorrect", "mistake"), long praise or bad shape are retried once, then replaced by a kind template. An explanation under 3 words gets a gentle follow-up with no API call.
+- **Status:** Active
+
+### D-29: Privacy, cost and demo safeguards on all three routes
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** Email addresses, phone numbers and introduced names ("my name is Mia", "Hi Sam", "Name: ...") are removed from text before it goes to an AI. Photos cannot be scrubbed, so the prompt tells the model to ignore personal details and the returned problem text is cleaned. Images and student text are never logged; only the route, the error type and the HTTP status are. A shared in-memory limit allows 30 requests per 10 minutes per IP address (429 with `Retry-After`). `DEMO_MODE=true` returns canned answers with no API calls. The API key is server-only runtime config (`NUXT_ANTHROPIC_API_KEY`), never sent to the browser.
+- **Status:** Active. Known gaps: name removal is a heuristic and misses names with no introduction; the rate limit lives in one server's memory, so it resets on restart and is per instance on serverless hosting.
+
+### D-30: Reading supports one addition or subtraction of two numbers
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** Anything else (multiplication, division, decimals, chains such as 1 - 1/6 - 7/10, or a subtraction that goes below zero) returns `unsupported` with a kid-friendly message. Photos over 5 MB are rejected before any API call. Invalid JSON is retried once, then returns `unreadable`. Low-confidence reads are returned with `confidence: "low"` so the app can ask her to confirm.
+- **Status:** Active
+
+---
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
 - Add a PIN or similar lock to the Parent page once accounts exist.
 - Should "first 2 proofs per type" reset per set instead of per session?
+- Move the tutor rate limit to shared storage once the app runs on more than one server.
+- Add the server-side refusal fallback for the photo reader if refusals show up in practice.
