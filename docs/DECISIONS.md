@@ -213,6 +213,14 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** Send every answer, right or wrong, to the proof first so the proof never gives away the result (offered as the recommended option, not chosen).
 - **Status:** Active. Known gap: because wrong answers get "Not quite" immediately, seeing the proof step instead tells her she is right. The user accepted this for now.
 
+### D-25: A slip in the proof gets encouragement that says the slip is in the check, not her answer
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** When her proof is wrong (while the result is still held back, per D-24), show a short encouraging line such as "The slip is in the proof, not your answer. Keep going!" together with the hint question about the add-back. Lines vary and never repeat back to back. The first wrong proof does not count as a wrong answer. A second wrong proof shows the worked add-back and then tells her the answer was right. An "equal but not simplest" proof is only a nudge and gets no slip message.
+- **Why:** She is about to be right. A wrong proof should not make her think the original problem was wrong or make her give up.
+- **Alternatives:** Only the plain hint question (what we had).
+- **Status:** Active. This tells her that her answer is right before the result is shown, which is the gap accepted in D-24.
+
 ---
 
 ## Open questions

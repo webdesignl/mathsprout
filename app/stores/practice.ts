@@ -22,6 +22,7 @@ import {
   GENERIC_STEP_HINT,
   SLIP_NUDGES,
   NOT_SIMPLEST_MESSAGE,
+  PROOF_SLIP_MESSAGES,
   STEP_HINTS,
   SUCCESS_MESSAGES,
   WRONG_MESSAGES,
@@ -92,6 +93,8 @@ export interface Proof {
   /** Last proof answer: 'wrong' or 'notSimplest' while she is still working. */
   result: AnswerStatus | null
   hint: string | null
+  /** A short encouraging line when her proof has a slip (the slip is in the proof, not her answer). */
+  encouragement: string | null
   /** The worked add-back, shown after two wrong proofs. */
   steps: Step[]
   helped: boolean
@@ -132,6 +135,7 @@ const WRONG_PROOFS_BEFORE_STEPS = 2
 interface ProofWork {
   wrong: number
   hint: string | null
+  encouragement: string | null
   steps: Step[]
   result: AnswerStatus | null
   done: boolean
@@ -205,7 +209,7 @@ function newWork(): Work {
     pendingProof: false,
     firstTry: false,
     proofAsked: false,
-    proof: { wrong: 0, hint: null, steps: [], result: null, done: false, helped: false },
+    proof: { wrong: 0, hint: null, encouragement: null, steps: [], result: null, done: false, helped: false },
     wrongCheck: newWrongCheck(),
   }
 }
@@ -273,6 +277,7 @@ export const usePracticeStore = defineStore('practice', () => {
   const lastHint = ref<string | null>(null)
   const lastSuccess = ref<string | null>(null)
   const lastWrongMessage = ref<string | null>(null)
+  const lastProofSlip = ref<string | null>(null)
 
   const total = computed(() => problems.value.length)
   /** Stars a parent has given for this set's ideas. */
@@ -380,6 +385,7 @@ export const usePracticeStore = defineStore('practice', () => {
       done: w.proof.done,
       result: w.proof.result,
       hint: w.proof.hint,
+      encouragement: w.proof.encouragement,
       steps: w.proof.steps,
       helped: w.proof.helped,
     }
@@ -619,6 +625,8 @@ export const usePracticeStore = defineStore('practice', () => {
         w.proof.done = true
         proofStreak.value = 0
       } else {
+        // Her answer was right; the slip is in the proof. Say so, and give a hint about the check.
+        w.proof.encouragement = lastProofSlip.value = pickDifferent(PROOF_SLIP_MESSAGES, lastProofSlip.value)
         w.proof.hint = proofHint(problem.op, formatMixed(inverse.b))
       }
     }
@@ -829,6 +837,7 @@ export const usePracticeStore = defineStore('practice', () => {
     lastHint,
     lastSuccess,
     lastWrongMessage,
+    lastProofSlip,
     total,
     current,
     view,

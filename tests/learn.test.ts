@@ -5,6 +5,7 @@ import {
   GENERIC_STEP_HINT,
   SLIP_NUDGES,
   NOT_SIMPLEST_MESSAGE,
+  PROOF_SLIP_MESSAGES,
   STEP_HINTS,
   SUCCESS_MESSAGES,
   WRONG_MESSAGES,
@@ -94,6 +95,16 @@ describe('messages', () => {
     }
   })
 
+  it('proof slip messages are encouraging, say the slip is in the proof, and never repeat back to back', () => {
+    expect(PROOF_SLIP_MESSAGES.length).toBeGreaterThanOrEqual(3)
+    for (const last of PROOF_SLIP_MESSAGES) {
+      for (const r of [0, 0.5, 0.99]) {
+        expect(pickDifferent(PROOF_SLIP_MESSAGES, last, () => r)).not.toBe(last)
+      }
+    }
+    for (const m of PROOF_SLIP_MESSAGES) expect(m).toMatch(/proof|check|answer|step/i)
+  })
+
   it('falls back gracefully with a one-item list', () => {
     expect(pickDifferent(['Only'], 'Only')).toBe('Only')
   })
@@ -104,6 +115,7 @@ describe('messages', () => {
       ...WRONG_MESSAGES,
       NOT_SIMPLEST_MESSAGE,
       GENERIC_STEP_HINT,
+      ...PROOF_SLIP_MESSAGES,
       ...Object.values(STEP_HINTS),
       ...Object.values(SLIP_NUDGES),
       proofHint('subtract', '4 3/4'),

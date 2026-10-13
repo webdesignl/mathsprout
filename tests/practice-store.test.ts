@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { formatMixed, subtract, type Problem } from '../app/utils/fraction'
 import { SET_SIZE, usePracticeStore } from '../app/stores/practice'
 import { withStory } from '../app/utils/stories'
+import { PROOF_SLIP_MESSAGES } from '../app/utils/messages'
 
 const sub: Problem = { op: 'subtract', a: { whole: 8, num: 1, den: 5 }, b: { whole: 4, num: 3, den: 4 } } // 3 9/20
 const add: Problem = { op: 'add', a: { whole: 4, num: 1, den: 3 }, b: { whole: 2, num: 5, den: 12 } } // 6 3/4
@@ -1156,5 +1157,49 @@ describe('proof comes before the verdict on the first problems of each type', ()
     store.submitProof('8 1/5')
     expect(store.retryCorrect[0]).toBe(true)
     expect(store.score).toBe(1)
+  })
+})
+
+describe('a slip in the proof is not a slip in her answer', () => {
+  it('a wrong proof gets an encouraging line saying the slip is in the check, plus the hint', () => {
+    const store = setup()
+    store.submit('3 9/20')
+    store.submitProof('9')
+    expect(store.proof?.encouragement).toBeTruthy()
+    expect(PROOF_SLIP_MESSAGES).toContain(store.proof!.encouragement)
+    expect(store.proof?.hint).toMatch(/\?$/)
+    // The answer itself is not marked wrong, and she is not told the result yet.
+    expect(store.feedback).toBeNull()
+    expect(store.wrongAttempts[0]).toBe(0)
+    expect(store.proofPending).toBe(true)
+  })
+
+  it('varies across proofs in one session', () => {
+    const store = setup(Array.from({ length: 2 }, () => sub))
+    store.submit('3 9/20')
+    store.submitProof('9')
+    const first = store.proof!.encouragement
+    store.submitProof('8 1/5')
+    store.next()
+    store.submit('3 9/20')
+    store.submitProof('9')
+    expect(store.proof!.encouragement).not.toBe(first)
+  })
+
+  it('after two wrong proofs she gets the worked add-back and is told her answer was right', () => {
+    const store = setup()
+    store.submit('3 9/20')
+    store.submitProof('9')
+    store.submitProof('8')
+    expect(store.proof?.steps.length).toBeGreaterThan(0)
+    expect(store.feedback?.kind).toBe('correct')
+    expect(store.score).toBe(1)
+  })
+
+  it('a nudge about simplest form is not treated as a slip', () => {
+    const store = setup()
+    store.submit('3 9/20')
+    store.submitProof('41/5')
+    expect(store.proof?.encouragement).toBeNull()
   })
 })
