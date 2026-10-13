@@ -6,7 +6,7 @@ export interface ToolSpec {
   id: ToolId
   label: string
   color: string
-  /** Line width in drawing units (the page is 800 x 1000). */
+  /** Line width in drawing units (the page is 1000 x 1000). */
   width: number
   alpha: number
   /** The eraser cuts through what is already drawn. */
@@ -25,12 +25,12 @@ export interface Stroke {
 }
 
 /** The page is a fixed size, so drawings keep their shape however the panel is resized. */
-export const PAGE_WIDTH = 800
+export const PAGE_WIDTH = 1000
 export const PAGE_HEIGHT = 1000
 
 export const TOOLS: Record<ToolId, ToolSpec> = {
-  pencil: { id: 'pencil', label: 'Pencil', color: '#4b5563', width: 3, alpha: 0.85, composite: 'source-over' },
-  pen: { id: 'pen', label: 'Pen', color: '#1e3a8a', width: 6, alpha: 1, composite: 'source-over' },
+  pencil: { id: 'pencil', label: 'Pencil', color: '#4b5563', width: 3.5, alpha: 0.85, composite: 'source-over' },
+  pen: { id: 'pen', label: 'Pen', color: '#1e3a8a', width: 7, alpha: 1, composite: 'source-over' },
   eraser: { id: 'eraser', label: 'Eraser', color: '#000000', width: 32, alpha: 1, composite: 'destination-out' },
 }
 

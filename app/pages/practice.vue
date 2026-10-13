@@ -128,7 +128,7 @@ function leave() {
   <div
     :class="[
       'mx-auto',
-      showPad ? 'max-w-6xl lg:grid lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-start lg:gap-8' : 'max-w-3xl',
+      showPad ? 'max-w-7xl lg:grid lg:grid-cols-[minmax(0,1fr)_34rem] lg:items-start lg:gap-8' : 'max-w-3xl',
     ]"
   >
     <div :class="['min-w-0 space-y-6', showPad ? 'pb-[60vh] lg:pb-0' : '']">

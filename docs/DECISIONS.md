@@ -198,7 +198,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 ### D-23: Rough work side panel with pencil, pen, eraser, undo and clear
 - **Date:** 2026-10
 - **Source:** User asked for pencil and pen; Claude added eraser, undo and clear as basic needs
-- **Decision:** A drawing panel for rough work. Drawings are kept per problem while the tab is open and are not saved or sent anywhere. Side by side on wide screens, a bottom sheet on narrow ones. Undo and Clear sit on their own labelled row and are always visible (user asked for a clear button). Undo right after Clear brings the page back, until she draws something new.
+- **Decision:** A drawing panel for rough work. Drawings are kept per problem while the tab is open and are not saved or sent anywhere. Side by side on wide screens, a bottom sheet on narrow ones. Undo and Clear sit on their own labelled row and are always visible (user asked for a clear button). Undo right after Clear brings the page back, until she draws something new. Later change at the user's request: the drawing area is wider (square 1000 x 1000 page, 34rem panel on wide screens, so the layout's main area allows up to 7xl) and the pencil, pen and eraser are icon buttons (with names for screen readers and tooltips) instead of text.
 - **Status:** Active
 
 ---

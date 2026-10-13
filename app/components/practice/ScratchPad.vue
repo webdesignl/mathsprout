@@ -91,6 +91,13 @@ onMounted(async () => {
   redraw()
 })
 
+/** Icon colours match the ink each tool draws with. */
+const TOOL_ICON_COLOR: Record<string, string> = {
+  pencil: 'text-gray-600',
+  pen: 'text-blue-900',
+  eraser: 'text-pink-700',
+}
+
 const toolButton = 'inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-lg font-bold'
 const clearButton = `${toolButton} bg-white text-red-900 ring-2 ring-red-800 hover:bg-red-50`
 const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-500 disabled:ring-slate-300`
@@ -115,15 +122,17 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
         :key="id"
         type="button"
         :aria-pressed="scratch.tool === id"
+        :aria-label="TOOLS[id].label"
+        :title="TOOLS[id].label"
         :class="[
-          toolButton,
+          'inline-flex size-14 items-center justify-center rounded-xl',
           scratch.tool === id
             ? 'bg-slate-900 text-white'
-            : 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100',
+            : `bg-white ring-2 ring-slate-600 hover:bg-slate-100 ${TOOL_ICON_COLOR[id]}`,
         ]"
         @click="scratch.setTool(id)"
       >
-        {{ TOOLS[id].label }}
+        <PracticeToolIcon :tool="id" />
       </button>
     </div>
 
@@ -147,7 +156,7 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
       :height="PAGE_HEIGHT * SCALE"
       role="img"
       aria-label="Rough work page. Draw with a finger, a pen or a mouse."
-      class="paper mx-auto block aspect-[4/5] h-[48vh] w-auto max-w-full touch-none rounded-xl border-2 border-slate-700 bg-white lg:h-auto lg:w-full"
+      class="paper mx-auto block aspect-square h-[48vh] w-auto max-w-full touch-none rounded-xl border-2 border-slate-700 bg-white lg:h-auto lg:w-full"
       @pointerdown="onDown"
       @pointermove="onMove"
       @pointerup="onUp"
