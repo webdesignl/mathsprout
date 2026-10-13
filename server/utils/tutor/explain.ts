@@ -1,4 +1,4 @@
-import { addSteps, subtractSteps, type Problem } from '../../../app/utils/fraction'
+import { workedSteps, type AnyProblem } from '../../../app/utils/fraction'
 import { describeProblem } from '../../../app/utils/problems'
 import { EXPLAIN_MODEL, logTutorError, replyText, type MessagesClient } from '../anthropic'
 import { createWithDeadline, dataBlock, extractJson } from './ai'
@@ -20,20 +20,25 @@ export interface ExplainResult {
 }
 
 /** What a good explanation of this problem should cover, from the engine's worked steps. */
-export function methodChecklist(problem: Problem): string[] {
-  const steps = problem.op === 'add' ? addSteps(problem.a, problem.b) : subtractSteps(problem.a, problem.b)
-  const kinds = new Set(steps.map((s) => s.kind))
+export function methodChecklist(problem: AnyProblem): string[] {
+  const kinds = new Set(workedSteps(problem).map((step) => step.kind))
   const items: string[] = []
   if (kinds.has('rename')) items.push('Made the bottom numbers (denominators) the same, using a common denominator')
   if (kinds.has('regroup')) items.push('Borrowed 1 whole when the top number was too small to take away from')
+  if (kinds.has('toImproper')) items.push('Changed mixed numbers and whole numbers into fractions first')
+  if (kinds.has('flip')) items.push('Kept the first fraction, changed ÷ to ×, and flipped the second fraction')
+  if (kinds.has('cancel')) items.push('Cancelled common factors before multiplying')
   if (kinds.has('simplify') || kinds.has('toMixed')) items.push('Wrote the answer in simplest form')
-  items.push('Checked the answer, for example by adding it back')
+  items.push('Checked the answer, for example with the opposite operation')
   return items
 }
 
 /** The follow-up questions used when the AI can't be asked, one per checklist item. */
 const FOLLOW_UPS: Array<[RegExp, string]> = [
   [/common denominator/, 'How did you make the bottom numbers match?'],
+  [/Changed mixed/, 'What did you do with the mixed numbers first?'],
+  [/flipped/, 'What did you do to the second fraction when you divided?'],
+  [/Cancelled/, 'How did you make the numbers smaller before multiplying?'],
   [/Borrowed/, 'What did you do when the top number was too small?'],
   [/simplest form/, 'How do you know your answer is in simplest form?'],
   [/Checked/, 'How could you check that your answer is right?'],

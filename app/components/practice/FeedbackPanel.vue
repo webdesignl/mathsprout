@@ -26,6 +26,9 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
       class="space-y-4 rounded-2xl border-2 border-indigo-700 bg-indigo-50 p-5"
     >
       <p class="text-2xl font-bold text-indigo-950">{{ feedback.message }}</p>
+      <p v-if="feedback.sizeMessage" class="rounded-xl bg-amber-100 p-3 text-xl font-semibold text-amber-950">
+        {{ feedback.sizeMessage }}
+      </p>
       <ul class="space-y-2">
         <li v-for="(hint, i) in feedback.hints" :key="i" class="text-xl text-slate-900">
           {{ hint }}

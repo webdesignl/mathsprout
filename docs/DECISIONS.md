@@ -294,7 +294,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 ### D-34: The check is required, and she can pick add back or estimate
 - **Date:** 2026-10
 - **Source:** User spec
-- **Decision:** She cannot reach the explanation until the check is done. Add back reuses the proof step (one wrong try gets encouragement and a hint, two show the worked add-back). Estimate: she rounds each number to the nearest half or whole herself (ties round up), the app shows the estimate, and she says whether her answer is close. "Close" means within half a whole, because each rounding is off by at most 1/4, so a correct answer is always close (a property test checks this). `estimateCheck` and `roundToHalf` live in `fraction.ts`. Two wrong roundings show the roundings, and two wrong "close?" choices finish the check, so she is never stuck.
+- **Decision:** She cannot reach the explanation until the check is done. The proof (labelled "Give proof" since D-50) reuses the proof step (one wrong try gets encouragement and a hint, two show the worked add-back). Estimate: she rounds each number to the nearest half or whole herself (ties round up), the app shows the estimate, and she says whether her answer is close. "Close" means within half a whole, because each rounding is off by at most 1/4, so a correct answer is always close (a property test checks this). `estimateCheck` and `roundToHalf` live in `fraction.ts`. Two wrong roundings show the roundings, and two wrong "close?" choices finish the check, so she is never stuck.
 - **Status:** Active
 
 ### D-35: Explain-back gets one extra try, and the mic is optional
@@ -319,7 +319,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Source:** User spec
 - **Decision:** `Op` stays `'add' | 'subtract'`. New types `MulOp` (`'multiply' | 'divide'`), `AnyOp`, `MulProblem` and `AnyProblem` cover the new operations. `diagnose`, `verifyByInverse`, `estimateCheck` and `workedSteps` accept all four. Code that only handles add and subtract (Practice, the Tutor routes and their zod schemas) cannot receive a multiply by mistake, because it would have been read as a subtract.
 - **Why:** Many places contain `op === 'add' ? add : subtract`. Widening `Op` would make those silently wrong for a new operation.
-- **Status:** Active. Not wired to the generator, Practice, Learn or the Tutor routes yet.
+- **Status:** Active. Wired into the generator, Practice, Learn, the Tutor and the playground by D-42 to D-45.
 
 ### D-38: Dividing by zero is an error result, never a throw or Infinity
 - **Date:** 2026-10
@@ -347,6 +347,73 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 
 ---
 
+## Multiplication and division everywhere (feature-0013)
+
+### D-42: The generator makes multiplication and division at eight levels, and "all"
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** `generateProblem` accepts `multiply`, `divide` and `all` (a mix of all four). Multiply levels: fraction × whole, fraction × fraction, mixed × whole, mixed × mixed. Divide levels: whole ÷ fraction, fraction ÷ whole, fraction ÷ fraction, mixed ÷ mixed. Denominators run from 2 to 12, wholes from 2 to 9 (never 0 or 1), and every fraction has a numerator of at least 1, so nothing is ever divided by zero and no answer is zero. `levelOf` names a problem's level, and "Try one like it" stays at the same level. `mixed` still means a mix of adding and subtracting, for older code.
+- **Status:** Active
+
+### D-43: Practice works for all four operations
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** The picker shows Add, Subtract, Multiply, Divide and All (the old "Mixed" button is replaced by All). The proof is the opposite operation (r ÷ b for multiplying, r × b for dividing) and is asked on the first 2 problems of each of the four types. Retry, Learn, hints, worked steps and the add-back after three hints all use the engine's steps and `diagnose`. After a wrong multiply or divide answer, `sizeCheck` runs and its message is shown in the feedback if the answer is the wrong size. Story problems have templates for multiplying and dividing too, and the end-of-set ideas cover them.
+- **Status:** Active
+
+### D-44: The Tutor reads and teaches multiplication and division
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** The read route accepts `multiply` and `divide`. The prompt tells the model that ×, x, · and "of" mean multiply (so "2/3 of 12" is 2/3 × 12), that ÷ and "divided by" mean divide, and to write simple words like "half" as fractions. Dividing by zero returns a kind "zero_divisor" message instead of starting an unsolvable problem. Hints, teach steps and the explanation checklist use the new steps and `diagnose`. The leak guard treats numbers already on the left of "=" as known (so "3/5 × 10 = 3/5 × 10/1" only guards 10/1) and no longer guards a bare 0 or 1 as a step result ("1 whole" is a normal hint). The estimate way is hidden when the numbers are too small to estimate (a divisor under 1/4); she uses the opposite operation instead. The typed-problem form has Add, Subtract, Multiply and Divide.
+- **Status:** Active
+
+### D-45: The engine playground is dev-only
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** `/dev/engine` shows the answer (mixed and improper), every worked step, `verifyByInverse`, `estimateCheck`, `sizeCheck`, and for a student answer `checkAnswer` and `diagnose` (slip, step index, hint). It has a Random button that uses the generator and example buttons for the engine test cases. All of the analysis is in a pure function (`analyze`) with tests, and each example's expected answer is verified against the engine. In a production build a Nuxt hook removes every `/dev` route (so it is an ordinary 404), and the page also refuses to render unless `import.meta.dev` is true.
+- **Status:** Active
+
+### D-46: Wrong-operation hints for multiplication and division
+- **Date:** 2026-10
+- **Source:** User (hint wording chosen by the user)
+- **Decision:** `diagnose` now recognises a multiplication or division answer that is the right answer to a different operation, and returns the slip `wrongOperation` with no step index. If she **added** on a multiplication, the hint stresses that multiplying is repeated adding: "Multiplying is repeated adding. How many times should you add it?" If she multiplied and got the answer to a subtraction or a division (either way round), or divided and got the answer to an addition or subtraction, the hint is "Are we taking a part of it, or splitting it up?" A division answered by multiplying stays `forgotReciprocal`, because that is more specific. A correct answer is never a wrong operation, even when two operations agree (2 × 2 = 2 + 2). The second hint has clue words for each operation ("each", "of" and "times" for multiplying; "shared equally" and "how many fit" for dividing). The Tutor's three hint levels have templates for each operation, and the AI hint writer is told the same ideas.
+- **Why:** Story problems hide the operation card (D-17), so she has to choose the operation herself, and "added instead of multiplied" is the most likely mix-up.
+- **Alternatives:** One general "check the operation" hint for all four.
+- **Status:** Active. Not covered: an add/subtract problem answered with a multiplication or division result still gets the add/subtract hint.
+
+---
+
+## Fixes from manual testing (issues #12, #15, #16, #17, #18)
+
+### D-47: The Tutor explains the question and she finds the operation first (#18)
+- **Date:** 2026-10
+- **Source:** User (issue #18)
+- **Decision:** A new step, "Let's understand it", sits between confirm and the attempt (state machine: capture, confirm, understand, attempt, hint1, hint2, hint3, teach, check, explain, done). The tutor explains the question in two or three short sentences and helps her picture it ("Imagine you have 6 cups..."). The explanation never names the operation and never gives the answer, a step or a result. The numbers show with a "?" where the operation goes. She picks Add, Subtract, Multiply or Divide, and the engine checks. A wrong choice gets a hint question (the wrong-operation hints from D-46); after two wrong choices the tutor says which operation it is and why, so she is never stuck. A right choice gets praise and the reason. Only then does she solve.
+- **How the explanation is made:** a new route, `/api/tutor/understand`. The AI (Haiku) writes it from her problem's words. Our checks reject any explanation with an operation word, an answer or a step result, or that is longer than 60 words; it retries once, then uses a plain template. Typed numbers have no story, so they use the template with no API call. The same limits apply as on the other routes (shared rate limit, 8 second limit, personal details removed, demo mode canned, nothing logged).
+- **Also from #18:** after a correct answer the Tutor now gives a short, varied success line, like Practice. A wrong answer already gets "Not quite." and a hint.
+- **Alternatives:** Writing the explanation by hand for every problem (cannot cover photographed and word problems).
+- **Status:** Active
+
+### D-48: Learn shows the question, why the operation, her answer against the correct one, then the steps (#16)
+- **Date:** 2026-10
+- **Source:** User (issue #16)
+- **Decision:** The Learn panel now has four parts: "The problem" (the story or her own words, with the numbers), "Which operation, and why?", her answer next to the correct one when she was wrong (or "not finished yet" next to the simplest form when it was right but unfinished), and "How to do it" one step at a time. Each story has its own reason for its operation; other problems get a general reason per operation. Learn now shows the problem itself, so it also works from the end-of-set summary where no problem was on screen.
+- **Status:** Active
+
+### D-49: The end-of-set question names the operations she practiced (#15)
+- **Date:** 2026-10
+- **Source:** User (issue #15)
+- **Decision:** "Where would you use multiplying fractions?" instead of always "add or subtract". It names only the operations in the set ("adding and subtracting", "multiplying and dividing", all four for a mixed set).
+- **Status:** Active
+
+### D-50: The proof button is generic, and the problem stays visible while she explains (#17, #12)
+- **Date:** 2026-10
+- **Source:** User (issues #17 and #12)
+- **Decision:** In the Tutor the check button is "Give proof" (it was "Add back", which is wrong for multiplying and dividing), the summary says "Proof", and the panel for checking a wrong answer is titled "Check with the opposite operation". The explain step shows the problem, her original wording and her answer, so she can answer a follow-up like "how did you find the common denominator?" without going back to her photo.
+- **Status:** Active
+
+---
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
@@ -354,4 +421,3 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - Should "first 2 proofs per type" reset per set instead of per session?
 - Move the tutor rate limit to shared storage once the app runs on more than one server.
 - Add the server-side refusal fallback for the photo reader if refusals show up in practice.
-- Add multiplication and division to the problem generator, Practice, Learn and the Tutor routes (their schemas only allow add and subtract today).

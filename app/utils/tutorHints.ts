@@ -1,9 +1,14 @@
 import {
-  addSteps,
+  PART_OR_SPLIT_HINT,
+  REPEATED_ADDITION_HINT,
   diagnose,
-  subtractSteps,
+  formatMixed,
+  toFraction,
+  workedSteps,
+  type AnyOp,
+  type AnyProblem,
   type Diagnosis,
-  type Problem,
+  type Operand,
   type Slip,
   type Step,
   type StepKind,
@@ -93,20 +98,35 @@ export const LEVEL_HINTS: Record<StepKind, [string, string, string]> = {
 }
 
 /** Extra level 2 and 3 hints for mixing up the operation, since no step is at fault. */
-const WRONG_OPERATION: [string, string] = [
-  'Does the problem put amounts together, or take some away?',
-  'If the problem asks how much is left, which operation fits?',
-]
+const WRONG_OPERATION: Record<AnyOp, [string, string]> = {
+  add: [
+    'Does the problem put amounts together, or take some away?',
+    'If the problem asks how much is left, which operation fits?',
+  ],
+  subtract: [
+    'Does the problem put amounts together, or take some away?',
+    'If the problem asks how much is left, which operation fits?',
+  ],
+  multiply: [
+    'Does the problem repeat an amount, or find a part of an amount?',
+    'If an amount is repeated again and again, which operation fits?',
+  ],
+  divide: [
+    'Does the problem share something equally, or count how many parts fit?',
+    'If you want to know how many parts fit, which operation helps?',
+  ],
+}
 
 /** The engine's own level 1 hint for each slip (one short question). */
 export function templateHint(
   diagnosis: Diagnosis | null,
   stepKind: StepKind,
   level: 1 | 2 | 3,
+  op: AnyOp = 'add',
 ): string {
   const slip: Slip = diagnosis?.slip ?? 'none'
   if (slip === 'wrongOperation') {
-    return level === 1 ? diagnosis!.hint : WRONG_OPERATION[level === 2 ? 0 : 1]!
+    return level === 1 ? diagnosis!.hint : WRONG_OPERATION[op][level === 2 ? 0 : 1]
   }
   if (level === 1 && diagnosis && slip !== 'none' && slip !== 'unknown' && diagnosis.hint) {
     return diagnosis.hint
@@ -122,8 +142,8 @@ export interface HintTarget {
 }
 
 /** Which step a hint should aim at. The engine decides; nothing here is a guess. */
-export function hintTarget(problem: Problem, studentAnswer: string | undefined, stuck: boolean): HintTarget {
-  const steps = problem.op === 'add' ? addSteps(problem.a, problem.b) : subtractSteps(problem.a, problem.b)
+export function hintTarget(problem: AnyProblem, studentAnswer: string | undefined, stuck: boolean): HintTarget {
+  const steps = workedSteps(problem)
   const answerText = studentAnswer?.trim() ?? ''
   const diagnosis = answerText ? diagnose(problem, answerText) : null
   const flagged = !stuck && diagnosis && diagnosis.stepIndex !== null ? diagnosis.stepIndex : 0
@@ -135,11 +155,38 @@ export function hintTarget(problem: Problem, studentAnswer: string | undefined, 
  * One short question, never an answer. Same templates the server falls back to.
  */
 export function localHint(
-  problem: Problem,
+  problem: AnyProblem,
   studentAnswer: string | undefined,
   stuck: boolean,
   level: 1 | 2 | 3,
 ): string {
   const target = hintTarget(problem, studentAnswer, stuck)
-  return templateHint(target.diagnosis, target.steps[target.flaggedIndex]?.kind ?? 'rename', level)
+  return templateHint(target.diagnosis, target.steps[target.flaggedIndex]?.kind ?? 'rename', level, problem.op)
+}
+
+// --- Understanding the question, before solving it ---
+
+/** Words that name an operation. The explanation of a question must not use them: she finds the operation herself. */
+export const OPERATION_WORDS =
+  /\b(add|adds|adding|addition|plus|sum|subtract|subtracts|subtracting|subtraction|minus|difference|multiply|multiplies|multiplying|multiplication|times|product|divide|divides|dividing|division|quotient|operation)\b/i
+
+/** A hint when she picks the wrong operation: one question, no answer. */
+export function operationHint(chosen: AnyOp, actual: AnyOp): string {
+  if (actual === 'multiply' && chosen === 'add') return REPEATED_ADDITION_HINT
+  if (actual === 'multiply' || actual === 'divide') return PART_OR_SPLIT_HINT
+  return 'Are we putting together or taking away?'
+}
+
+function label(x: Operand): string {
+  return formatMixed(toFraction(x))
+}
+
+/**
+ * A plain explanation of the question for when the tutor can't be reached, or when she typed only numbers.
+ * It names neither the operation nor the answer.
+ */
+export function understandTemplate(problem: AnyProblem, problemText?: string): string {
+  const text = problemText?.trim()
+  if (text) return `Read it slowly: ${text} Picture what is happening. What are you trying to find?`
+  return `You have two numbers: ${label(problem.a)} and ${label(problem.b)}. Picture them. What is the problem asking you to do with them?`
 }

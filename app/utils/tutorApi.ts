@@ -1,10 +1,10 @@
-import { isNegative, subtract, type MixedNumber, type Problem } from './fraction'
+import { isNegative, isZero, subtract, type AnyProblem, type MixedNumber } from './fraction'
 
 /** What the Tutor routes send back. Failures always carry a short, kind message. */
 export type Failure = { ok: false; reason: string; message: string }
 
 export type ReadReply =
-  | { ok: true; problem: Problem; operands: [string, string]; problemText: string; confidence: 'high' | 'low' }
+  | { ok: true; problem: AnyProblem; operands: [string, string]; problemText: string; confidence: 'high' | 'low' }
   | Failure
 
 export type HintReply = { ok: true; hint: string; source: string; level: number } | Failure
@@ -13,20 +13,28 @@ export type ExplainReply =
   | { ok: true; verdict: 'clear' | 'partly' | 'missing'; praise: string; followUp?: string; source: string }
   | Failure
 
+export type UnderstandReply = { ok: true; text: string; source: string } | Failure
+
 export type ReadBody = { imageBase64: string; mediaType: 'image/jpeg' } | { text: string }
 export interface HintBody {
-  problem: Problem
+  problem: AnyProblem
   studentAnswer?: string
   stuck: boolean
   level: 1 | 2 | 3
 }
 export interface ExplainBody {
-  problem: Problem
+  problem: AnyProblem
   explanation: string
+}
+
+export interface UnderstandBody {
+  problem: AnyProblem
+  problemText?: string
 }
 
 export interface TutorApi {
   read(body: ReadBody): Promise<ReadReply>
+  understand(body: UnderstandBody): Promise<UnderstandReply>
   hint(body: HintBody): Promise<HintReply>
   explain(body: ExplainBody): Promise<ExplainReply>
 }
@@ -69,19 +77,21 @@ async function send<T extends { ok: boolean }>(post: Poster, url: string, body: 
 export function createTutorApi(post: Poster): TutorApi {
   return {
     read: (body) => send<ReadReply>(post, '/api/tutor/read', body) as Promise<ReadReply>,
+    understand: (body) => send<UnderstandReply>(post, '/api/tutor/understand', body) as Promise<UnderstandReply>,
     hint: (body) => send<HintReply>(post, '/api/tutor/hint', body) as Promise<HintReply>,
     explain: (body) => send<ExplainReply>(post, '/api/tutor/explain', body) as Promise<ExplainReply>,
   }
 }
 
 /** Typed problems skip the AI. This checks they make sense, in words a child can follow. */
-export function problemError(problem: Problem): string | null {
+export function problemError(problem: AnyProblem): string | null {
   const parts = [problem.a, problem.b] as MixedNumber[]
   for (const p of parts) {
     if (!Number.isInteger(p.whole) || !Number.isInteger(p.num) || !Number.isInteger(p.den) || p.den < 1) {
       return 'Check the numbers. The bottom number can not be zero.'
     }
   }
+  if (problem.op === 'divide' && isZero(problem.b)) return 'You can’t divide by zero.'
   if (problem.op === 'subtract' && isNegative(subtract(problem.a, problem.b))) {
     return 'Put the bigger number first when you subtract.'
   }

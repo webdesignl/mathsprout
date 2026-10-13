@@ -12,6 +12,16 @@ export default defineNuxtConfig({
   runtimeConfig: {
     anthropicApiKey: '',
   },
+  hooks: {
+    // The engine playground is a developer tool. Drop every /dev route from production builds,
+    // so they answer 404 like any page that does not exist.
+    'pages:extend'(pages) {
+      if (process.env.NODE_ENV !== 'production') return
+      for (let i = pages.length - 1; i >= 0; i--) {
+        if (pages[i]!.path.startsWith('/dev')) pages.splice(i, 1)
+      }
+    },
+  },
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true }
 })

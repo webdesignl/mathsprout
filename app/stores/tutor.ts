@@ -1,27 +1,34 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
-  add,
-  addSteps,
   checkAnswer,
   diagnose,
   equals,
   estimateCheck,
   formatMixed,
   inverseProblem,
+  opSymbol,
   parseMixed,
-  subtract,
-  subtractSteps,
+  problemAnswer,
   toImproper,
+  workedSteps,
   type AnswerStatus,
+  type AnyOp,
+  type AnyProblem,
   type EstimateCheck,
   type Operand,
-  type Problem,
   type Slip,
   type Step,
 } from '../utils/fraction'
-import { PROOF_SLIP_MESSAGES, WRONG_MESSAGES, pickDifferent, proofHint } from '../utils/messages'
-import { localHint } from '../utils/tutorHints'
+import {
+  OPERATION_WHY,
+  PROOF_SLIP_MESSAGES,
+  SUCCESS_MESSAGES,
+  WRONG_MESSAGES,
+  pickDifferent,
+  proofHint,
+} from '../utils/messages'
+import { localHint, operationHint, understandTemplate } from '../utils/tutorHints'
 import {
   createTutorApi,
   problemError,
@@ -33,13 +40,14 @@ import type { Proof } from './practice'
 
 /**
  * The Tutor is a state machine, one thing on screen at a time:
- * capture -> confirm -> attempt -> hint1 -> hint2 -> hint3 -> teach -> check -> explain -> done.
+ * capture -> confirm -> understand -> attempt -> hint1 -> hint2 -> hint3 -> teach -> check -> explain -> done.
  * The fraction engine decides whether an answer is right. The AI only reads the problem, writes
  * hint questions and gives feedback on her explanation.
  */
 export type TutorState =
   | 'capture'
   | 'confirm'
+  | 'understand'
   | 'attempt'
   | 'hint1'
   | 'hint2'
@@ -62,6 +70,10 @@ const NEXT_HELP = {
   hint3: 'teach',
 } as const
 
+/** Wrong operation choices before the tutor says which one it is. */
+const WRONG_OPERATIONS_BEFORE_REVEAL = 2
+const OPERATION_NAMES: Record<AnyOp, string> = { add: 'adding', subtract: 'subtracting', multiply: 'multiplying', divide: 'dividing' }
+
 const ANSWERING: TutorState[] = ['attempt', 'hint1', 'hint2', 'hint3', 'teach']
 const WRONG_ADD_BACKS_BEFORE_STEPS = 2
 const WRONG_ROUNDS_BEFORE_REVEAL = 2
@@ -71,12 +83,13 @@ const MAX_EXPLANATION_TRIES = 2
 
 export const SUMMARY_NOT_CLEAR = 'We can look at the explanation together next time.'
 
-function answerOf(problem: Problem): Operand {
-  return (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
+/** The correct answer. A problem that divides by zero never gets this far (it is rejected on entry). */
+function answerOf(problem: AnyProblem): Operand {
+  return problemAnswer(problem) ?? { numerator: 0, denominator: 1 }
 }
 
-function stepsOf(problem: Problem): Step[] {
-  return problem.op === 'add' ? addSteps(problem.a, problem.b) : subtractSteps(problem.a, problem.b)
+function stepsOf(problem: AnyProblem): Step[] {
+  return workedSteps(problem)
 }
 
 function levelOf(state: 'hint1' | 'hint2' | 'hint3'): 1 | 2 | 3 {
@@ -96,9 +109,29 @@ export const useTutorStore = defineStore('tutor', () => {
 
   const state = ref<TutorState>('capture')
   const source = ref<ProblemSource | null>(null)
-  const problem = ref<Problem | null>(null)
+  const problem = ref<AnyProblem | null>(null)
   const problemText = ref('')
   const confidence = ref<'high' | 'low'>('high')
+
+  /** Step 3 of the flow: understand the question, then pick the operation before solving. */
+  const understanding = ref({
+    text: '',
+    source: '' as string,
+    /** True while the explanation of the question is on its way. It does not stop her answering. */
+    loading: false,
+    wrong: 0,
+    choice: null as AnyOp | null,
+    /** A hint after a wrong choice, or the reason once she has it right. */
+    message: '',
+    done: false,
+    revealed: false,
+  })
+  let understandingPromise: Promise<void> = Promise.resolve()
+  /** A short, varied acknowledgement after a correct answer, like Practice. */
+  const successMessage = ref('')
+  const lastSuccessMessage = ref<string | null>(null)
+  /** The praise for finding the operation is tracked separately, so each kind of line varies on its own. */
+  const lastOperationPraise = ref<string | null>(null)
 
   const attempts = ref(0)
   const lastAnswer = ref('')
@@ -164,11 +197,14 @@ export const useTutorStore = defineStore('tutor', () => {
     return estimateCheck(problem.value.a, problem.value.b, problem.value.op, toImproper(parsed))
   })
 
+  /** False when the numbers are too small to estimate (a divisor under 1/4). She uses the opposite operation then. */
+  const estimateAvailable = computed(() => estimateInfo.value?.reliable !== false)
+
   /** The add-back, in the shape the shared proof component expects. */
   const addBackProof = computed<Proof | null>(() => {
     if (!problem.value || chosenCheck.value !== 'addBack') return null
     const inverse = inverseProblem(problem.value)
-    const symbol = inverse.op === 'add' ? '+' : '−'
+    const symbol = opSymbol(inverse.op)
     return {
       equation: `${formatMixed(inverse.a)} ${symbol} ${formatMixed(inverse.b)} = ?`,
       done: addBack.value.done,
@@ -186,6 +222,9 @@ export const useTutorStore = defineStore('tutor', () => {
     problem.value = null
     problemText.value = ''
     confidence.value = 'high'
+    understanding.value = { text: '', source: '', loading: false, wrong: 0, choice: null, message: '', done: false, revealed: false }
+    understandingPromise = Promise.resolve()
+    successMessage.value = ''
     attempts.value = 0
     lastAnswer.value = ''
     lastWrongAnswer.value = ''
@@ -207,7 +246,7 @@ export const useTutorStore = defineStore('tutor', () => {
   }
 
   /** Every problem goes to "confirm" first, however it was captured: the AI can misread handwriting. */
-  function takeProblem(next: Problem, from: ProblemSource, text = '', how: 'high' | 'low' = 'high') {
+  function takeProblem(next: AnyProblem, from: ProblemSource, text = '', how: 'high' | 'low' = 'high') {
     problem.value = next
     source.value = from
     problemText.value = text
@@ -217,7 +256,7 @@ export const useTutorStore = defineStore('tutor', () => {
   }
 
   /** A typed problem (two numbers and + or -). Returns a message if it can't be used. */
-  function enterTyped(next: Problem): string | null {
+  function enterTyped(next: AnyProblem): string | null {
     if (state.value !== 'capture') return null
     const message = problemError(next)
     if (message) {
@@ -243,15 +282,81 @@ export const useTutorStore = defineStore('tutor', () => {
     return true
   }
 
-  /** "Yes, this is my problem." */
+  /** Explains the question in simple words, without naming the operation or giving the answer. */
+  async function loadUnderstanding(): Promise<void> {
+    const current = problem.value
+    if (!current) return
+    const text = problemText.value.trim()
+    // With only numbers there is no story to explain, so no call is made.
+    if (!text) {
+      understanding.value.text = understandTemplate(current)
+      understanding.value.source = 'template'
+      return
+    }
+    understanding.value.loading = true
+    const reply = await api.understand({ problem: current, problemText: text })
+    understanding.value.loading = false
+    // She may have moved on (or started over) while it was on its way.
+    if (state.value !== 'understand' || problem.value !== current) return
+    if (reply.ok && reply.text) {
+      understanding.value.text = reply.text
+      understanding.value.source = reply.source
+    } else {
+      understanding.value.text = understandTemplate(current, text)
+      understanding.value.source = 'template'
+    }
+  }
+
+  /** "Yes, this is my problem." Next she understands the question and finds the operation. */
   function confirmProblem(): boolean {
     if (state.value !== 'confirm' || !problem.value) return false
+    state.value = 'understand'
+    understanding.value = { text: '', source: '', loading: false, wrong: 0, choice: null, message: '', done: false, revealed: false }
+    understandingPromise = loadUnderstanding()
+    return true
+  }
+
+  /** Resolves when the explanation of the question has arrived. */
+  function whenUnderstood(): Promise<void> {
+    return understandingPromise
+  }
+
+  /**
+   * She says which operation the problem needs. The engine knows. A wrong choice gets a hint question,
+   * and after two the tutor says which one it is, so she is never stuck.
+   */
+  function chooseOperation(op: AnyOp): 'correct' | 'wrong' | null {
+    const current = problem.value
+    if (!current || state.value !== 'understand' || understanding.value.done) return null
+    understanding.value.choice = op
+
+    if (op === current.op) {
+      understanding.value.done = true
+      const praise = pickDifferent(SUCCESS_MESSAGES, lastOperationPraise.value)
+      lastOperationPraise.value = praise
+      understanding.value.message = `${praise} ${OPERATION_WHY[current.op]}`
+      return 'correct'
+    }
+    understanding.value.wrong += 1
+    if (understanding.value.wrong >= WRONG_OPERATIONS_BEFORE_REVEAL) {
+      understanding.value.revealed = true
+      understanding.value.done = true
+      understanding.value.message = `This one needs ${OPERATION_NAMES[current.op]}. ${OPERATION_WHY[current.op]}`
+    } else {
+      understanding.value.message = `${pickDifferent(WRONG_MESSAGES, lastWrongMessage.value)} ${operationHint(op, current.op)}`
+    }
+    return 'wrong'
+  }
+
+  /** On to solving, once she has the operation. */
+  function continueFromUnderstanding(): boolean {
+    if (state.value !== 'understand' || !understanding.value.done) return false
     state.value = 'attempt'
     return true
   }
 
   /** "Fix it": she changes the numbers. She is asked to confirm again. */
-  function editProblem(next: Problem): string | null {
+  function editProblem(next: AnyProblem): string | null {
     if (state.value !== 'confirm') return null
     const message = problemError(next)
     if (message) {
@@ -309,6 +414,7 @@ export const useTutorStore = defineStore('tutor', () => {
     const result = checkAnswer(answerOf(current), text)
     if (result.status === 'correct') {
       acceptedAnswer.value = text.trim()
+      successMessage.value = lastSuccessMessage.value = pickDifferent(SUCCESS_MESSAGES, lastSuccessMessage.value)
       state.value = 'check'
       return 'correct'
     }
@@ -495,13 +601,20 @@ export const useTutorStore = defineStore('tutor', () => {
     canAnswer,
     canBeStuck,
     estimateInfo,
+    estimateAvailable,
     addBackProof,
     canSkipExplanation,
     setApi,
     reset,
     enterTyped,
     readProblem,
+    understanding,
+    successMessage,
+    loadUnderstanding,
+    whenUnderstood,
     confirmProblem,
+    chooseOperation,
+    continueFromUnderstanding,
     editProblem,
     submitAnswer,
     imStuck,
