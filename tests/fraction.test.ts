@@ -297,6 +297,20 @@ describe('diagnose', () => {
     expect(diagnose(problem, '6 9/12').slip).toBe('notSimplified')
     expect(diagnose(problem, '6 3/4').slip).toBe('none')
   })
+  it('wrong operation: added instead of subtracted, and the reverse', () => {
+    // 8 1/5 + 4 3/4 = 12 19/20
+    const d = diagnose(sub, '12 19/20')
+    expect(d.slip).toBe('wrongOperation')
+    expect(d.stepIndex).toBeNull()
+    expect(d.hint).toBe('Are we putting together or taking away?')
+    // 4 1/3 - 2 5/12 = 1 11/12
+    const addProblem = { op: 'add', a: mixed(4, 1, 3), b: mixed(2, 5, 12) } as const
+    expect(diagnose(addProblem, '1 11/12').slip).toBe('wrongOperation')
+  })
+  it('wrong operation is not flagged when the other operation would go below zero', () => {
+    const small = { op: 'add', a: mixed(1, 1, 4), b: mixed(2, 1, 2) } as const
+    expect(diagnose(small, '1').slip).not.toBe('wrongOperation')
+  })
   it('unknown for unrelated or unparseable answers', () => {
     expect(diagnose(sub, '17').slip).toBe('unknown')
     expect(diagnose(sub, 'banana')).toMatchObject({ slip: 'unknown', stepIndex: null })
@@ -421,5 +435,16 @@ describe('inverseProblem', () => {
     expect(inverse.op).toBe('subtract')
     expect(formatMixed(inverse.a)).toBe('6 3/4')
     expect(equals(subtract(inverse.a, inverse.b), problem.a)).toBe(true)
+  })
+})
+
+describe('inverseProblem with a student answer', () => {
+  it('builds the opposite problem from her answer, which does not give a back when she is wrong', () => {
+    const problem = { op: 'subtract', a: mixed(8, 1, 5), b: mixed(4, 3, 4) } as const
+    const her = toImproper({ whole: 3, num: 11, den: 20 })
+    const inverse = inverseProblem(problem, her)
+    expect(inverse.op).toBe('add')
+    expect(formatMixed(add(inverse.a, inverse.b))).toBe('8 3/10')
+    expect(equals(add(inverse.a, inverse.b), problem.a)).toBe(false)
   })
 })

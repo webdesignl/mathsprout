@@ -219,67 +219,6 @@ describe('proof step', () => {
   })
 })
 
-describe('proof streak and badge', () => {
-  const six = Array.from({ length: 6 }, () => sub)
-
-  it('grows with each proof done without help', () => {
-    const store = setup(six)
-    for (let i = 0; i < 3; i++) {
-      solveAndProve(store, '3 9/20')
-      store.next()
-    }
-    expect(store.proofStreak).toBe(3)
-    expect(store.proofMaster).toBe(false)
-  })
-
-  it('earns Proof Master at 5 in a row', () => {
-    const store = setup(six)
-    for (let i = 0; i < 5; i++) {
-      solveAndProve(store, '3 9/20')
-      store.next()
-    }
-    expect(store.proofStreak).toBe(5)
-    expect(store.proofMaster).toBe(true)
-  })
-
-  it('a proof that needed help resets the streak', () => {
-    const store = setup(six)
-    solveAndProve(store, '3 9/20')
-    store.next()
-    solveAndProve(store, '3 9/20')
-    store.next()
-    expect(store.proofStreak).toBe(2)
-
-    store.submit('3 9/20')
-    store.submitProof('9') // wrong, hint
-    store.submitProof('8 1/5') // right, but only after help
-    expect(store.proofStreak).toBe(0)
-  })
-
-  it('does not break the streak for a nudge about simplest form', () => {
-    const store = setup(six)
-    solveAndProve(store, '3 9/20')
-    store.next()
-    store.submit('3 9/20')
-    store.submitProof('41/5')
-    store.submitProof('8 1/5')
-    expect(store.proofStreak).toBe(2)
-  })
-
-  it('keeps the badge once earned, even if the streak resets later', () => {
-    const store = setup(Array.from({ length: 7 }, () => sub))
-    for (let i = 0; i < 5; i++) {
-      solveAndProve(store, '3 9/20')
-      store.next()
-    }
-    store.submit('3 9/20')
-    store.submitProof('9')
-    store.submitProof('9')
-    expect(store.proofStreak).toBe(0)
-    expect(store.proofMaster).toBe(true)
-  })
-})
-
 describe('retry missed problems', () => {
   /** Finishes a two-problem set: problem 1 missed first, problem 2 right first try. */
   function finishSet() {
@@ -474,109 +413,6 @@ describe('Learn bookkeeping', () => {
   })
 })
 
-describe('proof required once per operation, then skippable', () => {
-  it('requires the first proof for an operation before moving on', () => {
-    const store = setup([add, add])
-    store.submit('6 3/4')
-    expect(store.proofRequired).toBe(true)
-    expect(store.canSkipProof).toBe(false)
-    expect(store.canAdvance).toBe(false)
-    expect(store.next()).toBe(false)
-  })
-
-  it('after she passes it, the next problem of that operation can skip the proof', () => {
-    const store = setup([add, add])
-    solveAndProve(store, '6 3/4')
-    expect(store.proofPassed).toEqual({ add: true, subtract: false })
-    expect(store.next()).toBe(true)
-
-    store.submit('6 3/4')
-    expect(store.proofRequired).toBe(false)
-    expect(store.canSkipProof).toBe(true)
-    expect(store.canAdvance).toBe(true)
-    expect(store.next()).toBe(true) // skipped
-    expect(store.finished).toBe(true)
-  })
-
-  it('skipping does not change the proof streak', () => {
-    const store = setup([add, add, add])
-    solveAndProve(store, '6 3/4')
-    store.next()
-    expect(store.proofStreak).toBe(1)
-    store.submit('6 3/4')
-    store.next() // skip
-    expect(store.proofStreak).toBe(1)
-  })
-
-  it('subtraction needs its own first proof even after addition is passed', () => {
-    const store = setup([add, sub, sub])
-    solveAndProve(store, '6 3/4')
-    store.next()
-
-    store.submit('3 9/20')
-    expect(store.current?.op).toBe('subtract')
-    expect(store.proofRequired).toBe(true)
-    expect(store.canAdvance).toBe(false)
-    store.submitProof('8 1/5')
-    expect(store.canAdvance).toBe(true)
-    store.next()
-
-    // Now subtraction can be skipped too.
-    store.submit('3 9/20')
-    expect(store.canSkipProof).toBe(true)
-    expect(store.next()).toBe(true)
-  })
-
-  it('a proof she gets right after a hint still passes the operation', () => {
-    const store = setup([sub, sub])
-    store.submit('3 9/20')
-    store.submitProof('9') // wrong, hint
-    store.submitProof('8 1/5')
-    expect(store.proofPassed.subtract).toBe(true)
-    store.next()
-    store.submit('3 9/20')
-    expect(store.canSkipProof).toBe(true)
-  })
-
-  it('needing the worked add-back does not pass the operation', () => {
-    const store = setup([sub, sub])
-    store.submit('3 9/20')
-    store.submitProof('9')
-    store.submitProof('8')
-    expect(store.proof?.done).toBe(true)
-    expect(store.proofPassed.subtract).toBe(false)
-    store.next()
-    store.submit('3 9/20')
-    expect(store.proofRequired).toBe(true)
-    expect(store.canAdvance).toBe(false)
-  })
-
-  it('skippable proofs can still be done for the streak', () => {
-    const store = setup([sub, sub])
-    solveAndProve(store, '3 9/20')
-    store.next()
-    store.submit('3 9/20')
-    expect(store.canSkipProof).toBe(true)
-    expect(store.submitProof('8 1/5')).toBe('correct')
-    expect(store.proofStreak).toBe(2)
-    expect(store.canSkipProof).toBe(false) // done, so Next shows instead
-    expect(store.canAdvance).toBe(true)
-  })
-
-  it('applies to retries and similar problems too', () => {
-    const store = setup([sub])
-    store.submit('1')
-    solveAndProve(store, '3 9/20')
-    store.next()
-    leaveUnlock(store)
-    expect(store.view).toBe('summary')
-    store.retryProblem(0)
-    store.submit('3 9/20')
-    expect(store.canSkipProof).toBe(true) // subtraction already passed
-    expect(store.next()).toBe(true)
-  })
-})
-
 describe('story problems', () => {
   it('start() with stories wraps every problem in a story, same numbers', () => {
     const store = usePracticeStore()
@@ -736,5 +572,258 @@ describe('real-world ideas at the end of a set', () => {
     store.reviewIdea(store.ideaReviews[1]!.id, true)
     expect(store.extraCredit).toBe(1)
     expect(store.pendingReviewCount).toBe(1)
+  })
+})
+
+describe('proofs are asked on the first 2 problems of each type', () => {
+  it('asks for a proof on the first two problems of a type and requires it', () => {
+    const store = setup([add, add, add])
+    store.submit('6 3/4')
+    expect(store.proof).not.toBeNull()
+    expect(store.canAdvance).toBe(false)
+    expect(store.next()).toBe(false)
+    store.submitProof('4 1/3')
+    expect(store.next()).toBe(true)
+
+    store.submit('6 3/4')
+    expect(store.proof).not.toBeNull() // second add problem
+    expect(store.canAdvance).toBe(false)
+    store.submitProof('4 1/3')
+    expect(store.next()).toBe(true)
+  })
+
+  it('after two, later problems of that type have no proof and no skip needed', () => {
+    const store = setup([add, add, add])
+    solveAndProve(store, '6 3/4')
+    store.next()
+    solveAndProve(store, '6 3/4')
+    store.next()
+
+    store.submit('6 3/4')
+    expect(store.proof).toBeNull()
+    expect(store.canAdvance).toBe(true)
+    expect(store.submitProof('4 1/3')).toBeNull()
+    expect(store.proofsAsked).toEqual({ add: 2, subtract: 0 })
+    expect(store.next()).toBe(true)
+  })
+
+  it('counts each type separately', () => {
+    const store = setup([add, add, sub, sub, sub])
+    for (const answer of ['6 3/4', '6 3/4', '3 9/20', '3 9/20']) {
+      solveAndProve(store, answer)
+      store.next()
+    }
+    expect(store.proofsAsked).toEqual({ add: 2, subtract: 2 })
+    store.submit('3 9/20')
+    expect(store.proof).toBeNull() // third subtraction
+  })
+
+  it('the proof hint says the right thing for each type', () => {
+    const subStore = setup([sub])
+    subStore.submit('3 9/20')
+    subStore.submitProof('9')
+    expect(subStore.proof?.hint).toContain('undo subtracting')
+
+    setActivePinia(createPinia())
+    const addStore = setup([add])
+    addStore.submit('6 3/4')
+    addStore.submitProof('9')
+    expect(addStore.proof?.hint).toContain('undo adding')
+  })
+
+  it('applies to retries and similar problems too', () => {
+    const store = setup([sub, sub, sub])
+    store.submit('1')
+    solveAndProve(store, '3 9/20')
+    store.next()
+    solveAndProve(store, '3 9/20')
+    store.next()
+    solveAndProve(store, '3 9/20') // third: no proof
+    store.next()
+    leaveUnlock(store)
+    store.retryProblem(0)
+    store.submit('3 9/20')
+    expect(store.proof).toBeNull() // two subtraction proofs already used
+    expect(store.next()).toBe(true)
+  })
+})
+
+describe('proof streak and badge', () => {
+  const four = [sub, sub, add, add]
+
+  it('grows with each proof done without help', () => {
+    const store = setup(four)
+    for (let i = 0; i < 2; i++) {
+      solveAndProve(store, '3 9/20')
+      store.next()
+    }
+    expect(store.proofStreak).toBe(2)
+    expect(store.proofMaster).toBe(false)
+  })
+
+  it('earns Proof Master at 3 in a row', () => {
+    const store = setup(four)
+    for (const answer of ['3 9/20', '3 9/20', '6 3/4']) {
+      solveAndProve(store, answer)
+      store.next()
+    }
+    expect(store.proofStreak).toBe(3)
+    expect(store.proofMaster).toBe(true)
+  })
+
+  it('a proof that needed help resets the streak', () => {
+    const store = setup(four)
+    solveAndProve(store, '3 9/20')
+    store.next()
+    expect(store.proofStreak).toBe(1)
+    store.submit('3 9/20')
+    store.submitProof('9') // wrong, hint
+    store.submitProof('8 1/5') // right, but only after help
+    expect(store.proofStreak).toBe(0)
+  })
+
+  it('a nudge about simplest form does not break the streak', () => {
+    const store = setup(four)
+    solveAndProve(store, '3 9/20')
+    store.next()
+    store.submit('3 9/20')
+    store.submitProof('41/5')
+    store.submitProof('8 1/5')
+    expect(store.proofStreak).toBe(2)
+  })
+
+  it('keeps the badge once earned, even if the streak resets later', () => {
+    const store = setup([sub, sub, add, add])
+    for (const answer of ['3 9/20', '3 9/20', '6 3/4']) {
+      solveAndProve(store, answer)
+      store.next()
+    }
+    store.submit('6 3/4')
+    store.submitProof('9')
+    store.submitProof('9')
+    expect(store.proofStreak).toBe(0)
+    expect(store.proofMaster).toBe(true)
+  })
+})
+
+describe('after three hints, she adds her wrong answer back', () => {
+  /** wrong answer, ask for another hint, wrong again: that is three hints in total. */
+  function threeHints(store: ReturnType<typeof usePracticeStore>, wrong = '3 11/20') {
+    store.submit(wrong)
+    store.nextHint()
+    store.submit(wrong)
+  }
+
+  it('is not offered before the third hint', () => {
+    const store = setup()
+    store.submit('3 11/20')
+    expect(store.wrongCheck).toBeNull()
+    store.nextHint()
+    expect(store.wrongCheck).toBeNull()
+  })
+
+  it('appears after the third hint with her answer in the opposite equation', () => {
+    const store = setup()
+    threeHints(store)
+    expect(store.wrongCheck?.equation).toBe('3 11/20 + 4 3/4 = ?')
+  })
+
+  it('also appears when she skips "another hint" but gets three wrong answers', () => {
+    const store = setup()
+    store.submit('3 11/20')
+    store.submit('3 11/20')
+    expect(store.wrongCheck).toBeNull() // two hints so far
+    store.submit('3 11/20')
+    expect(store.wrongCheck).not.toBeNull()
+  })
+
+  it('uses the other operation for addition problems', () => {
+    const store = setup([add])
+    threeHints(store, '6 1/2')
+    expect(store.wrongCheck?.equation).toBe('6 1/2 − 2 5/12 = ?')
+  })
+
+  it('a correct add-back shows what it gave versus where we started', () => {
+    const store = setup()
+    threeHints(store)
+    // 3 11/20 + 4 3/4 = 8 3/10, not 8 1/5
+    expect(store.submitWrongCheck('8 3/10')).toBe('correct')
+    expect(store.wrongCheck?.done).toBe(true)
+    expect(store.wrongCheck?.message).toBe('That makes 8 3/10. We started with 8 1/5.')
+    expect(store.isSolved).toBe(false) // she still has to fix her own answer
+  })
+
+  it('a wrong add-back gets a hint, then the worked add-back after two tries', () => {
+    const store = setup()
+    threeHints(store)
+    expect(store.submitWrongCheck('1')).toBe('wrong')
+    expect(store.wrongCheck?.done).toBe(false)
+    expect(store.wrongCheck?.hint).toContain('undo subtracting')
+    expect(store.submitWrongCheck('2')).toBe('wrong')
+    expect(store.wrongCheck?.done).toBe(true)
+    expect(store.wrongCheck?.steps.length).toBeGreaterThan(0)
+    expect(store.wrongCheck?.message).toContain('We started with 8 1/5')
+  })
+
+  it('an equal but not simplest add-back is only a nudge', () => {
+    const store = setup()
+    threeHints(store)
+    expect(store.submitWrongCheck('83/10')).toBe('correctNotSimplest')
+    expect(store.wrongCheck?.done).toBe(false)
+  })
+
+  it('starts fresh with each new wrong answer and disappears once she is right', () => {
+    const store = setup()
+    threeHints(store)
+    store.submitWrongCheck('8 3/10')
+    const firstRound = store.wrongCheck!.round
+    store.submit('3 12/20')
+    expect(store.wrongCheck?.done).toBe(false)
+    expect(store.wrongCheck?.round).not.toBe(firstRound)
+    store.submit('3 9/20')
+    expect(store.wrongCheck).toBeNull()
+  })
+
+  it('is not offered when her answer cannot be added back', () => {
+    const store = setup([add])
+    // 1/4 - 2 5/12 would go below zero for the add-back, so it is skipped.
+    threeHints(store, '1/4')
+    expect(store.wrongCheck).toBeNull()
+    setActivePinia(createPinia())
+    const store2 = setup()
+    threeHints(store2, '1/0') // unreadable
+    expect(store2.wrongCheck).toBeNull()
+  })
+
+  it('does not change the proof streak or the score', () => {
+    const store = setup()
+    threeHints(store)
+    store.submitWrongCheck('8 3/10')
+    expect(store.proofStreak).toBe(0)
+    expect(store.score).toBe(0)
+  })
+})
+
+describe('mixing up the operation (story problems)', () => {
+  it('hints at the operation, not the numbers, when she adds instead of subtracts', () => {
+    const store = setup([withStory(sub)])
+    // 8 1/5 + 4 3/4 = 12 19/20
+    expect(store.submit('12 19/20')).toBe('wrong')
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.hints[0]).toBe('Are we putting together or taking away?')
+    store.nextHint()
+    const after = store.feedback
+    if (after?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(after.hints[1]).toBe('Words like “in all” add. Words like “left” subtract.')
+  })
+
+  it('also catches subtracting instead of adding', () => {
+    const store = setup([withStory(add)])
+    // 4 1/3 - 2 5/12 = 1 11/12
+    store.submit('1 11/12')
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.hints[0]).toBe('Are we putting together or taking away?')
   })
 })

@@ -242,15 +242,20 @@ function leave() {
           @learn="openLearnHere"
         />
 
+        <PracticeWrongCheckPanel
+          v-if="store.wrongCheck"
+          :key="store.wrongCheck.round"
+          :check="store.wrongCheck"
+          @submit="store.submitWrongCheck($event)"
+        />
+
         <PracticeProofPanel
           v-if="store.proof"
           :proof="store.proof"
-          :skippable="store.canSkipProof"
           @submit="store.submitProof($event)"
-          @skip="store.next()"
         />
 
-        <div v-if="store.canAdvance && store.proof?.done" class="flex justify-center">
+        <div v-if="store.canAdvance" class="flex justify-center">
           <button
             ref="nextButton"
             type="button"

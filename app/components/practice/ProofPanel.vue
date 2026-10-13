@@ -9,8 +9,8 @@ import {
 } from '../../utils/answer'
 import { NOT_SIMPLEST_MESSAGE, WHY_PROVE_IT } from '../../utils/messages'
 
-defineProps<{ proof: Proof; skippable: boolean }>()
-const emit = defineEmits<{ submit: [answer: string]; skip: [] }>()
+defineProps<{ proof: Proof }>()
+const emit = defineEmits<{ submit: [answer: string] }>()
 
 const answer = ref<AnswerBoxes>({ whole: '', num: '', den: '' })
 const message = ref('')
@@ -41,7 +41,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
 <template>
   <section class="space-y-4 rounded-2xl border-2 border-emerald-700 bg-emerald-100 p-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-2xl font-bold text-emerald-950">Prove it!</h2>
+      <h2 class="text-2xl font-bold text-emerald-950">How can you prove it?</h2>
       <button
         type="button"
         :aria-expanded="showWhy"
@@ -64,20 +64,12 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
       <p v-if="message" class="text-center text-xl font-semibold text-red-800" role="alert">
         {{ message }}
       </p>
-      <div class="flex flex-wrap justify-center gap-3">
+      <div class="flex justify-center">
         <button
           type="submit"
           :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']"
         >
           Check proof
-        </button>
-        <button
-          v-if="skippable"
-          type="button"
-          :class="[button, 'bg-white text-emerald-900 ring-2 ring-emerald-700 hover:bg-emerald-50']"
-          @click="emit('skip')"
-        >
-          Skip proof
         </button>
       </div>
     </form>

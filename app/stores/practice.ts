@@ -7,7 +7,10 @@ import {
   diagnose,
   formatMixed,
   inverseProblem,
+  isNegative,
+  parseMixed,
   subtract,
+  toImproper,
   subtractSteps,
   type AnswerStatus,
   type Op,
@@ -17,6 +20,7 @@ import {
 } from '../utils/fraction'
 import {
   GENERIC_STEP_HINT,
+  SLIP_NUDGES,
   NOT_SIMPLEST_MESSAGE,
   STEP_HINTS,
   SUCCESS_MESSAGES,
@@ -36,7 +40,11 @@ import { withStory, type PracticeProblem } from '../utils/stories'
 export const SET_SIZE = 10
 export const MAX_DENOMINATOR = 12
 /** Proofs done without help, in a row, to earn the badge. */
-export const PROOF_MASTER_AT = 5
+export const PROOF_MASTER_AT = 3
+/** Proofs are asked on this many problems of each type (add, subtract); after that, none. */
+export const PROOFS_PER_TYPE = 2
+/** After this many hints on a wrong answer, she proves her own answer by adding it back. */
+export const HINTS_BEFORE_CHECK = 3
 
 export interface PracticeOptions {
   op: ProblemOp
@@ -59,6 +67,22 @@ export type Feedback =
       steps: Step[]
       moreSteps: boolean
     }
+
+/** Adding her wrong answer back, to see that it doesn't give the starting number. */
+export interface WrongCheck {
+  /** Changes with every new wrong answer, so the panel starts fresh. */
+  round: number
+  /** Her answer put back into the opposite equation, e.g. "3 11/20 + 4 3/4 = ?". */
+  equation: string
+  done: boolean
+  /** 'wrong' while she is still working out the add-back; 'correctNotSimplest' is a gentle nudge. */
+  result: AnswerStatus | null
+  hint: string | null
+  /** The worked add-back, shown after two wrong tries. */
+  steps: Step[]
+  /** Short line shown once she has the add-back: what it gave versus where we started. */
+  message: string
+}
 
 export interface Proof {
   /** The opposite equation she fills in, e.g. "3 9/20 + 4 3/4 = ?". */
@@ -111,6 +135,15 @@ interface ProofWork {
   helped: boolean
 }
 
+interface WrongCheckWork {
+  wrong: number
+  result: AnswerStatus | null
+  hint: string | null
+  steps: Step[]
+  done: boolean
+  message: string
+}
+
 /** Live state for the problem on screen (a set problem, a retry, or a "try one like it"). */
 interface Work {
   attempts: number
@@ -124,10 +157,19 @@ interface Work {
   learned: boolean
   lastResult: AnswerStatus | null
   hintTexts: string[]
+  /** Every hint shown on this problem (the first on each wrong answer, plus extra ones she asks for). */
+  hintEvents: number
   /** Her latest answer that wasn't fully right; Learn compares against it. */
   lastAnswer: string
   message: string
+  /** Whether this problem asks her to prove a correct answer (first 2 of each type). */
+  proofAsked: boolean
   proof: ProofWork
+  wrongCheck: WrongCheckWork
+}
+
+function newWrongCheck(): WrongCheckWork {
+  return { wrong: 0, result: null, hint: null, steps: [], done: false, message: '' }
 }
 
 function newWork(): Work {
@@ -141,9 +183,12 @@ function newWork(): Work {
     learned: false,
     lastResult: null,
     hintTexts: [],
+    hintEvents: 0,
     lastAnswer: '',
     message: '',
+    proofAsked: false,
     proof: { wrong: 0, hint: null, steps: [], result: null, done: false, helped: false },
+    wrongCheck: newWrongCheck(),
   }
 }
 
@@ -193,8 +238,8 @@ export const usePracticeStore = defineStore('practice', () => {
 
   const proofStreak = ref(0)
   const proofMaster = ref(false)
-  /** Operations she has already proved on her own. Proofs for those become optional. */
-  const proofPassed = ref<Record<Op, boolean>>({ add: false, subtract: false })
+  /** How many proofs have been asked so far for each type of problem. */
+  const proofsAsked = ref<Record<Op, number>>({ add: 0, subtract: 0 })
 
   const work = ref<Work>(newWork())
   /** A missed problem reopened from the summary, plus the missed ones still waiting. */
@@ -228,19 +273,12 @@ export const usePracticeStore = defineStore('practice', () => {
   const activeWork = computed<Work>(() => (similar.value ? similar.value.work : work.value))
 
   const isSolved = computed(() => activeWork.value.solved)
-  /** The first proof for each operation is required; after she passes it, proofs can be skipped. */
-  const proofRequired = computed(() => {
-    const problem = current.value
-    return problem ? !proofPassed.value[problem.op] : true
-  })
-  const canSkipProof = computed(
-    () => activeWork.value.solved && !activeWork.value.proof.done && !proofRequired.value,
-  )
-  const canAdvance = computed(
-    () => activeWork.value.solved && (activeWork.value.proof.done || !proofRequired.value),
-  )
   const isSimilar = computed(() => similar.value !== null)
   const isRetry = computed(() => retry.value !== null && similar.value === null)
+  /** Moving on needs the proof only when this problem asked for one. */
+  const canAdvance = computed(
+    () => activeWork.value.solved && (!activeWork.value.proofAsked || activeWork.value.proof.done),
+  )
   /** Her latest answer that wasn't fully right, for the Learn panel. */
   const currentMissedAnswer = computed(() => activeWork.value.lastAnswer)
 
@@ -275,7 +313,7 @@ export const usePracticeStore = defineStore('practice', () => {
   const proof = computed<Proof | null>(() => {
     const problem = current.value
     const w = activeWork.value
-    if (!problem || !w.solved) return null
+    if (!problem || !w.solved || !w.proofAsked) return null
     const inverse = inverseProblem(problem)
     const symbol = inverse.op === 'add' ? '+' : '−'
     return {
@@ -285,6 +323,29 @@ export const usePracticeStore = defineStore('practice', () => {
       hint: w.proof.hint,
       steps: w.proof.steps,
       helped: w.proof.helped,
+    }
+  })
+
+  /**
+   * After a wrong answer and three hints, she adds her own answer back. It does not give the starting
+   * number, which shows her answer is off. Not offered when her answer can't be put back (unreadable,
+   * or it would make a negative number).
+   */
+  const wrongCheck = computed<WrongCheck | null>(() => {
+    const problem = current.value
+    const w = activeWork.value
+    if (!problem || w.solved || w.lastResult !== 'wrong' || w.hintEvents < HINTS_BEFORE_CHECK) return null
+    const inverse = herInverse(problem, w.lastAnswer)
+    if (!inverse) return null
+    const symbol = inverse.op === 'add' ? '+' : '−'
+    return {
+      round: w.attempts,
+      equation: `${formatMixed(inverse.a)} ${symbol} ${formatMixed(inverse.b)} = ?`,
+      done: w.wrongCheck.done,
+      result: w.wrongCheck.result,
+      hint: w.wrongCheck.hint,
+      steps: w.wrongCheck.steps,
+      message: w.wrongCheck.message,
     }
   })
 
@@ -389,6 +450,9 @@ export const usePracticeStore = defineStore('practice', () => {
     if (result.status === 'correct') {
       w.solved = true
       w.hintTexts = []
+      // Proofs are asked on the first few problems of each type, then not at all.
+      w.proofAsked = proofsAsked.value[problem.op] < PROOFS_PER_TYPE
+      if (w.proofAsked) proofsAsked.value[problem.op] += 1
       w.message = lastSuccess.value = pickDifferent(SUCCESS_MESSAGES, lastSuccess.value)
       if (inFirstPass.value) {
         const i = index.value
@@ -408,6 +472,8 @@ export const usePracticeStore = defineStore('practice', () => {
         // The first hint question appears right away on a wrong answer.
         w.hintsVisible = 1
         w.hintsShown = Math.max(w.hintsShown, 1)
+        w.hintEvents += 1
+        w.wrongCheck = newWrongCheck()
         lastHint.value = w.hintTexts[0] ?? lastHint.value
       }
     }
@@ -421,6 +487,7 @@ export const usePracticeStore = defineStore('practice', () => {
     if (w.lastResult !== 'wrong') return
     if (w.hintsVisible < w.hintTexts.length) {
       w.hintsVisible += 1
+      w.hintEvents += 1
       w.hintsShown = Math.max(w.hintsShown, w.hintsVisible)
       lastHint.value = w.hintTexts[w.hintsVisible - 1] ?? lastHint.value
       sync()
@@ -451,7 +518,7 @@ export const usePracticeStore = defineStore('practice', () => {
   function submitProof(answer: string): AnswerStatus | null {
     const problem = current.value
     const w = activeWork.value
-    if (!problem || !w.solved || w.proof.done || answer.trim() === '') return null
+    if (!problem || !w.solved || !w.proofAsked || w.proof.done || answer.trim() === '') return null
 
     const inverse = inverseProblem(problem)
     const result = checkAnswer(answerOf(inverse), answer)
@@ -459,8 +526,6 @@ export const usePracticeStore = defineStore('practice', () => {
 
     if (result.status === 'correct') {
       w.proof.done = true
-      // Getting it right herself (a hint is fine) passes this operation; the worked steps don't.
-      proofPassed.value[problem.op] = true
       if (w.proof.helped) {
         proofStreak.value = 0
       } else {
@@ -475,13 +540,43 @@ export const usePracticeStore = defineStore('practice', () => {
         w.proof.done = true
         proofStreak.value = 0
       } else {
-        w.proof.hint = proofHint(inverse.op, formatMixed(inverse.b))
+        w.proof.hint = proofHint(problem.op, formatMixed(inverse.b))
       }
     }
     return result.status
   }
 
-  /** Moves on once the problem is solved and proved (or the proof can be skipped). Returns false if not ready. */
+  /**
+   * Checks the add-back of her wrong answer. Once she has it right, a short line shows what it gave
+   * versus where we started. Two wrong tries show the worked add-back.
+   */
+  function submitWrongCheck(answer: string): AnswerStatus | null {
+    const problem = current.value
+    const w = activeWork.value
+    if (!problem || !wrongCheck.value || w.wrongCheck.done || answer.trim() === '') return null
+
+    const inverse = herInverse(problem, w.lastAnswer)!
+    const expected = answerOf(inverse)
+    const result = checkAnswer(expected, answer)
+    w.wrongCheck.result = result.status
+
+    if (result.status === 'correct') {
+      w.wrongCheck.done = true
+      w.wrongCheck.message = `That makes ${formatMixed(expected)}. We started with ${formatMixed(problem.a)}.`
+    } else if (result.status === 'wrong') {
+      w.wrongCheck.wrong += 1
+      if (w.wrongCheck.wrong >= WRONG_PROOFS_BEFORE_STEPS) {
+        w.wrongCheck.steps = stepsOf(inverse)
+        w.wrongCheck.done = true
+        w.wrongCheck.message = `That makes ${formatMixed(expected)}. We started with ${formatMixed(problem.a)}.`
+      } else {
+        w.wrongCheck.hint = proofHint(problem.op, formatMixed(inverse.b))
+      }
+    }
+    return result.status
+  }
+
+  /** Moves on once the problem is solved and, when asked, proved. Returns false if not ready. */
   function next(): boolean {
     if (!current.value || !canAdvance.value) return false
 
@@ -612,7 +707,7 @@ export const usePracticeStore = defineStore('practice', () => {
     unlockDone,
     proofStreak,
     proofMaster,
-    proofPassed,
+    proofsAsked,
     work,
     retry,
     similar,
@@ -626,11 +721,10 @@ export const usePracticeStore = defineStore('practice', () => {
     isSimilar,
     isRetry,
     canAdvance,
-    proofRequired,
-    canSkipProof,
     currentMissedAnswer,
     feedback,
     proof,
+    wrongCheck,
     summary,
     needsHelp,
     start,
@@ -640,6 +734,7 @@ export const usePracticeStore = defineStore('practice', () => {
     showSteps,
     markLearned,
     submitProof,
+    submitWrongCheck,
     submitExamples,
     reviewIdea,
     skipExamples,
@@ -661,7 +756,18 @@ export const usePracticeStore = defineStore('practice', () => {
 function buildHints(problem: Problem, answer: string, previous: string | null): string[] {
   const diagnosis = diagnose(problem, answer)
   const step = diagnosis.stepIndex === null ? undefined : stepsOf(problem)[diagnosis.stepIndex]
-  const nudge = step ? STEP_HINTS[step.kind] : GENERIC_STEP_HINT
+  const nudge = SLIP_NUDGES[diagnosis.slip] ?? (step ? STEP_HINTS[step.kind] : GENERIC_STEP_HINT)
   const hints = [diagnosis.hint, nudge]
   return hints[0] === previous ? [hints[1]!, hints[0]!] : hints
+}
+
+/**
+ * Her wrong answer put into the opposite equation (her answer + b, or her answer - b).
+ * Null when her answer can't be read, or the add-back would go below zero (she can't type that).
+ */
+function herInverse(problem: Problem, answerText: string): Problem | null {
+  const typed = parseMixed(answerText)
+  if (!typed) return null
+  const inverse = inverseProblem(problem, toImproper(typed))
+  return isNegative(answerOf(inverse)) ? null : inverse
 }
