@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useTutorStore } from '../app/stores/tutor'
-import { formatMixed } from '../app/utils/fraction'
-import { resolvePlan, type Plan } from '../app/utils/plan'
+import { formatMixed, problemAnswer, toMixed } from '../app/utils/fraction'
+import { resolvePlan, similarPlan, type Plan } from '../app/utils/plan'
 import type { ReadReply, TutorApi } from '../app/utils/tutorApi'
 import { readProblem, safeLabel } from '../server/utils/tutor/read'
 import { handleRead } from '../server/utils/tutor/handlers'
@@ -120,8 +120,47 @@ describe('the Tutor works through a multi-step problem', () => {
       expect(store.state).toBe('stepDone')
       store.nextStep()
     }
+    expect(store.state).toBe('similar')
+    expect(store.mainSteps.map((s) => s.answer)).toEqual(answers)
+  })
+
+  it('offers a similar problem with new numbers, solved the same way, then finishes', async () => {
+    const { store } = await start()
+    store.confirmProblem()
+    for (const [op, answer] of [['subtract', '4/5'], ['multiply', '2/15'], ['multiply', '1/20'], ['add', '11/60']] as const) {
+      store.chooseOperation(op)
+      store.continueFromUnderstanding()
+      await store.submitAnswer(answer)
+      store.nextStep()
+    }
+    expect(store.state).toBe('similar')
+    expect(store.startSimilar(seeded(7))).toBe(true)
+    expect(store.inSimilar).toBe(true)
+    expect(store.state).toBe('understand')
+    expect(store.stepLabel).toBe(MARATHON.steps[0]!.label)
+    // The engine knows the answers; she solves each step again.
+    while (store.state !== 'done') {
+      store.chooseOperation(store.problem!.op)
+      store.continueFromUnderstanding()
+      const right = formatMixed(toMixed(problemAnswer(store.problem!)!))
+      expect(await store.submitAnswer(right)).toBe('correct')
+      store.nextStep()
+    }
+    expect(store.mainSteps.at(-1)!.answer).toBe('11/60')
+    expect(store.finishedSteps).toHaveLength(4)
+  })
+
+  it('she can skip the similar problem', async () => {
+    const { store } = await start()
+    store.confirmProblem()
+    for (const [op, answer] of [['subtract', '4/5'], ['multiply', '2/15'], ['multiply', '1/20'], ['add', '11/60']] as const) {
+      store.chooseOperation(op)
+      store.continueFromUnderstanding()
+      await store.submitAnswer(answer)
+      store.nextStep()
+    }
+    expect(store.skipSimilar()).toBe(true)
     expect(store.state).toBe('done')
-    expect(store.finishedSteps.map((s) => s.answer)).toEqual(answers)
   })
 
   it('a wrong step answer climbs the hint ladder for that step and is counted', async () => {
@@ -147,7 +186,7 @@ describe('the Tutor works through a multi-step problem', () => {
     store.continueFromUnderstanding()
     await store.submitAnswer('11/60')
     store.nextStep()
-    expect(store.state).toBe('done')
+    expect(store.state).toBe('similar')
     expect(store.planTotals).toEqual({ attempts: 6, hints: 1 })
   })
 
@@ -167,5 +206,33 @@ describe('the Tutor works through a multi-step problem', () => {
     expect(await store.readProblem({ text: 'x' })).toBe(false)
     expect(store.state).toBe('capture')
     expect(store.error).toBeTruthy()
+  })
+})
+
+function seeded(seed: number) {
+  let x = seed
+  return () => {
+    x = (x * 1664525 + 1013904223) % 4294967296
+    return x / 4294967296
+  }
+}
+
+describe('similarPlan', () => {
+  it('keeps the steps and swaps the fractions, and the engine accepts it', () => {
+    for (let seed = 1; seed <= 200; seed++) {
+      const next = similarPlan(MARATHON, seeded(seed))!
+      expect(next).not.toBeNull()
+      expect(resolvePlan(next).ok).toBe(true)
+      expect(next.steps.map((s) => s.op)).toEqual(MARATHON.steps.map((s) => s.op))
+      expect(next.steps[0]!.a).toBe('1')
+      expect(next.steps[1]!.a).toBe('r1')
+      expect(next.steps[3]!.a).toBe('r2')
+      expect(next).not.toEqual(MARATHON)
+    }
+  })
+
+  it('returns null when nothing can be swapped', () => {
+    const fixed: Plan = { steps: [{ op: 'add', a: '2', b: '3', label: 'First?' }, { op: 'add', a: 'r1', b: '1', label: 'Then?' }] }
+    expect(similarPlan(fixed, seeded(1))).toBeNull()
   })
 })

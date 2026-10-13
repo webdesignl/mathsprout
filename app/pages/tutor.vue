@@ -335,8 +335,24 @@ function another() {
       </p>
       <div class="flex justify-center">
         <button type="button" :class="primary" @click="store.nextStep()">
-          {{ store.stepIndex + 1 >= store.stepCount ? 'Finish' : 'Next step' }}
+          {{ store.stepIndex + 1 >= store.stepCount ? 'Done' : 'Next step' }}
         </button>
+      </div>
+    </section>
+
+    <!-- 4b. Offer a similar problem to check she can do it again -->
+    <section v-else-if="store.state === 'similar'" class="space-y-6">
+      <h1 class="text-4xl font-bold text-emerald-900">You solved it!</h1>
+      <ol class="space-y-2 rounded-xl bg-white p-4 text-xl text-slate-900" aria-label="Your steps">
+        <li v-for="(done, i) in store.mainSteps" :key="i">
+          Step {{ i + 1 }}: {{ done.label }} <span class="font-bold">{{ done.answer }}</span>
+        </li>
+      </ol>
+      <p class="text-2xl font-bold text-emerald-900">The answer is {{ store.mainSteps.at(-1)?.answer }}.</p>
+      <p class="text-center text-2xl text-slate-900">Want to try one like it, with new numbers?</p>
+      <div class="flex flex-wrap justify-center gap-4">
+        <button type="button" :class="primary" @click="store.startSimilar()">Try one like it</button>
+        <button type="button" :class="secondary" @click="store.skipSimilar()">Finish</button>
       </div>
     </section>
 
@@ -402,12 +418,15 @@ function another() {
       <p v-if="store.explanation.praise" class="text-2xl text-slate-900" role="status">{{ store.explanation.praise }}</p>
 
       <ol v-if="store.plan" class="space-y-2 rounded-xl bg-white p-4 text-xl text-slate-900" aria-label="Your steps">
-        <li v-for="(done, i) in store.finishedSteps" :key="i">
+        <li v-for="(done, i) in store.mainSteps" :key="i">
           Step {{ i + 1 }}: {{ done.label }} <span class="font-bold">{{ done.answer }}</span>
         </li>
       </ol>
-      <p v-if="store.plan && store.finishedSteps.length" class="text-2xl font-bold text-emerald-900">
-        The answer is {{ store.finishedSteps.at(-1)!.answer }}.
+      <p v-if="store.plan && store.mainSteps.length" class="text-2xl font-bold text-emerald-900">
+        The answer is {{ store.mainSteps.at(-1)!.answer }}.
+      </p>
+      <p v-if="store.inSimilar && store.finishedSteps.length" class="text-xl text-slate-900">
+        The practice problem: the answer is <span class="font-bold">{{ store.finishedSteps.at(-1)!.answer }}</span>.
       </p>
 
       <dl class="grid gap-3 text-xl sm:grid-cols-2">

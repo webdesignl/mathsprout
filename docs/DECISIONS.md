@@ -432,7 +432,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Decision:** A problem that needs 2 to 5 steps is now read as a plan. Each step is one operation on two numbers (add, subtract, multiply, divide), and a number can be "the answer to step N". She confirms the whole problem, then solves one step at a time with the usual flow for a step: find the operation, answer, hint ladder, teach. Her correct answer to a step becomes a number in the next step. After the last step she sees all her steps and the final answer. Replaces the limit in D-30 (one operation on two numbers); a single operation still works as before.
 - **Who decides what:** the AI only splits the problem into steps and writes a short question for each ("What fraction of the people finished?"). The engine checks the plan (every step must work out, no negatives, no dividing by zero, no step that goes nowhere, at most 5 steps) and decides every answer. A plan that fails the check is treated as unsupported. The AI can still choose a plan that does not fit the story; only the arithmetic is guaranteed, so the confirm screen shows the problem in words for her (or a parent) to check.
 - **Step questions** have no digits and never name an operation; if one does, it is replaced with "What do you need to find in step N?". Hints reuse the single-step route, so the leak guard, PII stripping and rate limit apply unchanged.
-- **Not yet for steps:** the proof/estimate check and the explain-back run for single-step problems only. For a multi-step problem that would be four checks in a row. Open question below.
+- **Check at the end (user):** no proof, estimate or explain-back for multi-step problems (that would be a check after every step). Instead, after the last step she can "Try one like it": the same steps with new small fractions, made and checked by code (`similarPlan`), solved the same way. She can skip it and finish.
 - **Status:** Active
 
 ---
@@ -442,6 +442,5 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
 - Add a PIN or similar lock to the Parent page once accounts exist.
 - Should "first 2 proofs per type" reset per set instead of per session?
-- Should multi-step problems end with a proof or an explain-back of the final answer?
 - Move the tutor rate limit to shared storage once the app runs on more than one server.
 - Add the server-side refusal fallback for the photo reader if refusals show up in practice.

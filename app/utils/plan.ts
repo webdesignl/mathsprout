@@ -79,3 +79,32 @@ export function resolvePlan(plan: Plan): PlanCheck {
   }
   return { ok: true, problems, results }
 }
+
+const SIMILAR_TRIES = 60
+
+/** A proper fraction such as 3/4: the kind of number that can be swapped for another one. */
+function isProperFraction(text: string): boolean {
+  const m = parseMixed(text)
+  return m !== null && m.whole === 0 && m.num > 0 && m.num < m.den
+}
+
+/**
+ * A similar problem with new numbers: the same steps in the same order, with each fraction swapped for another
+ * small one (halves to eighths). Whole numbers and answers carried between steps stay. Only a plan the engine
+ * accepts is returned, so it always works out. Null if none is found.
+ */
+export function similarPlan(plan: Plan, random: () => number = Math.random): Plan | null {
+  const pick = (n: number) => Math.floor(random() * n)
+  const fraction = () => {
+    const den = 2 + pick(7)
+    return `${1 + pick(den - 1)}/${den}`
+  }
+  const swap = (text: string) => (isProperFraction(text) ? fraction() : text)
+
+  for (let i = 0; i < SIMILAR_TRIES; i++) {
+    const next: Plan = { steps: plan.steps.map((s) => ({ ...s, a: swap(s.a), b: swap(s.b) })) }
+    const same = next.steps.every((s, k) => s.a === plan.steps[k]!.a && s.b === plan.steps[k]!.b)
+    if (!same && resolvePlan(next).ok) return next
+  }
+  return null
+}

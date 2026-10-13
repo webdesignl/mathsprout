@@ -31,7 +31,7 @@ import {
   pickDifferent,
   proofHint,
 } from '../utils/messages'
-import { resolvePlan, type Plan } from '../utils/plan'
+import { resolvePlan, similarPlan, type Plan } from '../utils/plan'
 import { localHint, operationHint, understandTemplate } from '../utils/tutorHints'
 import {
   createTutorApi,
@@ -61,6 +61,8 @@ export type TutorState =
   | 'explain'
   /** A step of a multi-step problem is solved. */
   | 'stepDone'
+  /** The multi-step problem is solved; she may try a similar one with new numbers. */
+  | 'similar'
   | 'done'
 
 export type CheckMethod = 'addBack' | 'estimate'
@@ -147,6 +149,10 @@ export const useTutorStore = defineStore('tutor', () => {
   const stepIndex = ref(0)
   /** Finished steps: the question, the equation with her (correct) answer. */
   const finishedSteps = ref<Array<{ label: string; problem: AnyProblem; answer: string }>>([])
+  /** The steps of the problem she photographed, kept while she tries a similar one. */
+  const mainSteps = ref<Array<{ label: string; problem: AnyProblem; answer: string }>>([])
+  /** True while she works on the similar problem. */
+  const inSimilar = ref(false)
   const planTotals = ref({ attempts: 0, hints: 0 })
 
   const attempts = ref(0)
@@ -236,6 +242,8 @@ export const useTutorStore = defineStore('tutor', () => {
     plan.value = null
     stepIndex.value = 0
     finishedSteps.value = []
+    mainSteps.value = []
+    inSimilar.value = false
     planTotals.value = { attempts: 0, hints: 0 }
     state.value = 'capture'
     source.value = null
@@ -369,10 +377,41 @@ export const useTutorStore = defineStore('tutor', () => {
     if (stepIndex.value + 1 >= plan.value.steps.length) {
       planTotals.value.attempts += attempts.value
       planTotals.value.hints += hints.value.length
-      state.value = 'done'
+      attempts.value = 0
+      hints.value = []
+      if (inSimilar.value) {
+        state.value = 'done'
+      } else {
+        mainSteps.value = [...finishedSteps.value]
+        state.value = 'similar'
+      }
       return true
     }
     startStep(stepIndex.value + 1)
+    return true
+  }
+
+  /** "Try one like it": the same steps with new fractions, made and checked by code. */
+  function startSimilar(random?: () => number): boolean {
+    const current = plan.value
+    if (state.value !== 'similar' || !current) return false
+    const next = similarPlan(current, random)
+    if (!next) {
+      state.value = 'done'
+      return false
+    }
+    plan.value = next
+    inSimilar.value = true
+    finishedSteps.value = []
+    problemText.value = 'Here is another one like it, with new numbers. The steps are the same as before.'
+    startStep(0)
+    return true
+  }
+
+  /** She can skip the similar problem and finish. */
+  function skipSimilar(): boolean {
+    if (state.value !== 'similar') return false
+    state.value = 'done'
     return true
   }
 
@@ -711,6 +750,10 @@ export const useTutorStore = defineStore('tutor', () => {
     finishedSteps,
     planTotals,
     nextStep,
+    mainSteps,
+    inSimilar,
+    startSimilar,
+    skipSimilar,
     source,
     problem,
     problemText,
