@@ -3,7 +3,10 @@ import { computed, ref } from 'vue'
 import type { Problem } from '../../utils/fraction'
 import { buildLearn } from '../../utils/learn'
 
-const props = defineProps<{ problem: Problem; answer: string }>()
+const props = withDefaults(defineProps<{ problem: Problem; answer: string; showTryLike?: boolean; showBack?: boolean }>(), {
+  showTryLike: true,
+  showBack: true,
+})
 const emit = defineEmits<{ close: []; tryLike: [] }>()
 
 const learn = computed(() => buildLearn(props.problem, props.answer))
@@ -44,7 +47,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
         Next
       </button>
       <button
-        v-else
+        v-else-if="showTryLike"
         type="button"
         :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']"
         @click="emit('tryLike')"
@@ -52,6 +55,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
         Try one like it
       </button>
       <button
+        v-if="showBack"
         type="button"
         :class="[button, 'bg-white text-indigo-900 ring-2 ring-indigo-700 hover:bg-indigo-100']"
         @click="emit('close')"

@@ -1,10 +1,7 @@
 import {
-  addSteps,
-  diagnose,
   formatMixed,
   add,
   subtract,
-  subtractSteps,
   type Diagnosis,
   type Problem,
   type Step,
@@ -15,6 +12,7 @@ import { createWithDeadline, dataBlock } from './ai'
 import { leaksAnswer } from './leak'
 import { stripPersonalDetails } from './sanitize'
 import type { HintInput } from './schemas'
+import { hintTarget } from '../../../app/utils/tutorHints'
 import { templateHint } from './templates'
 
 export const HINT_TIMEOUT_MS = 8000
@@ -37,18 +35,9 @@ export interface HintContext {
 /** Everything the server knows about the problem. The engine does all of it; the AI only gets to read it. */
 export function buildHintContext(input: HintInput): HintContext {
   const { problem } = input
-  const steps = problem.op === 'add' ? addSteps(problem.a, problem.b) : subtractSteps(problem.a, problem.b)
-  const answerText = input.studentAnswer?.trim() ?? ''
-  const diagnosis = answerText ? diagnose(problem, answerText) : null
-  const flaggedIndex = !input.stuck && diagnosis && diagnosis.stepIndex !== null ? diagnosis.stepIndex : 0
+  const { steps, flaggedIndex, diagnosis } = hintTarget(problem, input.studentAnswer, input.stuck)
   const correct = (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
-  return {
-    problem,
-    steps,
-    flaggedIndex: Math.min(flaggedIndex, Math.max(0, steps.length - 1)),
-    diagnosis,
-    correctAnswer: formatMixed(correct),
-  }
+  return { problem, steps, flaggedIndex, diagnosis, correctAnswer: formatMixed(correct) }
 }
 
 const LEVEL_RULES: Record<1 | 2 | 3, string> = {

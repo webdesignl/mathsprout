@@ -6,6 +6,7 @@ import {
   checkAnswer,
   diagnose,
   equals,
+  estimateCheck,
   formatMixed,
   gcd,
   inverseProblem,
@@ -15,6 +16,7 @@ import {
   makeFraction,
   parse,
   parseMixed,
+  roundToHalf,
   simplify,
   subtract,
   subtractSteps,
@@ -446,5 +448,100 @@ describe('inverseProblem with a student answer', () => {
     expect(inverse.op).toBe('add')
     expect(formatMixed(add(inverse.a, inverse.b))).toBe('8 3/10')
     expect(equals(add(inverse.a, inverse.b), problem.a)).toBe(false)
+  })
+})
+
+describe('roundToHalf', () => {
+  const r = (n: number, d: number) => formatMixed(roundToHalf({ numerator: n, denominator: d }))
+
+  it('rounds to the nearest half or whole', () => {
+    expect(r(33, 4)).toBe('8 1/2') // 8 1/4 is a tie: rounds up to 8 1/2
+    expect(r(41, 5)).toBe('8') // 8 1/5 -> 8
+    expect(r(19, 4)).toBe('5') // 4 3/4 -> 5
+    expect(r(13, 3)).toBe('4 1/2') // 4 1/3 -> 4 1/2
+    expect(r(29, 12)).toBe('2 1/2') // 2 5/12 -> 2 1/2
+    expect(r(0, 1)).toBe('0')
+    expect(r(1, 8)).toBe('0')
+    expect(r(3, 8)).toBe('1/2')
+  })
+
+  it('keeps halves and wholes as they are', () => {
+    expect(r(9, 2)).toBe('4 1/2')
+    expect(r(7, 1)).toBe('7')
+  })
+
+  it('rejects negatives', () => {
+    expect(() => roundToHalf({ numerator: -1, denominator: 2 })).toThrow(RangeError)
+  })
+
+  it('always lands within 1/4 of the original', () => {
+    for (let n = 0; n <= 200; n++) {
+      for (const d of [1, 2, 3, 4, 5, 6, 7, 8, 10, 12]) {
+        const rounded = roundToHalf({ numerator: n, denominator: d })
+        const gap = subtract({ numerator: n, denominator: d }, rounded)
+        expect(Math.abs(gap.numerator) * 4).toBeLessThanOrEqual(gap.denominator)
+      }
+    }
+  })
+})
+
+describe('estimateCheck', () => {
+  it('8 1/5 - 4 3/4: rounds to 8 and 5, so the estimate is 3', () => {
+    const e = estimateCheck(mixed(8, 1, 5), mixed(4, 3, 4), 'subtract', mixed(3, 9, 20))
+    expect(formatMixed(e.roundedA)).toBe('8')
+    expect(formatMixed(e.roundedB)).toBe('5')
+    expect(formatMixed(e.estimate)).toBe('3')
+    expect(formatMixed(e.difference)).toBe('9/20')
+    expect(e.close).toBe(true)
+  })
+
+  it('4 1/3 + 2 5/12: rounds to 4 1/2 and 2 1/2, so the estimate is 7', () => {
+    const e = estimateCheck(mixed(4, 1, 3), mixed(2, 5, 12), 'add', mixed(6, 3, 4))
+    expect(formatMixed(e.roundedA)).toBe('4 1/2')
+    expect(formatMixed(e.roundedB)).toBe('2 1/2')
+    expect(formatMixed(e.estimate)).toBe('7')
+    expect(e.close).toBe(true) // 6 3/4 is 1/4 away
+  })
+
+  it('says a wrong answer is not close', () => {
+    expect(estimateCheck(mixed(8, 1, 5), mixed(4, 3, 4), 'subtract', mixed(7, 0, 1)).close).toBe(false)
+    expect(estimateCheck(mixed(8, 1, 5), mixed(4, 3, 4), 'subtract', mixed(12, 19, 20)).close).toBe(false) // added
+    expect(estimateCheck(mixed(4, 1, 3), mixed(2, 5, 12), 'add', mixed(1, 11, 12)).close).toBe(false) // subtracted
+  })
+
+  it('exactly half a whole away still counts as close', () => {
+    // estimate 3, answer 3 1/2
+    expect(estimateCheck(mixed(8, 1, 5), mixed(4, 3, 4), 'subtract', mixed(3, 1, 2)).close).toBe(true)
+    expect(estimateCheck(mixed(8, 1, 5), mixed(4, 3, 4), 'subtract', mixed(3, 11, 20)).close).toBe(false)
+  })
+
+  it('treats answers below the estimate the same as above it', () => {
+    const above = estimateCheck(mixed(8, 1, 5), mixed(4, 3, 4), 'subtract', mixed(3, 1, 4))
+    const below = estimateCheck(mixed(8, 1, 5), mixed(4, 3, 4), 'subtract', mixed(2, 3, 4))
+    expect(above.difference).toEqual(below.difference)
+    expect(above.close).toBe(below.close)
+  })
+
+  it('accepts plain fractions as operands and answers', () => {
+    const e = estimateCheck({ numerator: 7, denominator: 8 }, mixed(0, 1, 3), 'add', { numerator: 25, denominator: 24 })
+    expect(formatMixed(e.estimate)).toBe('1 1/2') // 1 + 1/2
+    expect(e.close).toBe(true)
+  })
+
+  it('the correct answer is always close, for any numbers and either operation', () => {
+    for (let wa = 0; wa <= 9; wa++) {
+      for (const [na, da] of [[0, 1], [1, 2], [1, 5], [3, 4], [5, 12], [2, 7], [7, 8], [1, 3]] as const) {
+        for (const [nb, db] of [[0, 1], [1, 4], [2, 3], [1, 6], [9, 10], [3, 8]] as const) {
+          for (let wb = 0; wb <= wa; wb++) {
+            const a = mixed(wa, na, da)
+            const b = mixed(wb, nb, db)
+            expect(estimateCheck(a, b, 'add', add(a, b)).close).toBe(true)
+            if (subtract(a, b).numerator >= 0) {
+              expect(estimateCheck(a, b, 'subtract', subtract(a, b)).close).toBe(true)
+            }
+          }
+        }
+      }
+    }
   })
 })
