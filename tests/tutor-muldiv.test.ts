@@ -343,3 +343,35 @@ describe('wrong operation hints in the Tutor (templates, so they work with no AI
     expect((await generateHint(leaky.client, { problem: times, studentAnswer: '1 5/12', stuck: false, level: 1 })).hint).toBe('How many times should you add it?')
   })
 })
+
+describe('add and subtract answered with a multiplication or division result (Tutor)', () => {
+  const sum: AnyProblem = { op: 'add', a: { whole: 0, num: 1, den: 5 }, b: { whole: 0, num: 3, den: 4 } }
+  const NOT_REPEAT = 'We aren’t repeating or splitting. Are we putting together or taking away?'
+
+  it('the hint ladder works without the AI: the new hint first, then the usual put-together-or-take-away questions', async () => {
+    const hints: string[] = []
+    for (const level of [1, 2, 3] as const) {
+      const res = await handleHint(
+        { problem: sum, studentAnswer: '3/20', stuck: false, level },
+        { client: null, demo: false, limiter: createRateLimiter(), ip: `4.4.4.${level}` },
+      )
+      hints.push((res.body as { hint: string }).hint)
+    }
+    expect(hints).toEqual([
+      NOT_REPEAT,
+      'Does the problem put amounts together, or take some away?',
+      'If the problem asks how much is left, which operation fits?',
+    ])
+  })
+
+  it('hints made in the browser match', () => {
+    expect(localHint(sum, '3/20', false, 1)).toBe(NOT_REPEAT)
+  })
+
+  it('the AI is told the same idea, and the guard still blocks the answer', async () => {
+    const { client, calls } = fakeClient('Is the answer 19/20?', 'Are we joining the amounts, or taking some away?')
+    const result = await generateHint(client, { problem: sum, studentAnswer: '3/20', stuck: false, level: 1 })
+    expect(result.hint).toBe('Are we joining the amounts, or taking some away?')
+    expect(String(calls[0]!.system)).toMatch(/not repeating or splitting/)
+  })
+})

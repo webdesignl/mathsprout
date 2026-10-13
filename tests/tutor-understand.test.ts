@@ -56,9 +56,14 @@ describe('operationHint', () => {
     expect(operationHint('multiply', 'divide')).toBe('Are we taking a part of it, or splitting it up?')
     expect(operationHint('add', 'divide')).toBe('Are we taking a part of it, or splitting it up?')
   })
-  it('adding or subtracting: putting together or taking away', () => {
-    expect(operationHint('multiply', 'add')).toBe('Are we putting together or taking away?')
+  it('adding or subtracting, picked the other one: putting together or taking away', () => {
     expect(operationHint('add', 'subtract')).toBe('Are we putting together or taking away?')
+    expect(operationHint('subtract', 'add')).toBe('Are we putting together or taking away?')
+  })
+  it('adding or subtracting, picked multiply or divide: not repeating or splitting', () => {
+    for (const [chosen, actual] of [['multiply', 'add'], ['divide', 'add'], ['multiply', 'subtract'], ['divide', 'subtract']] as const) {
+      expect(operationHint(chosen, actual)).toBe('We aren’t repeating or splitting. Are we putting together or taking away?')
+    }
   })
 })
 

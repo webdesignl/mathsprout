@@ -16,6 +16,7 @@ import {
   multiplySteps,
   reciprocal,
   sizeCheck,
+  subtract,
   toMixed,
   verifyByInverse,
   workedSteps,
@@ -635,6 +636,77 @@ describe('wrong operation for multiplication and division', () => {
           if (equals(add(a, b), multiply(a, b))) continue // the sum is the right answer here, so it is not a slip
           const sum = formatMixed(add(a, b))
           expect(diagnose(mulProblem('multiply', a, b), sum).hint).toBe(REPEATED)
+        }
+      }
+    }
+  })
+})
+
+describe('add and subtract answered with a multiplication or division result', () => {
+  const NOT_REPEAT = 'We aren’t repeating or splitting. Are we putting together or taking away?'
+  const OLD = 'Are we putting together or taking away?'
+  const addP = (a: Operand, b: Operand) => ({ op: 'add', a, b }) as const
+  const subP = (a: Operand, b: Operand) => ({ op: 'subtract', a, b }) as const
+
+  it('adding answered by multiplying (1/5 + 3/4 answered 3/20)', () => {
+    expect(diagnose(addP(f(1, 5), f(3, 4)), '3/20')).toEqual({ slip: 'wrongOperation', stepIndex: null, hint: NOT_REPEAT })
+    // 4 1/3 + 2 5/12 answered as the product 10 5/36... worked out by the engine
+    const a = m(4, 1, 3)
+    const b = m(2, 5, 12)
+    expect(diagnose(addP(a, b), formatMixed(multiply(a, b))).hint).toBe(NOT_REPEAT)
+  })
+
+  it('adding answered by dividing, either way round', () => {
+    const a = f(1, 2)
+    const b = f(3, 4)
+    expect(diagnose(addP(a, b), formatMixed(value(divide(a, b)))).hint).toBe(NOT_REPEAT) // 2/3
+    expect(diagnose(addP(a, b), formatMixed(value(divide(b, a)))).hint).toBe(NOT_REPEAT) // 1 1/2
+  })
+
+  it('subtracting answered by multiplying or dividing', () => {
+    const a = m(8, 1, 5)
+    const b = m(4, 3, 4)
+    expect(diagnose(subP(a, b), formatMixed(multiply(a, b))).hint).toBe(NOT_REPEAT)
+    expect(diagnose(subP(a, b), formatMixed(value(divide(a, b)))).hint).toBe(NOT_REPEAT)
+    expect(diagnose(subP(a, b), formatMixed(value(divide(a, b)))).slip).toBe('wrongOperation')
+    expect(diagnose(subP(a, b), '1 29/99').stepIndex).toBeNull()
+  })
+
+  it('adding and subtracting swapped still gets the original hint', () => {
+    expect(diagnose(subP(m(8, 1, 5), m(4, 3, 4)), '12 19/20').hint).toBe(OLD)
+    expect(diagnose(addP(f(5, 6), f(1, 3)), '1/2').hint).toBe(OLD)
+  })
+
+  it('a right answer is never a wrong operation, even when two operations agree (2 + 2 = 2 × 2)', () => {
+    expect(diagnose(addP(whole(2), whole(2)), '4').slip).toBe('none')
+    expect(diagnose(addP(f(3, 2), whole(3)), formatMixed(add(f(3, 2), whole(3)))).slip).toBe('none') // 1 1/2 + 3 = 4 1/2 = 1 1/2 × 3
+  })
+
+  it('other add and subtract slips are untouched', () => {
+    expect(diagnose(addP(f(1, 5), f(3, 4)), '4/9').slip).toBe('addedDenominators')
+    expect(diagnose(subP(m(8, 1, 5), m(4, 3, 4)), '3 11/20').slip).toBe('numeratorArithmetic')
+    expect(diagnose(addP(f(1, 5), f(3, 4)), '17').slip).toBe('unknown')
+  })
+
+  it('the hint is one short question and never the answer', () => {
+    expect(NOT_REPEAT.match(/\?/g)).toHaveLength(1)
+    expect(words(NOT_REPEAT)).toBeLessThanOrEqual(12)
+    expect(NOT_REPEAT).not.toMatch(/\d/)
+    expect(diagnose(addP(f(1, 5), f(3, 4)), '3/20').hint).not.toContain('19/20')
+  })
+
+  it('is caught for many generated add and subtract problems whenever the product differs from the right answer', () => {
+    for (let wa = 1; wa <= 6; wa++) {
+      for (const [na, da] of [[1, 2], [2, 3], [3, 4], [1, 5]] as const) {
+        for (const [nb, db] of [[1, 3], [5, 6], [3, 8], [2, 5]] as const) {
+          const a = m(wa, na, da)
+          const b = m(wa, nb, db)
+          if (!equals(add(a, b), multiply(a, b))) {
+            expect(diagnose(addP(a, b), formatMixed(multiply(a, b))).hint).toBe(NOT_REPEAT)
+          }
+          if (compare(a, b) > 0 && !equals(subtract(a, b), multiply(a, b))) {
+            expect(diagnose(subP(a, b), formatMixed(multiply(a, b))).hint).toBe(NOT_REPEAT)
+          }
         }
       }
     }

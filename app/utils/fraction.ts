@@ -437,6 +437,8 @@ const HINTS: Record<Slip, string> = {
 export const REPEATED_ADDITION_HINT = 'Multiplying is repeated adding. How many times should you add it?'
 /** For mixing up multiplying and dividing: taking a part of something, or splitting it up. */
 export const PART_OR_SPLIT_HINT = 'Are we taking a part of it, or splitting it up?'
+/** For an add or subtract problem answered with a multiplication or division result. */
+export const NOT_REPEAT_OR_SPLIT_HINT = 'We aren’t repeating or splitting. Are we putting together or taking away?'
 
 /** For multiplication and division, a few slips need different words than adding and subtracting. */
 const MUL_DIV_HINTS: Partial<Record<Slip, string>> = {
@@ -501,6 +503,15 @@ function diagnoseAddSub(problem: Problem, studentInput: string): Diagnosis {
   const otherResult = (problem.op === 'add' ? subtract : add)(problem.a, problem.b)
   if (!isNegative(otherResult) && equals(otherResult, value)) {
     return diagnosis('wrongOperation', null)
+  }
+  // Her answer is a multiplication or division result: she repeated or split instead of putting together or taking away.
+  const repeatedOrSplit = [
+    guess(() => multiply(problem.a, problem.b)),
+    guess(() => divide(problem.a, problem.b)),
+    guess(() => divide(problem.b, problem.a)),
+  ]
+  if (repeatedOrSplit.some((candidate) => sameValue(value, candidate))) {
+    return { slip: 'wrongOperation', stepIndex: null, hint: NOT_REPEAT_OR_SPLIT_HINT }
   }
 
   const { a, b, lcd, aRenamed, bRenamed } = s
