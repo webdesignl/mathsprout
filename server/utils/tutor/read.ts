@@ -45,6 +45,7 @@ const SYSTEM_PROMPT = [
   'For division the first operand is the number being divided and the second is what it is divided by: "6 ÷ 2/3" is divide with operands "6" and "2/3".',
   'problemText is the problem in plain words, without any names or personal details.',
   'Use confidence "low" if the writing is hard to read or you are unsure of a number or a symbol.',
+  'First work out what the final question asks and count the calculations needed to answer it. Use the one-operation shape ONLY when the final question is answered by a single calculation. If the story gives several fractions that must be combined (for example parts of a part, "the rest", or adding up two groups), it needs steps. Never answer with just one calculation taken from the middle of a longer problem, even when you can see a single product or sum in the text.',
   'If the problem needs 2 to 5 steps (for example "1/5 did not finish; 5/6 of those who finished were adults"), reply instead with:',
   '{"steps":[{"op":"subtract","a":"1","b":"1/5","label":"What fraction finished?"},{"op":"multiply","a":"r1","b":"1/6","label":"..."}],"problemText":"...","confidence":"high"|"low"}',
   'Each step is one operation on two numbers. A number is written like "1/5" or "2 3/4", or "r1" for the answer to step 1, "r2" for step 2, and so on. The last step gives the final answer, and every earlier step must be used by a later one. Use "1" for the whole, so "the rest" is "1" minus the part.',
@@ -105,7 +106,8 @@ function interpret(raw: unknown): ReadResult | 'invalid' {
       steps: parsed.data.steps.map((step, i) => ({ ...step, label: safeLabel(step.label, i) })),
     }
     // The engine works out every step; a plan that doesn't add up (a negative, a step that goes nowhere) is rejected.
-    if (!resolvePlan(plan).ok) return failure('unsupported')
+    // A plan that doesn't add up is a misread, not an unsupported problem: ask the model again.
+    if (!resolvePlan(plan).ok) return 'invalid'
     return {
       ok: true,
       plan,
@@ -172,7 +174,8 @@ export async function readProblem(
 
     const result = interpret(extractJson(text))
     if (result !== 'invalid') return result
-    note = 'Your last reply was not valid. Reply with JSON only, in the exact shape described, with operands written like "8 1/5".'
+    note =
+      'Your last reply was not valid. Reply with JSON only, in the exact shape described, with operands written like "8 1/5". For steps, every step must give a positive answer, refer only to earlier steps ("r1" in step 2 or later), and every step except the last must be used by a later step.'
   }
   return failure('unreadable')
 }

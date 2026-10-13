@@ -48,10 +48,17 @@ describe('reading a multi-step problem', () => {
     expect(result).toMatchObject({ ok: true, plan: { steps: [{ op: 'subtract' }, {}, {}, {}] } })
   })
 
-  it('rejects a plan that does not add up as unsupported', async () => {
+  it('asks again when a plan does not add up, and uses the second reply', async () => {
+    const bad: Plan = { steps: [MARATHON.steps[0]!, { op: 'add', a: '1/2', b: '1/3', label: 'Next?' }] }
+    const { client, create } = fakeClient(modelJson(bad), modelJson(MARATHON))
+    expect(await readProblem(client, { text: 'x' })).toMatchObject({ ok: true, plan: { steps: [{}, {}, {}, {}] } })
+    expect(create).toHaveBeenCalledTimes(2)
+  })
+
+  it('gives up kindly when the plan is still wrong the second time', async () => {
     const bad: Plan = { steps: [MARATHON.steps[0]!, { op: 'add', a: '1/2', b: '1/3', label: 'Next?' }] }
     const { client } = fakeClient(modelJson(bad))
-    expect(await readProblem(client, { text: 'x' })).toMatchObject({ ok: false, reason: 'unsupported' })
+    expect(await readProblem(client, { text: 'x' })).toMatchObject({ ok: false, reason: 'unreadable' })
   })
 
   it('replaces a label that names an operation or holds a number', () => {
