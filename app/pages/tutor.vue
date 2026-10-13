@@ -200,6 +200,9 @@ function another() {
     <!-- 3. Understand the question and find the operation first -->
     <section v-else-if="store.state === 'understand' && store.problem" class="space-y-6">
       <h1 class="text-4xl font-bold text-emerald-900">Let’s understand it</h1>
+      <p v-if="store.confidence === 'low'" class="text-center text-xl font-semibold text-amber-950" role="status">
+        I am not sure I read this right. If it looks wrong, tap “This isn’t my problem”.
+      </p>
       <PracticeProblemCard :problem="store.problem" :hide-operation="true" />
       <p v-if="store.problemText" class="text-center text-lg text-slate-700">{{ store.problemText }}</p>
 
@@ -250,7 +253,10 @@ function another() {
       </div>
 
       <div v-if="store.understanding.done" class="flex justify-center">
-        <button type="button" :class="primary" @click="store.continueFromUnderstanding()">Start solving</button>
+        <button type="button" :class="primary" @click="store.continueFromUnderstanding()">Next</button>
+      </div>
+      <div v-else class="flex justify-center">
+        <button type="button" :class="secondary" @click="store.doesNotLookRight()">This isn’t my problem</button>
       </div>
     </section>
 

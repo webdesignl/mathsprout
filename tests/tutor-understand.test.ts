@@ -209,7 +209,6 @@ async function atUnderstand(a: TutorApi = api()) {
   const store = useTutorStore()
   store.setApi(a)
   await store.readProblem({ text: SCOOPS_TEXT })
-  store.confirmProblem()
   await store.whenUnderstood()
   return store
 }
@@ -230,7 +229,6 @@ describe('the Tutor "understand" step', () => {
     let release: (r: UnderstandReply) => void = () => {}
     store.setApi(api({ understand: () => new Promise((resolve) => (release = resolve)) }))
     await store.readProblem({ text: SCOOPS_TEXT })
-    store.confirmProblem()
     expect(store.understanding.loading).toBe(true)
     expect(store.busy).toBeNull() // she can still choose the operation and answer meanwhile
     release({ ok: true, text: GOOD, source: 'ai' })
@@ -255,10 +253,12 @@ describe('the Tutor "understand" step', () => {
     }
     store.setApi(a)
     expect(store.enterTyped(SCOOPS)).toBeNull()
+    expect(store.state).toBe('confirm') // typed numbers skip this step entirely
     store.confirmProblem()
     await store.whenUnderstood()
     expect(calls).toBe(0)
-    expect(store.understanding.text).toBe(understandTemplate(SCOOPS))
+    expect(store.state).toBe('attempt')
+    expect(understandTemplate(SCOOPS)).toBe('You have two numbers: 6 and 3/4. Picture them. What is the problem asking you to do with them?')
   })
 
   it('the right operation is acknowledged with encouragement and the reason', async () => {
@@ -269,7 +269,7 @@ describe('the Tutor "understand" step', () => {
     expect(SUCCESS_MESSAGES.some((m) => praise.startsWith(m))).toBe(true)
     expect(praise).toContain(OPERATION_WHY.divide)
     expect(store.continueFromUnderstanding()).toBe(true)
-    expect(store.state).toBe('attempt')
+    expect(store.state).toBe('confirm') // now she sees the whole problem and confirms it
   })
 
   it('a wrong operation gets a hint question, not the answer', async () => {
@@ -310,12 +310,11 @@ describe('the Tutor "understand" step', () => {
     expect(useTutorStore().chooseOperation('divide')).toBeNull()
   })
 
-  it('"Fix it" still comes before understanding, and a late explanation for the old problem is ignored', async () => {
+  it('a late explanation for a problem she has already left is ignored', async () => {
     const store = useTutorStore()
     let release: (r: UnderstandReply) => void = () => {}
     store.setApi(api({ understand: () => new Promise((resolve) => (release = resolve)) }))
     await store.readProblem({ text: SCOOPS_TEXT })
-    store.confirmProblem()
     store.reset() // she started over before the explanation arrived
     release({ ok: true, text: GOOD, source: 'ai' })
     await store.whenUnderstood().catch(() => {})
@@ -338,6 +337,7 @@ describe('the Tutor acknowledges her answer', () => {
     const store = await atUnderstand()
     store.chooseOperation('divide')
     store.continueFromUnderstanding()
+    store.confirmProblem()
     return store
   }
 
@@ -345,9 +345,9 @@ describe('the Tutor acknowledges her answer', () => {
     const store = useTutorStore()
     store.setApi(api({ understand: () => new Promise(() => {}) }))
     await store.readProblem({ text: SCOOPS_TEXT })
-    store.confirmProblem()
     store.chooseOperation('divide')
     store.continueFromUnderstanding()
+    store.confirmProblem()
     expect(await store.submitAnswer('8')).toBe('correct')
   })
 
@@ -365,9 +365,9 @@ describe('the Tutor acknowledges her answer', () => {
     for (let i = 0; i < 10; i++) {
       store.reset()
       await store.readProblem({ text: SCOOPS_TEXT })
-      store.confirmProblem()
       store.chooseOperation('divide')
       store.continueFromUnderstanding()
+      store.confirmProblem()
       await store.submitAnswer('8')
       seen.push(store.successMessage)
     }
