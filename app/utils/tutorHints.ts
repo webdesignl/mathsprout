@@ -1,4 +1,5 @@
 import {
+  NOT_REPEAT_OR_SPLIT_HINT,
   PART_OR_SPLIT_HINT,
   REPEATED_ADDITION_HINT,
   diagnose,
@@ -174,6 +175,8 @@ export const OPERATION_WORDS =
 export function operationHint(chosen: AnyOp, actual: AnyOp): string {
   if (actual === 'multiply' && chosen === 'add') return REPEATED_ADDITION_HINT
   if (actual === 'multiply' || actual === 'divide') return PART_OR_SPLIT_HINT
+  // Adding or subtracting: choosing multiply or divide means repeating or splitting, which is not needed here.
+  if (chosen === 'multiply' || chosen === 'divide') return NOT_REPEAT_OR_SPLIT_HINT
   return 'Are we putting together or taking away?'
 }
 

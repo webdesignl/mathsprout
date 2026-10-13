@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { formatMixed, problemAnswer, subtract, type AnyProblem, type MixedNumber, type MulProblem, type Problem } from '../app/utils/fraction'
+import { formatMixed, multiply, problemAnswer, subtract, type AnyProblem, type MixedNumber, type MulProblem, type Problem } from '../app/utils/fraction'
 import { SET_SIZE, usePracticeStore } from '../app/stores/practice'
 import { withStory } from '../app/utils/stories'
 import { PROOF_SLIP_MESSAGES } from '../app/utils/messages'
@@ -1398,5 +1398,28 @@ describe('wrong operation hints for multiplication and division', () => {
     const fb = plain.feedback
     if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
     expect(fb.hints[0]).toBe('Multiplying is repeated adding. How many times should you add it?')
+  })
+})
+
+describe('add and subtract answered with a multiplication or division result (Practice)', () => {
+  it('the first hint says we are not repeating or splitting; the second has the clue words', () => {
+    const store = setup([sub])
+    // 8 1/5 x 4 3/4 = 38 19/20
+    store.submit('38 19/20')
+    store.nextHint()
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.hints).toEqual([
+      'We aren’t repeating or splitting. Are we putting together or taking away?',
+      'Words like “in all” add. Words like “left” subtract.',
+    ])
+  })
+
+  it('works for addition too, and is the same for a story and for plain numbers', () => {
+    const store = setup([withStory(add)])
+    store.submit(formatMixed(multiply({ whole: 4, num: 1, den: 3 }, { whole: 2, num: 5, den: 12 }))) // 4 1/3 x 2 5/12
+    const fb = store.feedback
+    if (fb?.kind !== 'wrong') throw new Error('expected wrong feedback')
+    expect(fb.hints[0]).toBe('We aren’t repeating or splitting. Are we putting together or taking away?')
   })
 })

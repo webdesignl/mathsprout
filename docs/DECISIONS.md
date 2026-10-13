@@ -379,7 +379,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Decision:** `diagnose` now recognises a multiplication or division answer that is the right answer to a different operation, and returns the slip `wrongOperation` with no step index. If she **added** on a multiplication, the hint stresses that multiplying is repeated adding: "Multiplying is repeated adding. How many times should you add it?" If she multiplied and got the answer to a subtraction or a division (either way round), or divided and got the answer to an addition or subtraction, the hint is "Are we taking a part of it, or splitting it up?" A division answered by multiplying stays `forgotReciprocal`, because that is more specific. A correct answer is never a wrong operation, even when two operations agree (2 × 2 = 2 + 2). The second hint has clue words for each operation ("each", "of" and "times" for multiplying; "shared equally" and "how many fit" for dividing). The Tutor's three hint levels have templates for each operation, and the AI hint writer is told the same ideas.
 - **Why:** Story problems hide the operation card (D-17), so she has to choose the operation herself, and "added instead of multiplied" is the most likely mix-up.
 - **Alternatives:** One general "check the operation" hint for all four.
-- **Status:** Active. Not covered: an add/subtract problem answered with a multiplication or division result still gets the add/subtract hint.
+- **Status:** Active. The add/subtract gap is closed by D-51.
 
 ---
 
@@ -410,6 +410,12 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Date:** 2026-10
 - **Source:** User (issues #17 and #12)
 - **Decision:** In the Tutor the check button is "Give proof" (it was "Add back", which is wrong for multiplying and dividing), the summary says "Proof", and the panel for checking a wrong answer is titled "Check with the opposite operation". The explain step shows the problem, her original wording and her answer, so she can answer a follow-up like "how did you find the common denominator?" without going back to her photo.
+- **Status:** Active
+
+### D-51: Add and subtract answered with a multiplication or division result
+- **Date:** 2026-10
+- **Source:** User (the gap noted under D-46)
+- **Decision:** For an add or subtract problem, `diagnose` now also recognises an answer that equals the product, or the quotient either way round, as `wrongOperation` with no step index. The hint is "We aren't repeating or splitting. Are we putting together or taking away?" (12 words, one question). Adding and subtracting mixed up with each other keeps its own hint, "Are we putting together or taking away?". The second hint is unchanged ("in all" adds, "left" subtracts). The Tutor's operation step uses the same hint when she picks multiply or divide for an add or subtract problem, the Tutor's hint templates and the AI hint writer are told the same idea, and a correct answer is never flagged even when two operations agree (2 + 2 = 2 × 2).
 - **Status:** Active
 
 ---
