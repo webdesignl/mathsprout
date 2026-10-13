@@ -11,11 +11,14 @@ import {
   parseMixed,
   problemAnswer,
   toImproper,
+  toFraction,
+  toMixed,
   workedSteps,
   type AnswerStatus,
   type AnyOp,
   type AnyProblem,
   type EstimateCheck,
+  type MixedNumber,
   type Operand,
   type Slip,
   type Step,
@@ -28,6 +31,7 @@ import {
   pickDifferent,
   proofHint,
 } from '../utils/messages'
+import { resolvePlan, type Plan } from '../utils/plan'
 import { localHint, operationHint, understandTemplate } from '../utils/tutorHints'
 import {
   createTutorApi,
@@ -55,6 +59,8 @@ export type TutorState =
   | 'teach'
   | 'check'
   | 'explain'
+  /** A step of a multi-step problem is solved. */
+  | 'stepDone'
   | 'done'
 
 export type CheckMethod = 'addBack' | 'estimate'
@@ -132,6 +138,16 @@ export const useTutorStore = defineStore('tutor', () => {
   const lastSuccessMessage = ref<string | null>(null)
   /** The praise for finding the operation is tracked separately, so each kind of line varies on its own. */
   const lastOperationPraise = ref<string | null>(null)
+
+  /**
+   * A problem in several steps. Each step is one ordinary problem (an operation on two numbers) that she solves
+   * with the usual hints; the answers carry forward. Only code decides every step. The AI wrote the plan.
+   */
+  const plan = ref<Plan | null>(null)
+  const stepIndex = ref(0)
+  /** Finished steps: the question, the equation with her (correct) answer. */
+  const finishedSteps = ref<Array<{ label: string; problem: AnyProblem; answer: string }>>([])
+  const planTotals = ref({ attempts: 0, hints: 0 })
 
   const attempts = ref(0)
   const lastAnswer = ref('')
@@ -217,6 +233,10 @@ export const useTutorStore = defineStore('tutor', () => {
   })
 
   function reset() {
+    plan.value = null
+    stepIndex.value = 0
+    finishedSteps.value = []
+    planTotals.value = { attempts: 0, hints: 0 }
     state.value = 'capture'
     source.value = null
     problem.value = null
@@ -289,7 +309,70 @@ export const useTutorStore = defineStore('tutor', () => {
       error.value = reply.message
       return false
     }
-    takeProblem(reply.problem, 'imageBase64' in body ? 'photo' : 'text', reply.problemText, reply.confidence)
+    const from = 'imageBase64' in body ? 'photo' : 'text'
+    if ('plan' in reply) return takePlan(reply.plan, from, reply.problemText, reply.confidence)
+    takeProblem(reply.problem, from, reply.problemText, reply.confidence)
+    return true
+  }
+
+  /** The engine re-checks the plan, so a bad one never starts. She confirms the problem, then solves step 1. */
+  function takePlan(next: Plan, from: ProblemSource, text: string, how: 'high' | 'low'): boolean {
+    if (!resolvePlan(next).ok) {
+      error.value = 'I can’t solve that one yet. Can you try another problem?'
+      return false
+    }
+    plan.value = next
+    source.value = from
+    problemText.value = text
+    confidence.value = how
+    error.value = null
+    state.value = 'confirm'
+    return true
+  }
+
+  /** The step's question, and the plan's problem with the earlier answers filled in. */
+  const stepLabel = computed(() => plan.value?.steps[stepIndex.value]?.label ?? '')
+  const stepCount = computed(() => plan.value?.steps.length ?? 0)
+
+  /** Clears what belongs to one step, keeping the totals for the summary. */
+  function startStep(index: number) {
+    planTotals.value.attempts += attempts.value
+    planTotals.value.hints += hints.value.length
+    if (!plan.value) return
+    stepIndex.value = index
+    problem.value = resolveStep(plan.value, index, finishedSteps.value)
+    attempts.value = 0
+    lastAnswer.value = ''
+    lastWrongAnswer.value = ''
+    acceptedAnswer.value = ''
+    notSimplest.value = false
+    wrongMessage.value = ''
+    successMessage.value = ''
+    hints.value = []
+    hintsOffline.value = false
+    startUnderstanding()
+  }
+
+  /** The step as a real problem. Earlier answers are the ones she found, which the engine has confirmed. */
+  function resolveStep(current: Plan, index: number, done: Array<{ answer: string }>): AnyProblem {
+    const step = current.steps[index]!
+    const value = (text: string): MixedNumber => {
+      const ref = /^r(\d)$/i.exec(text.trim())
+      return parseMixed(ref ? (done[Number(ref[1]) - 1]?.answer ?? '') : text)!
+    }
+    return { op: step.op, a: value(step.a), b: value(step.b) } as AnyProblem
+  }
+
+  /** On to the next step, or to the summary after the last. */
+  function nextStep(): boolean {
+    if (state.value !== 'stepDone' || !plan.value) return false
+    if (stepIndex.value + 1 >= plan.value.steps.length) {
+      planTotals.value.attempts += attempts.value
+      planTotals.value.hints += hints.value.length
+      state.value = 'done'
+      return true
+    }
+    startStep(stepIndex.value + 1)
     return true
   }
 
@@ -297,6 +380,12 @@ export const useTutorStore = defineStore('tutor', () => {
   async function loadUnderstanding(): Promise<void> {
     const current = problem.value
     if (!current) return
+    // In a multi-step problem the step's question is the explanation. It needs no AI call.
+    if (plan.value) {
+      understanding.value.text = stepLabel.value
+      understanding.value.source = 'plan'
+      return
+    }
     const text = problemText.value.trim()
     // With only numbers there is no story to explain, so no call is made.
     if (!text) {
@@ -323,6 +412,10 @@ export const useTutorStore = defineStore('tutor', () => {
    * early because it looked wrong), she does that first.
    */
   function confirmProblem(): boolean {
+    if (state.value === 'confirm' && plan.value) {
+      startStep(0)
+      return true
+    }
     if (state.value !== 'confirm' || !problem.value) return false
     if (source.value !== 'typed' && !understanding.value.done) {
       startUnderstanding()
@@ -337,7 +430,8 @@ export const useTutorStore = defineStore('tutor', () => {
    * the screen where she can fix it, before she is asked about the operation.
    */
   function doesNotLookRight(): boolean {
-    if (state.value !== 'understand') return false
+    // In a multi-step problem she confirmed the whole problem already, so there is nothing to fix here.
+    if (state.value !== 'understand' || plan.value) return false
     state.value = 'confirm'
     return true
   }
@@ -377,7 +471,8 @@ export const useTutorStore = defineStore('tutor', () => {
   /** On to "Is this your problem?", once she has found the operation. */
   function continueFromUnderstanding(): boolean {
     if (state.value !== 'understand' || !understanding.value.done) return false
-    state.value = 'confirm'
+    // In a multi-step problem she confirmed the whole problem at the start, so she goes straight to the step.
+    state.value = plan.value ? 'attempt' : 'confirm'
     return true
   }
 
@@ -443,6 +538,13 @@ export const useTutorStore = defineStore('tutor', () => {
     if (result.status === 'correct') {
       acceptedAnswer.value = text.trim()
       successMessage.value = lastSuccessMessage.value = pickDifferent(SUCCESS_MESSAGES, lastSuccessMessage.value)
+      if (plan.value) {
+        // The answer is stored in simplest form so the next step can use it.
+        const simplest = formatMixed(toMixed(toFraction(answerOf(current))))
+        finishedSteps.value.push({ label: stepLabel.value, problem: current, answer: simplest })
+        state.value = 'stepDone'
+        return 'correct'
+      }
       state.value = 'check'
       return 'correct'
     }
@@ -602,6 +704,13 @@ export const useTutorStore = defineStore('tutor', () => {
 
   return {
     state,
+    plan,
+    stepIndex,
+    stepLabel,
+    stepCount,
+    finishedSteps,
+    planTotals,
+    nextStep,
     source,
     problem,
     problemText,

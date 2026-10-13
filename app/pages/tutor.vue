@@ -178,6 +178,20 @@ function another() {
       </div>
     </section>
 
+    <!-- 2a. Confirm a problem with several steps -->
+    <section v-else-if="store.state === 'confirm' && store.plan" class="space-y-6">
+      <h1 class="text-4xl font-bold text-emerald-900">Is this your problem?</h1>
+      <p class="rounded-2xl bg-white p-6 text-2xl leading-snug text-slate-900 shadow-sm">{{ store.problemText }}</p>
+      <p class="text-center text-xl text-slate-800">This one has {{ store.stepCount }} steps. We will take them one at a time.</p>
+      <p v-if="store.confidence === 'low'" class="text-center text-xl font-semibold text-amber-950" role="status">
+        I am not sure I read this right. Please check.
+      </p>
+      <div class="flex flex-wrap justify-center gap-4">
+        <button type="button" :class="primary" @click="store.confirmProblem()">Yes</button>
+        <button type="button" :class="secondary" @click="another">This isn’t my problem</button>
+      </div>
+    </section>
+
     <!-- 2. Confirm: always, never skipped -->
     <section v-else-if="store.state === 'confirm' && store.problem" class="space-y-6">
       <h1 class="text-4xl font-bold text-emerald-900">Is this your problem?</h1>
@@ -200,11 +214,12 @@ function another() {
     <!-- 3. Understand the question and find the operation first -->
     <section v-else-if="store.state === 'understand' && store.problem" class="space-y-6">
       <h1 class="text-4xl font-bold text-emerald-900">Let’s understand it</h1>
+      <TutorStepHeader />
       <p v-if="store.confidence === 'low'" class="text-center text-xl font-semibold text-amber-950" role="status">
         I am not sure I read this right. If it looks wrong, tap “This isn’t my problem”.
       </p>
       <PracticeProblemCard :problem="store.problem" :hide-operation="true" />
-      <p v-if="store.problemText" class="text-center text-lg text-slate-700">{{ store.problemText }}</p>
+      <p v-if="store.problemText && !store.plan" class="text-center text-lg text-slate-700">{{ store.problemText }}</p>
 
       <div role="status" aria-live="polite" class="space-y-3">
         <p v-if="store.understanding.loading" class="text-2xl font-semibold text-slate-800">Thinking…</p>
@@ -255,7 +270,7 @@ function another() {
       <div v-if="store.understanding.done" class="flex justify-center">
         <button type="button" :class="primary" @click="store.continueFromUnderstanding()">Next</button>
       </div>
-      <div v-else class="flex justify-center">
+      <div v-else-if="!store.plan" class="flex justify-center">
         <button type="button" :class="secondary" @click="store.doesNotLookRight()">This isn’t my problem</button>
       </div>
     </section>
@@ -263,6 +278,8 @@ function another() {
     <!-- 4. Attempt, hints and teach -->
     <section v-else-if="answering && store.problem" class="space-y-6">
       <h1 class="sr-only">Solve it</h1>
+      <TutorStepHeader />
+      <p v-if="store.plan" class="text-2xl font-semibold text-slate-900">{{ store.stepLabel }}</p>
       <p v-if="hintNumber" class="text-xl font-semibold text-slate-800">Hint {{ hintNumber }} of 3</p>
       <PracticeProblemCard v-if="store.state !== 'teach'" :problem="store.problem" />
 
@@ -288,7 +305,7 @@ function another() {
         v-if="store.state === 'teach'"
         :problem="store.problem"
         :answer="store.lastWrongAnswer"
-        :question="store.problemText"
+        :question="store.plan ? '' : store.problemText"
         :show-try-like="false"
         :show-back="false"
       />
@@ -305,6 +322,22 @@ function another() {
           </button>
         </div>
       </form>
+    </section>
+
+    <!-- 4a. A step of a multi-step problem is done -->
+    <section v-else-if="store.state === 'stepDone' && store.problem" class="space-y-6">
+      <p class="celebrate text-3xl font-bold text-emerald-900" role="status">
+        <span aria-hidden="true">🎉</span> {{ store.successMessage }}
+      </p>
+      <h1 class="text-4xl font-bold text-emerald-900">Step {{ store.stepIndex + 1 }} done</h1>
+      <p class="text-center text-2xl text-slate-900">
+        {{ store.stepLabel }} <span class="font-bold">{{ store.acceptedAnswer }}</span>
+      </p>
+      <div class="flex justify-center">
+        <button type="button" :class="primary" @click="store.nextStep()">
+          {{ store.stepIndex + 1 >= store.stepCount ? 'Finish' : 'Next step' }}
+        </button>
+      </div>
     </section>
 
     <!-- 4. The check: required -->
@@ -368,20 +401,29 @@ function another() {
       <h1 class="text-4xl font-bold text-emerald-900">All done. Great thinking!</h1>
       <p v-if="store.explanation.praise" class="text-2xl text-slate-900" role="status">{{ store.explanation.praise }}</p>
 
+      <ol v-if="store.plan" class="space-y-2 rounded-xl bg-white p-4 text-xl text-slate-900" aria-label="Your steps">
+        <li v-for="(done, i) in store.finishedSteps" :key="i">
+          Step {{ i + 1 }}: {{ done.label }} <span class="font-bold">{{ done.answer }}</span>
+        </li>
+      </ol>
+      <p v-if="store.plan && store.finishedSteps.length" class="text-2xl font-bold text-emerald-900">
+        The answer is {{ store.finishedSteps.at(-1)!.answer }}.
+      </p>
+
       <dl class="grid gap-3 text-xl sm:grid-cols-2">
         <div class="rounded-xl bg-white p-4">
           <dt class="text-lg text-slate-700">Hints used</dt>
-          <dd class="text-3xl font-bold">{{ store.hintsUsed }}</dd>
+          <dd class="text-3xl font-bold">{{ store.plan ? store.planTotals.hints : store.hintsUsed }}</dd>
         </div>
         <div class="rounded-xl bg-white p-4">
           <dt class="text-lg text-slate-700">Tries</dt>
-          <dd class="text-3xl font-bold">{{ store.attempts }}</dd>
+          <dd class="text-3xl font-bold">{{ store.plan ? store.planTotals.attempts : store.attempts }}</dd>
         </div>
-        <div class="rounded-xl bg-white p-4">
+        <div v-if="!store.plan" class="rounded-xl bg-white p-4">
           <dt class="text-lg text-slate-700">How you checked</dt>
           <dd class="text-3xl font-bold">{{ checkMethodLabel }}</dd>
         </div>
-        <div class="rounded-xl bg-white p-4">
+        <div v-if="!store.plan" class="rounded-xl bg-white p-4">
           <dt class="text-lg text-slate-700">Your explanation</dt>
           <dd class="text-3xl font-bold">{{ store.explanation.verdict ? verdictLabels[store.explanation.verdict] : 'Skipped' }}</dd>
         </div>

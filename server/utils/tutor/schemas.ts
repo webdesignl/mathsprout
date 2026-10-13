@@ -47,6 +47,22 @@ export const modelReadSchema = z.union([
     problemText: z.string().max(600),
     confidence: z.enum(['high', 'low']),
   }),
+  // A problem in several steps. Each operand is a number or "r1" (the answer to step 1).
+  z.object({
+    steps: z
+      .array(
+        z.object({
+          op: z.enum(OPERATIONS),
+          a: z.string().max(30),
+          b: z.string().max(30),
+          label: z.string().max(200),
+        }),
+      )
+      .min(2)
+      .max(5),
+    problemText: z.string().max(600),
+    confidence: z.enum(['high', 'low']),
+  }),
 ])
 
 export const hintInputSchema = z.object({
