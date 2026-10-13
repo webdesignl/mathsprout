@@ -3,6 +3,7 @@ import { diagnose, type Problem } from '../app/utils/fraction'
 import { buildLearn } from '../app/utils/learn'
 import {
   GENERIC_STEP_HINT,
+  SLIP_NUDGES,
   NOT_SIMPLEST_MESSAGE,
   STEP_HINTS,
   SUCCESS_MESSAGES,
@@ -62,6 +63,14 @@ describe('buildLearn (the Learn panel content)', () => {
     expect(learn.steps[learn.highlightIndex!]!.step.kind).toBe('rename')
   })
 
+  it('names mixing up the operation kindly, with no step highlighted', () => {
+    const learn = buildLearn(sub, '12 19/20')
+    expect(learn.slip).toBe('wrongOperation')
+    expect(learn.highlightIndex).toBeNull()
+    expect(learn.intro).toBe('That looks like using the other operation.')
+    expect(learn.steps.length).toBeGreaterThan(0)
+  })
+
   it('highlights nothing when it cannot tell what went wrong', () => {
     const learn = buildLearn(sub, '17')
     expect(learn.highlightIndex).toBeNull()
@@ -96,6 +105,7 @@ describe('messages', () => {
       NOT_SIMPLEST_MESSAGE,
       GENERIC_STEP_HINT,
       ...Object.values(STEP_HINTS),
+      ...Object.values(SLIP_NUDGES),
       proofHint('subtract', '4 3/4'),
       proofHint('add', '2 5/12'),
     ]
@@ -103,7 +113,7 @@ describe('messages', () => {
   })
 
   it('every engine hint is one short question', () => {
-    for (const input of ['3 11/20', '4 11/20', '4 9/20', '17']) {
+    for (const input of ['3 11/20', '4 11/20', '4 9/20', '17', '12 19/20']) {
       const { hint } = diagnose(sub, input)
       expect(words(hint)).toBeLessThanOrEqual(12)
       expect(hint).toMatch(/\?$/)

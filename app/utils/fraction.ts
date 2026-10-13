@@ -58,6 +58,7 @@ export type Slip =
   | 'addedDenominators'
   | 'noCommonDenominator'
   | 'notSimplified'
+  | 'wrongOperation'
   | 'unknown'
 
 export interface Diagnosis {
@@ -401,6 +402,7 @@ const HINTS: Record<Slip, string> = {
   numeratorArithmetic: 'Whole number looks good. Check the top numbers again?',
   wholeArithmetic: 'Fraction looks good. Check the whole numbers again?',
   notSimplified: 'Right amount! Can the fraction be written smaller?',
+  wrongOperation: 'Are we putting together or taking away?',
   unknown: 'What should you check about the denominators first?',
 }
 
@@ -448,6 +450,12 @@ export function diagnose(problem: Problem, studentInput: string): Diagnosis {
     )
   }
   if (s.negative || !s.combined) return diagnosis('unknown', null)
+
+  // Her answer is the right answer to the opposite operation (added instead of subtracted, or the reverse).
+  const otherResult = (problem.op === 'add' ? subtract : add)(problem.a, problem.b)
+  if (!isNegative(otherResult) && equals(otherResult, value)) {
+    return diagnosis('wrongOperation', null)
+  }
 
   const { a, b, lcd, aRenamed, bRenamed } = s
   const isAdd = problem.op === 'add'
@@ -523,8 +531,10 @@ export function verifyByInverse(
 /**
  * The opposite problem used to prove an answer: for a - b = r it is r + b (should give a back),
  * for a + b = r it is r - b (should give a back). The inverse's own answer is always `a`.
+ * Pass `answer` to build it from a student's answer instead of the correct one; if that answer
+ * is wrong, the inverse does not give `a` back, which is how a wrong answer gets caught.
  */
-export function inverseProblem(problem: Problem): Problem {
-  const result = (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
+export function inverseProblem(problem: Problem, answer?: Operand): Problem {
+  const result = answer ?? (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
   return { op: problem.op === 'add' ? 'subtract' : 'add', a: result, b: problem.b }
 }

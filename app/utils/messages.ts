@@ -35,6 +35,11 @@ export const STEP_HINTS: Record<StepKind, string> = {
   answer: 'Put the whole and fraction together. What do you get?',
 }
 
+/** A second hint for slips that happen before any step (so there is no step to point at). */
+export const SLIP_NUDGES: Partial<Record<Slip, string>> = {
+  wrongOperation: 'Words like “in all” add. Words like “left” subtract.',
+}
+
 export const GENERIC_STEP_HINT = 'Go one step at a time. What comes first?'
 
 /** A hint for the proof step, aimed at the opposite operation. */
@@ -59,6 +64,8 @@ export function slipName(slip: Slip, op: Op): string | null {
       return 'bottoms that didn’t match yet'
     case 'notSimplified':
       return 'a not-simplest slip'
+    case 'wrongOperation':
+      return 'using the other operation'
     default:
       return null
   }
