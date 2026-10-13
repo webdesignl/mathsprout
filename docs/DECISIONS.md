@@ -28,6 +28,14 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** AI grading of answers.
 - **Status:** Active
 
+### D-00: This is a practice test, not a competitive one: keep her motivated
+- **Date:** 2026-10
+- **Source:** User, when accepting the trade-offs in D-24 and D-25
+- **Decision:** When a choice trades strictness for motivation, favor motivation. The app should make her want to do more practice, and not feel frustrated, annoyed or like quitting. Small ways she can guess a result, or lighter rules than a real exam would have, are acceptable.
+- **Why:** The goal is a child who keeps practicing. Exam-style rigor is not the goal here.
+- **Alternatives:** Exam-style strictness (hiding results, blocking guessing).
+- **Status:** Active. Use this to settle future tie-breaks. It does not apply to math correctness (D-01), which stays strict.
+
 ### D-02: Branch and PR naming
 - **Date:** 2026-10
 - **Source:** User
@@ -211,7 +219,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Decision:** On the first 2 problems of each type, when her answer is correct the app does not say "Correct!" yet. The answer boxes hide and "How can you prove it?" opens first. Score, first-try, status and the celebration are recorded and shown only after she finishes the proof (a correct proof, or the worked add-back after two wrong proofs). Wrong answers are unchanged: "Not quite" and hints show right away, and the add-back after three hints (D-16) still applies. While a proof is pending she cannot skip, move on or submit that problem (Back still works), and the problem counts as unanswered until the proof is done.
 - **Why:** Once she knows an answer is right she has no reason to prove it. Proving first makes the add-back her own way to find out.
 - **Alternatives:** Send every answer, right or wrong, to the proof first so the proof never gives away the result (offered as the recommended option, not chosen).
-- **Status:** Active. Known gap: because wrong answers get "Not quite" immediately, seeing the proof step instead tells her she is right. The user accepted this for now.
+- **Status:** Active. Known gap: because wrong answers get "Not quite" immediately, seeing the proof step instead tells her she is right. The user accepted this, explaining that this is a practice test (see D-00).
 
 ### D-25: A slip in the proof gets encouragement that says the slip is in the check, not her answer
 - **Date:** 2026-10
@@ -219,7 +227,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Decision:** When her proof is wrong (while the result is still held back, per D-24), show a short encouraging line such as "The slip is in the proof, not your answer. Keep going!" together with the hint question about the add-back. Lines vary and never repeat back to back. The first wrong proof does not count as a wrong answer. A second wrong proof shows the worked add-back and then tells her the answer was right. An "equal but not simplest" proof is only a nudge and gets no slip message.
 - **Why:** She is about to be right. A wrong proof should not make her think the original problem was wrong or make her give up.
 - **Alternatives:** Only the plain hint question (what we had).
-- **Status:** Active. This tells her that her answer is right before the result is shown, which is the gap accepted in D-24.
+- **Status:** Active. This tells her that her answer is right before the result is shown, which is the gap accepted in D-24. The user confirmed it is fine because this is a practice test that should keep her motivated (D-00).
 
 ---
 
