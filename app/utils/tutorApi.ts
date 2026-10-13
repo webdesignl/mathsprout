@@ -13,6 +13,8 @@ export type ExplainReply =
   | { ok: true; verdict: 'clear' | 'partly' | 'missing'; praise: string; followUp?: string; source: string }
   | Failure
 
+export type UnderstandReply = { ok: true; text: string; source: string } | Failure
+
 export type ReadBody = { imageBase64: string; mediaType: 'image/jpeg' } | { text: string }
 export interface HintBody {
   problem: AnyProblem
@@ -25,8 +27,14 @@ export interface ExplainBody {
   explanation: string
 }
 
+export interface UnderstandBody {
+  problem: AnyProblem
+  problemText?: string
+}
+
 export interface TutorApi {
   read(body: ReadBody): Promise<ReadReply>
+  understand(body: UnderstandBody): Promise<UnderstandReply>
   hint(body: HintBody): Promise<HintReply>
   explain(body: ExplainBody): Promise<ExplainReply>
 }
@@ -69,6 +77,7 @@ async function send<T extends { ok: boolean }>(post: Poster, url: string, body: 
 export function createTutorApi(post: Poster): TutorApi {
   return {
     read: (body) => send<ReadReply>(post, '/api/tutor/read', body) as Promise<ReadReply>,
+    understand: (body) => send<UnderstandReply>(post, '/api/tutor/understand', body) as Promise<UnderstandReply>,
     hint: (body) => send<HintReply>(post, '/api/tutor/hint', body) as Promise<HintReply>,
     explain: (body) => send<ExplainReply>(post, '/api/tutor/explain', body) as Promise<ExplainReply>,
   }

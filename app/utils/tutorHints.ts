@@ -1,9 +1,14 @@
 import {
+  PART_OR_SPLIT_HINT,
+  REPEATED_ADDITION_HINT,
   diagnose,
+  formatMixed,
+  toFraction,
   workedSteps,
   type AnyOp,
   type AnyProblem,
   type Diagnosis,
+  type Operand,
   type Slip,
   type Step,
   type StepKind,
@@ -157,4 +162,31 @@ export function localHint(
 ): string {
   const target = hintTarget(problem, studentAnswer, stuck)
   return templateHint(target.diagnosis, target.steps[target.flaggedIndex]?.kind ?? 'rename', level, problem.op)
+}
+
+// --- Understanding the question, before solving it ---
+
+/** Words that name an operation. The explanation of a question must not use them: she finds the operation herself. */
+export const OPERATION_WORDS =
+  /\b(add|adds|adding|addition|plus|sum|subtract|subtracts|subtracting|subtraction|minus|difference|multiply|multiplies|multiplying|multiplication|times|product|divide|divides|dividing|division|quotient|operation)\b/i
+
+/** A hint when she picks the wrong operation: one question, no answer. */
+export function operationHint(chosen: AnyOp, actual: AnyOp): string {
+  if (actual === 'multiply' && chosen === 'add') return REPEATED_ADDITION_HINT
+  if (actual === 'multiply' || actual === 'divide') return PART_OR_SPLIT_HINT
+  return 'Are we putting together or taking away?'
+}
+
+function label(x: Operand): string {
+  return formatMixed(toFraction(x))
+}
+
+/**
+ * A plain explanation of the question for when the tutor can't be reached, or when she typed only numbers.
+ * It names neither the operation nor the answer.
+ */
+export function understandTemplate(problem: AnyProblem, problemText?: string): string {
+  const text = problemText?.trim()
+  if (text) return `Read it slowly: ${text} Picture what is happening. What are you trying to find?`
+  return `You have two numbers: ${label(problem.a)} and ${label(problem.b)}. Picture them. What is the problem asking you to do with them?`
 }

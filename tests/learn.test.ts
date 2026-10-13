@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { diagnose, type Problem } from '../app/utils/fraction'
+import { withStory } from '../app/utils/stories'
 import { buildLearn } from '../app/utils/learn'
 import {
   GENERIC_STEP_HINT,
@@ -13,6 +14,7 @@ import {
   pickDifferent,
   proofHint,
   slipName,
+  OPERATION_WHY,
 } from '../app/utils/messages'
 
 const sub: Problem = { op: 'subtract', a: { whole: 8, num: 1, den: 5 }, b: { whole: 4, num: 3, den: 4 } }
@@ -148,5 +150,50 @@ describe('messages', () => {
     expect(slipName('forgotRegroup', 'subtract')).toBe('a borrowing slip')
     expect(slipName('unknown', 'add')).toBeNull()
     expect(slipName('none', 'add')).toBeNull()
+  })
+})
+
+describe('Learn explains the problem, the operation and her mistake', () => {
+  it('says why this operation fits: the story\'s own reason, or a general one', () => {
+    const story = withStory({ op: 'multiply', a: { whole: 0, num: 2, den: 3 }, b: { whole: 12, num: 0, den: 1 } }, () => 0)
+    expect(buildLearn(story, '').why).toBe(story.why)
+    expect(story.why).toMatch(/We multiply\./)
+    const plain: Problem = { op: 'subtract', a: { whole: 8, num: 1, den: 5 }, b: { whole: 4, num: 3, den: 4 } }
+    expect(buildLearn(plain, '').why).toBe(OPERATION_WHY.subtract)
+  })
+
+  it('every story explains its operation, in every topic', () => {
+    for (const op of ['add', 'subtract', 'multiply', 'divide'] as const) {
+      for (let i = 0; i < 4; i++) {
+        const base = { op, a: { whole: 2, num: 1, den: 2 }, b: { whole: 1, num: 1, den: 3 } } as Problem
+        const story = withStory(base, () => i / 4 + 0.01)
+        expect(story.why, `${op} ${story.topic}`).toBeTruthy()
+        const verb = { add: 'add', subtract: 'subtract', multiply: 'multiply', divide: 'divide' }[op]
+        expect(story.why!.toLowerCase()).toContain(`we ${verb}`)
+      }
+    }
+  })
+
+  it('shows her wrong answer next to the correct one', () => {
+    expect(buildLearn(sub, '3 11/20').comparison).toEqual({ kind: 'wrong', yours: '3 11/20', correct: '3 9/20' })
+  })
+
+  it('shows an answer that is right but not finished as such', () => {
+    expect(buildLearn(sub, '69/20').comparison).toEqual({ kind: 'notSimplest', yours: '69/20', correct: '3 9/20' })
+  })
+
+  it('shows no comparison for a right answer, no answer, or an unreadable one', () => {
+    expect(buildLearn(sub, '3 9/20').comparison).toBeNull()
+    expect(buildLearn(sub, '').comparison).toBeNull()
+    expect(buildLearn(sub, '   ').comparison).toBeNull()
+    expect(buildLearn(sub, 'banana').comparison).toMatchObject({ kind: 'wrong', yours: 'banana' })
+  })
+
+  it('works for multiplication and division too, and for a problem with no answer', () => {
+    const div = { op: 'divide', a: { whole: 6, num: 0, den: 1 }, b: { whole: 0, num: 2, den: 3 } } as const
+    expect(buildLearn(div, '4').comparison).toEqual({ kind: 'wrong', yours: '4', correct: '9' })
+    expect(buildLearn(div, '4').why).toBe(OPERATION_WHY.divide)
+    const zero = { op: 'divide', a: { whole: 3, num: 0, den: 1 }, b: { whole: 0, num: 0, den: 4 } } as const
+    expect(buildLearn(zero, '1').comparison).toBeNull()
   })
 })

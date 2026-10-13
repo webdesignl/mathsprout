@@ -286,6 +286,8 @@ export const usePracticeStore = defineStore('practice', () => {
   const lastProofSlip = ref<string | null>(null)
 
   const total = computed(() => problems.value.length)
+  /** The operations in this set, so the end-of-set question is about the ones she practiced. */
+  const problemOps = computed<AnyOp[]>(() => [...new Set(problems.value.map((p) => p.op))])
   /** Stars a parent has given for this set's ideas. */
   const extraCredit = computed(
     () => ideaReviews.value.filter((r) => r.set === setNumber.value && r.approved === true).length,
@@ -847,6 +849,7 @@ export const usePracticeStore = defineStore('practice', () => {
     lastWrongMessage,
     lastProofSlip,
     total,
+    problemOps,
     current,
     view,
     isSolved,

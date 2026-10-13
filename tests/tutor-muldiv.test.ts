@@ -200,6 +200,7 @@ describe('explanation feedback for multiplication and division', () => {
 describe('the Tutor page logic for multiplication and division', () => {
   const api = (problem: AnyProblem): TutorApi => ({
     read: async () => ({ ok: true, problem, operands: ['', ''], problemText: '', confidence: 'high' }),
+    understand: async () => ({ ok: true, text: 'Picture it.', source: 'ai' }),
     hint: async ({ level }) => ({ ok: true, hint: `Hint ${level}?`, source: 'ai', level }),
     explain: async () => ({ ok: true, verdict: 'clear', praise: 'Nice.', source: 'ai' }),
   })
@@ -210,6 +211,8 @@ describe('the Tutor page logic for multiplication and division', () => {
     store.setApi(api(problem))
     await store.readProblem({ text: 'x' })
     store.confirmProblem()
+    store.chooseOperation(store.problem!.op)
+    store.continueFromUnderstanding()
     return store
   }
 

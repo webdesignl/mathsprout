@@ -1,5 +1,15 @@
-import { diagnose, parseMixed, workedSteps, type AnyProblem, type Slip, type Step } from './fraction'
-import { slipName } from './messages'
+import {
+  checkAnswer,
+  diagnose,
+  formatMixed,
+  parseMixed,
+  problemAnswer,
+  workedSteps,
+  type AnyProblem,
+  type Slip,
+  type Step,
+} from './fraction'
+import { OPERATION_WHY, slipName } from './messages'
 
 export interface LearnStep {
   step: Step
@@ -9,7 +19,20 @@ export interface LearnStep {
   note: string | null
 }
 
+/** Her answer next to the correct one, shown when her answer was not right. */
+export interface AnswerComparison {
+  /** 'wrong' for a different number, 'notSimplest' for the right number written in an unfinished way. */
+  kind: 'wrong' | 'notSimplest'
+  /** What she wrote. */
+  yours: string
+  /** The correct answer in simplest form. */
+  correct: string
+}
+
 export interface LearnContent {
+  /** Why this operation fits the problem: the story's own reason when there is one, otherwise a general one. */
+  why: string
+  comparison: AnswerComparison | null
   steps: LearnStep[]
   /** Index (into `steps`) of the step diagnose() points at, or null if there is none. */
   highlightIndex: number | null
@@ -61,14 +84,22 @@ function noteFor(slip: Slip, step: Step, answer: string, index: number): string 
  * The correct method for a problem, step by step, with the step where her answer went off highlighted.
  * Uses the engine's worked steps and diagnose(); it does no fraction math of its own.
  */
-export function buildLearn(problem: AnyProblem, answer: string): LearnContent {
+export function buildLearn(problem: AnyProblem & { why?: string }, answer: string): LearnContent {
   const steps = workedSteps(problem)
+  const correct = problemAnswer(problem)
+  const status = correct && answer.trim() !== '' ? checkAnswer(correct, answer).status : null
+  const comparison: AnswerComparison | null =
+    correct && (status === 'wrong' || status === 'correctNotSimplest')
+      ? { kind: status === 'wrong' ? 'wrong' : 'notSimplest', yours: answer.trim(), correct: formatMixed(correct) }
+      : null
   const diagnosis = answer.trim() === '' ? null : diagnose(problem, answer)
   const index = diagnosis && diagnosis.slip !== 'none' ? diagnosis.stepIndex : null
   const slip = diagnosis?.slip ?? 'unknown'
   const name = slipName(slip, problem.op)
 
   return {
+    why: problem.why ?? OPERATION_WHY[problem.op],
+    comparison,
     steps: steps.map((step, i) => ({
       step,
       highlighted: i === index,

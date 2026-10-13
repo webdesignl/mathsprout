@@ -39,7 +39,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
 
 <template>
   <section class="space-y-4 rounded-2xl border-2 border-indigo-700 bg-white p-5">
-    <h2 class="text-2xl font-bold text-indigo-950">Add your answer back</h2>
+    <h2 class="text-2xl font-bold text-indigo-950">Check with the opposite operation</h2>
     <p class="rounded-xl bg-indigo-50 p-3 text-3xl font-bold text-slate-900">{{ check.equation }}</p>
 
     <form v-if="!check.done" class="space-y-4" @submit.prevent="go">

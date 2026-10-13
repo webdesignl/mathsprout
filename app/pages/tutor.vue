@@ -5,7 +5,7 @@ import { boxesToText, isAnswerEmpty, isFractionIncomplete, type AnswerBoxes } fr
 import { slipName } from '../utils/messages'
 import { NOT_SIMPLEST_MESSAGE } from '../utils/messages'
 import { resizePhoto } from '../utils/image'
-import type { AnyProblem } from '../utils/fraction'
+import { opSymbol, type AnyOp, type AnyProblem } from '../utils/fraction'
 
 useHead({ title: 'Tutor · MathSprout' })
 
@@ -25,11 +25,18 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
 const primary = `${button} min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-700`
 const secondary = `${button} bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100`
 
+const OPERATION_CHOICES: Array<{ op: AnyOp; label: string }> = [
+  { op: 'add', label: 'Add' },
+  { op: 'subtract', label: 'Subtract' },
+  { op: 'multiply', label: 'Multiply' },
+  { op: 'divide', label: 'Divide' },
+]
+
 const answering = computed(() => ['attempt', 'hint1', 'hint2', 'hint3', 'teach'].includes(store.state))
 const hintNumber = computed(() => (store.state === 'hint1' ? 1 : store.state === 'hint2' ? 2 : store.state === 'hint3' ? 3 : 0))
 const latestHint = computed(() => store.hints.at(-1) ?? '')
 const checkMethodLabel = computed(() =>
-  store.checkMethod === 'addBack' ? 'Add back' : store.checkMethod === 'estimate' ? 'Estimate' : 'None',
+  store.checkMethod === 'addBack' ? 'Proof' : store.checkMethod === 'estimate' ? 'Estimate' : 'None',
 )
 const verdictLabels: Record<Verdict, string> = {
   clear: 'Clear and complete',
@@ -190,11 +197,68 @@ function another() {
       </div>
     </section>
 
-    <!-- 3. Attempt, hints and teach -->
+    <!-- 3. Understand the question and find the operation first -->
+    <section v-else-if="store.state === 'understand' && store.problem" class="space-y-6">
+      <h1 class="text-4xl font-bold text-emerald-900">Let’s understand it</h1>
+      <PracticeProblemCard :problem="store.problem" :hide-operation="true" />
+      <p v-if="store.problemText" class="text-center text-lg text-slate-700">{{ store.problemText }}</p>
+
+      <div role="status" aria-live="polite" class="space-y-3">
+        <p v-if="store.understanding.loading" class="text-2xl font-semibold text-slate-800">Thinking…</p>
+        <p
+          v-else-if="store.understanding.text"
+          class="rounded-2xl border-2 border-indigo-700 bg-indigo-50 p-5 text-2xl leading-snug text-slate-900"
+        >
+          {{ store.understanding.text }}
+        </p>
+      </div>
+
+      <div class="space-y-3">
+        <h2 class="text-2xl font-bold text-slate-900">Which operation do you need?</h2>
+        <div class="flex flex-wrap gap-3" role="group" aria-label="Pick the operation">
+          <button
+            v-for="choice in OPERATION_CHOICES"
+            :key="choice.op"
+            type="button"
+            :disabled="store.understanding.done"
+            :aria-pressed="store.understanding.choice === choice.op"
+            :class="[
+              button,
+              'min-h-16 px-6 text-2xl',
+              store.understanding.choice === choice.op && store.understanding.done
+                ? 'bg-emerald-700 text-white'
+                : 'bg-white text-emerald-900 ring-2 ring-emerald-700 disabled:cursor-not-allowed disabled:text-slate-600 disabled:ring-slate-400',
+            ]"
+            @click="store.chooseOperation(choice.op)"
+          >
+            <span aria-hidden="true" class="mr-2">{{ opSymbol(choice.op) }}</span> {{ choice.label }}
+          </button>
+        </div>
+        <div role="status" aria-live="polite">
+          <p
+            v-if="store.understanding.message"
+            :class="[
+              'rounded-2xl p-4 text-2xl font-bold',
+              store.understanding.done && !store.understanding.revealed
+                ? 'celebrate bg-emerald-100 text-emerald-950'
+                : 'bg-amber-100 text-amber-950',
+            ]"
+          >
+            {{ store.understanding.message }}
+          </p>
+        </div>
+      </div>
+
+      <div v-if="store.understanding.done" class="flex justify-center">
+        <button type="button" :class="primary" @click="store.continueFromUnderstanding()">Start solving</button>
+      </div>
+    </section>
+
+    <!-- 4. Attempt, hints and teach -->
     <section v-else-if="answering && store.problem" class="space-y-6">
       <h1 class="sr-only">Solve it</h1>
       <p v-if="hintNumber" class="text-xl font-semibold text-slate-800">Hint {{ hintNumber }} of 3</p>
-      <PracticeProblemCard :problem="store.problem" />
+      <PracticeProblemCard v-if="store.state !== 'teach'" :problem="store.problem" />
 
       <div role="status" aria-live="polite" class="space-y-3">
         <p v-if="store.busy === 'hint'" class="text-2xl font-semibold text-slate-800">Thinking…</p>
@@ -218,6 +282,7 @@ function another() {
         v-if="store.state === 'teach'"
         :problem="store.problem"
         :answer="store.lastWrongAnswer"
+        :question="store.problemText"
         :show-try-like="false"
         :show-back="false"
       />
@@ -238,6 +303,9 @@ function another() {
 
     <!-- 4. The check: required -->
     <section v-else-if="store.state === 'check' && store.problem" class="space-y-6">
+      <p v-if="store.successMessage" class="celebrate text-3xl font-bold text-emerald-900" role="status">
+        <span aria-hidden="true">🎉</span> {{ store.successMessage }}
+      </p>
       <h1 class="text-4xl font-bold text-emerald-900">Now check it!</h1>
       <PracticeProblemCard :problem="store.problem" />
       <p class="text-center text-2xl text-slate-900">
@@ -251,7 +319,7 @@ function another() {
           :class="[button, 'min-h-16 px-8 text-2xl', store.chosenCheck === 'addBack' ? 'bg-emerald-700 text-white' : 'bg-white text-emerald-900 ring-2 ring-emerald-700']"
           @click="store.chooseCheck('addBack')"
         >
-          Add back
+          Give proof
         </button>
         <button
           v-if="store.estimateAvailable"
@@ -280,6 +348,12 @@ function another() {
     <!-- 5. Explain back -->
     <section v-else-if="store.state === 'explain'" class="space-y-6">
       <h1 class="sr-only">Explain it</h1>
+      <!-- The problem stays on screen, so she can answer without going back to her photo. -->
+      <PracticeProblemCard v-if="store.problem" :problem="store.problem" />
+      <p v-if="store.problemText" class="text-center text-lg text-slate-700">{{ store.problemText }}</p>
+      <p class="text-center text-xl text-slate-900">
+        Your answer: <span class="font-bold">{{ store.acceptedAnswer }}</span>
+      </p>
       <TutorExplainPanel />
     </section>
 
@@ -312,3 +386,24 @@ function another() {
     </section>
   </div>
 </template>
+
+<style scoped>
+@media (prefers-reduced-motion: no-preference) {
+  .celebrate {
+    animation: pop 0.6s ease-out 1;
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+</style>

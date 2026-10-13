@@ -56,6 +56,14 @@ export const hintInputSchema = z.object({
   level: z.union([z.literal(1), z.literal(2), z.literal(3)]),
 })
 
+export const MAX_PROBLEM_TEXT_CHARS = 600
+
+export const understandInputSchema = z.object({
+  problem: problemSchema,
+  /** The problem in words, when she photographed or typed a word problem. */
+  problemText: z.string().trim().max(MAX_PROBLEM_TEXT_CHARS).optional(),
+})
+
 export const MAX_EXPLANATION_CHARS = 500
 
 export const explainInputSchema = z.object({
@@ -73,4 +81,5 @@ export const modelExplainSchema = z.object({
 export type ReadInput = z.infer<typeof readInputSchema>
 export type HintInput = z.infer<typeof hintInputSchema>
 export type ExplainInput = z.infer<typeof explainInputSchema>
+export type UnderstandInput = z.infer<typeof understandInputSchema>
 export type Verdict = z.infer<typeof modelExplainSchema>['verdict']

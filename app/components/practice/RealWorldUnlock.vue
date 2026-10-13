@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import type { AnyOp } from '../../utils/fraction'
+import { opsPhrase } from '../../utils/messages'
 import type { UnlockCard } from '../../utils/realWorld'
 import { MAX_EXAMPLES } from '../../utils/realWorld'
 
@@ -7,10 +9,13 @@ const props = defineProps<{
   /** Empty until she has answered; then the three knowledge cards to reveal. */
   cards: UnlockCard[]
   submitted: boolean
+  /** The operations in this set, so the question is about the ones she practiced. */
+  ops: AnyOp[]
 }>()
 const emit = defineEmits<{ submit: [ideas: string[]]; skip: []; continue: [] }>()
 
 /** How many of the cards are her own ideas (a parent gives the stars for these). */
+const phrase = computed(() => opsPhrase(props.ops))
 const mineCount = computed(() => props.cards.filter((c) => c.mine).length)
 
 const ideas = ref<string[]>(Array.from({ length: MAX_EXAMPLES }, () => ''))
@@ -29,9 +34,9 @@ const topicLabel: Record<string, string> = {
 
 <template>
   <section v-if="!submitted" class="space-y-6">
-    <h1 class="text-4xl font-bold text-emerald-900">Where would you use this?</h1>
+    <h1 class="text-4xl font-bold text-emerald-900">Where would you use {{ phrase }} fractions?</h1>
     <p class="text-xl text-slate-900">
-      Add or subtract fractions in real life? Share up to {{ MAX_EXAMPLES }} ideas. A parent can give you stars.
+      Share up to {{ MAX_EXAMPLES }} real-life ideas. A parent can give you stars.
     </p>
 
     <form class="space-y-4" @submit.prevent="emit('submit', ideas)">

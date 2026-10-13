@@ -115,3 +115,26 @@ export function slipName(slip: Slip, op: AnyOp): string | null {
       return null
   }
 }
+
+const OP_ING: Record<AnyOp, string> = {
+  add: 'adding',
+  subtract: 'subtracting',
+  multiply: 'multiplying',
+  divide: 'dividing',
+}
+
+/** The operations as words, in a fixed order: "multiplying", "adding and subtracting", "adding, subtracting, multiplying and dividing". */
+export function opsPhrase(ops: AnyOp[]): string {
+  const words = (['add', 'subtract', 'multiply', 'divide'] as const).filter((op) => ops.includes(op)).map((op) => OP_ING[op])
+  if (words.length === 0) return 'adding, subtracting, multiplying and dividing'
+  if (words.length === 1) return words[0]!
+  return `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`
+}
+
+/** Why each operation fits, used when a problem has no story of its own. */
+export const OPERATION_WHY: Record<AnyOp, string> = {
+  add: 'We add because the amounts are put together.',
+  subtract: 'We subtract because some is taken away, or we want what is left.',
+  multiply: 'We multiply because an amount is repeated, or we take a part of it.',
+  divide: 'We divide because something is split into equal parts, or we count how many parts fit.',
+}

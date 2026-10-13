@@ -177,6 +177,7 @@ function leave() {
     <PracticeRealWorldUnlock
       v-else-if="store.view === 'unlock'"
       :cards="store.unlockCards"
+      :ops="store.problemOps"
       :submitted="store.examplesSubmitted"
       @submit="store.submitExamples($event)"
       @skip="store.skipExamples()"
@@ -248,7 +249,7 @@ function leave() {
         </div>
       </div>
 
-      <PracticeProblemCard :problem="store.current" />
+      <PracticeProblemCard v-if="!learnTarget" :problem="store.current" />
 
       <PracticeLearnPanel
         v-if="learnTarget"
