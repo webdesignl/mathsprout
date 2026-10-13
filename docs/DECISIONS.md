@@ -140,7 +140,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Decision:** On correct answers, ask "How can you prove it?" only on the first 2 problems of each type (add, subtract), per browser session, and require it (no skip). After that, no proof. After a wrong answer plus 3 hints, she adds her own wrong answer back to see it does not return to the starting number. Proof Master badge is 3 proofs in a row.
 - **Why:** Proof is a teaching tool, not something to repeat on every problem.
 - **Alternatives:** Earlier rule "required once per type, then skippable" (D-16a, replaced); Proof Master at 5.
-- **Status:** Active. Replaces D-16a.
+- **Status:** Active. Replaces D-16a. When the proof happens relative to the "Correct!" message: see D-24.
 
 ### D-16a: Proof required once per operation, then skippable (replaced)
 - **Date:** 2026-10
@@ -200,6 +200,18 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Source:** User asked for pencil and pen; Claude added eraser, undo and clear as basic needs
 - **Decision:** A drawing panel for rough work. Drawings are kept per problem while the tab is open and are not saved or sent anywhere. Side by side on wide screens, a bottom sheet on narrow ones. Undo and Clear sit on their own labelled row and are always visible (user asked for a clear button). Undo right after Clear brings the page back, until she draws something new. Later change at the user's request: the drawing area is wider (square 1000 x 1000 page, 34rem panel on wide screens, so the layout's main area allows up to 7xl) and the pencil, pen and eraser are icon buttons (with names for screen readers and tooltips) instead of text.
 - **Status:** Active
+
+---
+
+## Flow changes
+
+### D-24: On proof problems, the proof comes before the verdict (correct answers only)
+- **Date:** 2026-10
+- **Source:** User (flow change). When asked how to treat wrong answers, the user chose "only correct answers".
+- **Decision:** On the first 2 problems of each type, when her answer is correct the app does not say "Correct!" yet. The answer boxes hide and "How can you prove it?" opens first. Score, first-try, status and the celebration are recorded and shown only after she finishes the proof (a correct proof, or the worked add-back after two wrong proofs). Wrong answers are unchanged: "Not quite" and hints show right away, and the add-back after three hints (D-16) still applies. While a proof is pending she cannot skip, move on or submit that problem (Back still works), and the problem counts as unanswered until the proof is done.
+- **Why:** Once she knows an answer is right she has no reason to prove it. Proving first makes the add-back her own way to find out.
+- **Alternatives:** Send every answer, right or wrong, to the proof first so the proof never gives away the result (offered as the recommended option, not chosen).
+- **Status:** Active. Known gap: because wrong answers get "Not quite" immediately, seeing the proof step instead tells her she is right. The user accepted this for now.
 
 ---
 

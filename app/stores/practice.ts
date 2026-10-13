@@ -169,6 +169,13 @@ interface Work {
   draft: AnswerBoxes
   /** The answer that was accepted, shown when she revisits a solved problem. */
   solvedAnswer: string
+  /**
+   * Her answer is right but she hasn't been told yet: on the first problems of each type she proves it
+   * first, and only then sees "Correct!".
+   */
+  pendingProof: boolean
+  /** Her first submission was the right answer (applied when the result is revealed). */
+  firstTry: boolean
   /** Whether this problem asks her to prove a correct answer (first 2 of each type). */
   proofAsked: boolean
   proof: ProofWork
@@ -195,6 +202,8 @@ function newWork(): Work {
     message: '',
     draft: { whole: '', num: '', den: '' },
     solvedAnswer: '',
+    pendingProof: false,
+    firstTry: false,
     proofAsked: false,
     proof: { wrong: 0, hint: null, steps: [], result: null, done: false, helped: false },
     wrongCheck: newWrongCheck(),
@@ -291,6 +300,8 @@ export const usePracticeStore = defineStore('practice', () => {
   })
 
   const isSolved = computed(() => activeWork.value.solved)
+  /** She answered correctly but must prove it before she is told so. */
+  const proofPending = computed(() => activeWork.value.pendingProof)
   const isSimilar = computed(() => similar.value !== null)
   const isRetry = computed(() => retry.value !== null && similar.value === null)
   const lastIndex = computed(() => problems.value.length - 1)
@@ -304,10 +315,16 @@ export const usePracticeStore = defineStore('practice', () => {
     () => activeWork.value.solved && (!activeWork.value.proofAsked || activeWork.value.proof.done),
   )
   /** A solved problem with a pending proof can't be left going forward (Back is still fine). */
-  const canLeaveForward = computed(() => !activeWork.value.solved || canAdvance.value)
+  const canLeaveForward = computed(
+    () => !activeWork.value.pendingProof && (!activeWork.value.solved || canAdvance.value),
+  )
   const canGoBack = computed(() => canNavigate.value && index.value > 0)
   const canSkip = computed(
-    () => canNavigate.value && !isLastProblem.value && !activeWork.value.solved,
+    () =>
+      canNavigate.value &&
+      !isLastProblem.value &&
+      !activeWork.value.solved &&
+      !activeWork.value.pendingProof,
   )
   /** Submit is for the last problem, and not while a proof is waiting. */
   const canSubmit = computed(() => isLastProblem.value && canLeaveForward.value)
@@ -355,7 +372,7 @@ export const usePracticeStore = defineStore('practice', () => {
   const proof = computed<Proof | null>(() => {
     const problem = current.value
     const w = activeWork.value
-    if (!problem || !w.solved || !w.proofAsked) return null
+    if (!problem || !(w.solved || w.pendingProof) || !w.proofAsked) return null
     const inverse = inverseProblem(problem)
     const symbol = inverse.op === 'add' ? '+' : '−'
     return {
@@ -481,11 +498,28 @@ export const usePracticeStore = defineStore('practice', () => {
     startWith(list, newOptions)
   }
 
+  /** Tells her the answer was right and records it (score, first try, retry). */
+  function reveal(w: Work) {
+    w.pendingProof = false
+    w.solved = true
+    w.lastResult = 'correct'
+    w.message = lastSuccess.value = pickDifferent(SUCCESS_MESSAGES, lastSuccess.value)
+    if (inFirstPass.value) {
+      const i = index.value
+      const neededHelp = w.wrongAttempts > 0 || w.hintsShown > 0 || w.stepsShown > 0 || w.learned
+      status.value[i] = neededHelp ? 'correctWithHelp' : 'correct'
+      if (w.firstTry) firstTryCorrect.value[i] = true
+      score.value += 1
+    } else if (retry.value && !similar.value) {
+      retryCorrect.value[retry.value.index] = true
+    }
+  }
+
   /** Checks the typed answer. Code decides correctness. Returns null when nothing was checked. */
   function submit(answer: string): AnswerStatus | null {
     const problem = current.value
     const w = activeWork.value
-    if (!problem || w.solved || answer.trim() === '') return null
+    if (!problem || w.solved || w.pendingProof || answer.trim() === '') return null
 
     const firstSubmission = w.attempts === 0
     w.attempts += 1
@@ -493,21 +527,18 @@ export const usePracticeStore = defineStore('practice', () => {
     w.lastResult = result.status
 
     if (result.status === 'correct') {
-      w.solved = true
       w.solvedAnswer = answer.trim()
       w.hintTexts = []
+      w.firstTry = firstSubmission
       // Proofs are asked on the first few problems of each type, then not at all.
       w.proofAsked = proofsAsked.value[problem.op] < PROOFS_PER_TYPE
-      if (w.proofAsked) proofsAsked.value[problem.op] += 1
-      w.message = lastSuccess.value = pickDifferent(SUCCESS_MESSAGES, lastSuccess.value)
-      if (inFirstPass.value) {
-        const i = index.value
-        const neededHelp = w.wrongAttempts > 0 || w.hintsShown > 0 || w.stepsShown > 0 || w.learned
-        status.value[i] = neededHelp ? 'correctWithHelp' : 'correct'
-        if (firstSubmission) firstTryCorrect.value[i] = true
-        score.value += 1
-      } else if (retry.value && !similar.value) {
-        retryCorrect.value[retry.value.index] = true
+      if (w.proofAsked) {
+        proofsAsked.value[problem.op] += 1
+        // Hold back "Correct!": she proves it first, so she isn't tempted to skip it once she knows.
+        w.pendingProof = true
+        w.lastResult = null
+      } else {
+        reveal(w)
       }
     } else {
       w.lastAnswer = answer
@@ -564,7 +595,9 @@ export const usePracticeStore = defineStore('practice', () => {
   function submitProof(answer: string): AnswerStatus | null {
     const problem = current.value
     const w = activeWork.value
-    if (!problem || !w.solved || !w.proofAsked || w.proof.done || answer.trim() === '') return null
+    if (!problem || !(w.solved || w.pendingProof) || !w.proofAsked || w.proof.done || answer.trim() === '') {
+      return null
+    }
 
     const inverse = inverseProblem(problem)
     const result = checkAnswer(answerOf(inverse), answer)
@@ -589,6 +622,9 @@ export const usePracticeStore = defineStore('practice', () => {
         w.proof.hint = proofHint(problem.op, formatMixed(inverse.b))
       }
     }
+    // Once the proof is finished, she is told her answer was right.
+    if (w.proof.done && w.pendingProof) reveal(w)
+    sync()
     return result.status
   }
 
@@ -797,6 +833,7 @@ export const usePracticeStore = defineStore('practice', () => {
     current,
     view,
     isSolved,
+    proofPending,
     isSimilar,
     isRetry,
     canAdvance,

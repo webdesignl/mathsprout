@@ -56,7 +56,7 @@ watch(
     message.value = ''
     learnTarget.value = null
     confirmingSubmit.value = false
-    if (!store.isSolved) focusInput()
+    if (!store.isSolved && !store.proofPending) focusInput()
   },
 )
 
@@ -77,7 +77,7 @@ function begin() {
 }
 
 function check() {
-  if (store.isSolved) return
+  if (store.isSolved || store.proofPending) return
   if (isAnswerEmpty(answer.value)) {
     message.value = 'Type your answer in the boxes first.'
     return
@@ -260,7 +260,7 @@ function leave() {
       <template v-else>
         <!-- The answer boxes and Check, with Back on the left and Skip / Submit on the right just beneath. -->
         <div class="space-y-3">
-          <form v-if="!store.isSolved" class="space-y-3" @submit.prevent="check">
+          <form v-if="!store.isSolved && !store.proofPending" class="space-y-3" @submit.prevent="check">
             <p class="text-center text-xl font-semibold">Write your answer as a mixed number.</p>
             <PracticeMixedNumberInput ref="input" v-model="answer" @submit="check" />
             <p v-if="message" class="text-center text-xl font-semibold text-red-800" role="alert">
@@ -276,7 +276,10 @@ function leave() {
             </div>
           </form>
 
-          <p v-if="store.isSolved && store.solvedAnswer" class="text-center text-xl text-slate-900">
+          <p
+            v-if="(store.isSolved || store.proofPending) && store.solvedAnswer"
+            class="text-center text-xl text-slate-900"
+          >
             Your answer: <span class="font-bold">{{ store.solvedAnswer }}</span>
           </p>
 
