@@ -78,9 +78,12 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
       <p v-if="proof.result === 'correctNotSimplest' && !proof.done" class="text-xl font-semibold">
         {{ NOT_SIMPLEST_MESSAGE }}
       </p>
-      <p v-else-if="proof.result === 'wrong' && proof.hint && !proof.done" class="text-xl font-semibold">
-        {{ proof.hint }}
-      </p>
+      <div v-else-if="proof.result === 'wrong' && proof.hint && !proof.done" class="space-y-1">
+        <p v-if="proof.encouragement" class="text-2xl font-bold text-emerald-950">
+          {{ proof.encouragement }}
+        </p>
+        <p class="text-xl font-semibold">{{ proof.hint }}</p>
+      </div>
       <p v-else-if="proof.done && proof.steps.length === 0" class="text-xl font-semibold text-emerald-950">
         Checks out.
       </p>

@@ -8,6 +8,17 @@ export const SUCCESS_MESSAGES = ['Yes!', 'Nice one.', 'That’s right.', 'You go
 
 export const WRONG_MESSAGES = ['Not quite.', 'Not yet.', 'Hmm, not that one.']
 
+/**
+ * Shown when her proof has a slip. The slip is in the check, not in her answer, so these keep her going.
+ * Each is short, and the same one never shows twice in a row.
+ */
+export const PROOF_SLIP_MESSAGES = [
+  'Your answer holds up. Check this step again, you’re close!',
+  'The slip is in the proof, not your answer. Keep going!',
+  'So close! The mistake is in this check, not the problem.',
+  'Don’t give up! Your answer is fine, try the check again.',
+]
+
 export const NOT_SIMPLEST_MESSAGE = 'Equal, but can you write it in simplest form?'
 
 /** Why we prove answers. Shown only when she taps "Why prove it?". */

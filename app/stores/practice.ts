@@ -22,6 +22,7 @@ import {
   GENERIC_STEP_HINT,
   SLIP_NUDGES,
   NOT_SIMPLEST_MESSAGE,
+  PROOF_SLIP_MESSAGES,
   STEP_HINTS,
   SUCCESS_MESSAGES,
   WRONG_MESSAGES,
@@ -34,6 +35,7 @@ import {
   type ProblemOp,
   type Random,
 } from '../utils/problems'
+import type { AnswerBoxes } from '../utils/answer'
 import { buildUnlockCards, cleanExamples, type UnlockCard } from '../utils/realWorld'
 import { withStory, type PracticeProblem } from '../utils/stories'
 
@@ -91,6 +93,8 @@ export interface Proof {
   /** Last proof answer: 'wrong' or 'notSimplest' while she is still working. */
   result: AnswerStatus | null
   hint: string | null
+  /** A short encouraging line when her proof has a slip (the slip is in the proof, not her answer). */
+  encouragement: string | null
   /** The worked add-back, shown after two wrong proofs. */
   steps: Step[]
   helped: boolean
@@ -119,6 +123,8 @@ export interface SummaryItem {
   wrongAttempts: number
   hintsShown: number
   stepsShown: number
+  /** She never submitted an answer for this problem (skipped or left blank). */
+  unanswered: boolean
 }
 
 /** Wrong answers before the app offers the worked steps. */
@@ -129,6 +135,7 @@ const WRONG_PROOFS_BEFORE_STEPS = 2
 interface ProofWork {
   wrong: number
   hint: string | null
+  encouragement: string | null
   steps: Step[]
   result: AnswerStatus | null
   done: boolean
@@ -162,6 +169,17 @@ interface Work {
   /** Her latest answer that wasn't fully right; Learn compares against it. */
   lastAnswer: string
   message: string
+  /** What she typed in the three boxes, kept while she moves between problems. */
+  draft: AnswerBoxes
+  /** The answer that was accepted, shown when she revisits a solved problem. */
+  solvedAnswer: string
+  /**
+   * Her answer is right but she hasn't been told yet: on the first problems of each type she proves it
+   * first, and only then sees "Correct!".
+   */
+  pendingProof: boolean
+  /** Her first submission was the right answer (applied when the result is revealed). */
+  firstTry: boolean
   /** Whether this problem asks her to prove a correct answer (first 2 of each type). */
   proofAsked: boolean
   proof: ProofWork
@@ -186,8 +204,12 @@ function newWork(): Work {
     hintEvents: 0,
     lastAnswer: '',
     message: '',
+    draft: { whole: '', num: '', den: '' },
+    solvedAnswer: '',
+    pendingProof: false,
+    firstTry: false,
     proofAsked: false,
-    proof: { wrong: 0, hint: null, steps: [], result: null, done: false, helped: false },
+    proof: { wrong: 0, hint: null, encouragement: null, steps: [], result: null, done: false, helped: false },
     wrongCheck: newWrongCheck(),
   }
 }
@@ -241,15 +263,21 @@ export const usePracticeStore = defineStore('practice', () => {
   /** How many proofs have been asked so far for each type of problem. */
   const proofsAsked = ref<Record<Op, number>>({ add: 0, subtract: 0 })
 
-  const work = ref<Work>(newWork())
+  /** One saved state per problem in the first pass, so she can skip, go back and forth. */
+  const works = ref<Work[]>([])
+  /** The state of a problem reopened from the summary. */
+  const retryWork = ref<Work>(newWork())
   /** A missed problem reopened from the summary, plus the missed ones still waiting. */
   const retry = ref<{ index: number; queue: number[] } | null>(null)
   /** A "try one like it" problem. Its own work, so the problem underneath is left as it was. */
   const similar = ref<{ problem: PracticeProblem; work: Work } | null>(null)
 
+  /** Counts "try one like it" problems, so each gets its own rough-work page. */
+  const similarCount = ref(0)
   const lastHint = ref<string | null>(null)
   const lastSuccess = ref<string | null>(null)
   const lastWrongMessage = ref<string | null>(null)
+  const lastProofSlip = ref<string | null>(null)
 
   const total = computed(() => problems.value.length)
   /** Stars a parent has given for this set's ideas. */
@@ -270,15 +298,51 @@ export const usePracticeStore = defineStore('practice', () => {
     if (finished.value && !retry.value) return null
     return problems.value[activeIndex.value] ?? null
   })
-  const activeWork = computed<Work>(() => (similar.value ? similar.value.work : work.value))
+  const activeWork = computed<Work>(() => {
+    if (similar.value) return similar.value.work
+    if (retry.value) return retryWork.value
+    return works.value[index.value] ?? newWork()
+  })
 
   const isSolved = computed(() => activeWork.value.solved)
+  /** She answered correctly but must prove it before she is told so. */
+  const proofPending = computed(() => activeWork.value.pendingProof)
   const isSimilar = computed(() => similar.value !== null)
   const isRetry = computed(() => retry.value !== null && similar.value === null)
+  const lastIndex = computed(() => problems.value.length - 1)
+  /** Only the first pass has free navigation; retries and "try one like it" have their own Back button. */
+  const canNavigate = computed(() => inFirstPass.value && problems.value.length > 0)
+  const isLastProblem = computed(() => canNavigate.value && index.value === lastIndex.value)
+  /** Problems she has not solved yet (skipped, not started, or still wrong). */
+  const unansweredCount = computed(() => works.value.filter((w) => !w.solved).length)
   /** Moving on needs the proof only when this problem asked for one. */
   const canAdvance = computed(
     () => activeWork.value.solved && (!activeWork.value.proofAsked || activeWork.value.proof.done),
   )
+  /** A solved problem with a pending proof can't be left going forward (Back is still fine). */
+  const canLeaveForward = computed(
+    () => !activeWork.value.pendingProof && (!activeWork.value.solved || canAdvance.value),
+  )
+  const canGoBack = computed(() => canNavigate.value && index.value > 0)
+  const canSkip = computed(
+    () =>
+      canNavigate.value &&
+      !isLastProblem.value &&
+      !activeWork.value.solved &&
+      !activeWork.value.pendingProof,
+  )
+  /** Submit is for the last problem, and not while a proof is waiting. */
+  const canSubmit = computed(() => isLastProblem.value && canLeaveForward.value)
+  /** Where her rough work for the problem on screen is kept. */
+  const scratchKey = computed(() => {
+    if (similar.value) return `similar-${similarCount.value}`
+    if (retry.value) return `retry-${retry.value.index}`
+    return `set-${index.value}`
+  })
+  /** What she typed in the answer boxes for the problem on screen. */
+  const draft = computed(() => activeWork.value.draft)
+  /** The accepted answer for a solved problem, shown when she revisits it. */
+  const solvedAnswer = computed(() => activeWork.value.solvedAnswer)
   /** Her latest answer that wasn't fully right, for the Learn panel. */
   const currentMissedAnswer = computed(() => activeWork.value.lastAnswer)
 
@@ -313,7 +377,7 @@ export const usePracticeStore = defineStore('practice', () => {
   const proof = computed<Proof | null>(() => {
     const problem = current.value
     const w = activeWork.value
-    if (!problem || !w.solved || !w.proofAsked) return null
+    if (!problem || !(w.solved || w.pendingProof) || !w.proofAsked) return null
     const inverse = inverseProblem(problem)
     const symbol = inverse.op === 'add' ? '+' : '−'
     return {
@@ -321,6 +385,7 @@ export const usePracticeStore = defineStore('practice', () => {
       done: w.proof.done,
       result: w.proof.result,
       hint: w.proof.hint,
+      encouragement: w.proof.encouragement,
       steps: w.proof.steps,
       helped: w.proof.helped,
     }
@@ -364,6 +429,7 @@ export const usePracticeStore = defineStore('practice', () => {
         wrongAttempts: wrongAttempts.value[i] ?? 0,
         hintsShown: hintsShown.value[i] ?? 0,
         stepsShown: stepsShown.value[i] ?? 0,
+        unanswered: (attempts.value[i] ?? 0) === 0,
       }
     })
     return {
@@ -386,7 +452,8 @@ export const usePracticeStore = defineStore('practice', () => {
   function sync() {
     if (!inFirstPass.value) return
     const i = index.value
-    const w = work.value
+    const w = works.value[i]
+    if (!w) return
     attempts.value[i] = w.attempts
     wrongAttempts.value[i] = w.wrongAttempts
     hintsShown.value[i] = w.hintsShown
@@ -415,7 +482,8 @@ export const usePracticeStore = defineStore('practice', () => {
     resetUnlock()
     retry.value = null
     similar.value = null
-    work.value = newWork()
+    works.value = list.map(() => newWork())
+    retryWork.value = newWork()
   }
 
   function resetUnlock() {
@@ -436,11 +504,28 @@ export const usePracticeStore = defineStore('practice', () => {
     startWith(list, newOptions)
   }
 
+  /** Tells her the answer was right and records it (score, first try, retry). */
+  function reveal(w: Work) {
+    w.pendingProof = false
+    w.solved = true
+    w.lastResult = 'correct'
+    w.message = lastSuccess.value = pickDifferent(SUCCESS_MESSAGES, lastSuccess.value)
+    if (inFirstPass.value) {
+      const i = index.value
+      const neededHelp = w.wrongAttempts > 0 || w.hintsShown > 0 || w.stepsShown > 0 || w.learned
+      status.value[i] = neededHelp ? 'correctWithHelp' : 'correct'
+      if (w.firstTry) firstTryCorrect.value[i] = true
+      score.value += 1
+    } else if (retry.value && !similar.value) {
+      retryCorrect.value[retry.value.index] = true
+    }
+  }
+
   /** Checks the typed answer. Code decides correctness. Returns null when nothing was checked. */
   function submit(answer: string): AnswerStatus | null {
     const problem = current.value
     const w = activeWork.value
-    if (!problem || w.solved || answer.trim() === '') return null
+    if (!problem || w.solved || w.pendingProof || answer.trim() === '') return null
 
     const firstSubmission = w.attempts === 0
     w.attempts += 1
@@ -448,20 +533,18 @@ export const usePracticeStore = defineStore('practice', () => {
     w.lastResult = result.status
 
     if (result.status === 'correct') {
-      w.solved = true
+      w.solvedAnswer = answer.trim()
       w.hintTexts = []
+      w.firstTry = firstSubmission
       // Proofs are asked on the first few problems of each type, then not at all.
       w.proofAsked = proofsAsked.value[problem.op] < PROOFS_PER_TYPE
-      if (w.proofAsked) proofsAsked.value[problem.op] += 1
-      w.message = lastSuccess.value = pickDifferent(SUCCESS_MESSAGES, lastSuccess.value)
-      if (inFirstPass.value) {
-        const i = index.value
-        const neededHelp = w.wrongAttempts > 0 || w.hintsShown > 0 || w.stepsShown > 0 || w.learned
-        status.value[i] = neededHelp ? 'correctWithHelp' : 'correct'
-        if (firstSubmission) firstTryCorrect.value[i] = true
-        score.value += 1
-      } else if (retry.value && !similar.value) {
-        retryCorrect.value[retry.value.index] = true
+      if (w.proofAsked) {
+        proofsAsked.value[problem.op] += 1
+        // Hold back "Correct!": she proves it first, so she isn't tempted to skip it once she knows.
+        w.pendingProof = true
+        w.lastResult = null
+      } else {
+        reveal(w)
       }
     } else {
       w.lastAnswer = answer
@@ -518,7 +601,9 @@ export const usePracticeStore = defineStore('practice', () => {
   function submitProof(answer: string): AnswerStatus | null {
     const problem = current.value
     const w = activeWork.value
-    if (!problem || !w.solved || !w.proofAsked || w.proof.done || answer.trim() === '') return null
+    if (!problem || !(w.solved || w.pendingProof) || !w.proofAsked || w.proof.done || answer.trim() === '') {
+      return null
+    }
 
     const inverse = inverseProblem(problem)
     const result = checkAnswer(answerOf(inverse), answer)
@@ -540,9 +625,14 @@ export const usePracticeStore = defineStore('practice', () => {
         w.proof.done = true
         proofStreak.value = 0
       } else {
+        // Her answer was right; the slip is in the proof. Say so, and give a hint about the check.
+        w.proof.encouragement = lastProofSlip.value = pickDifferent(PROOF_SLIP_MESSAGES, lastProofSlip.value)
         w.proof.hint = proofHint(problem.op, formatMixed(inverse.b))
       }
     }
+    // Once the proof is finished, she is told her answer was right.
+    if (w.proof.done && w.pendingProof) reveal(w)
+    sync()
     return result.status
   }
 
@@ -576,6 +666,36 @@ export const usePracticeStore = defineStore('practice', () => {
     return result.status
   }
 
+  /** Goes to the previous problem. Her work on both problems is kept. */
+  function back(): boolean {
+    if (!canGoBack.value) return false
+    index.value -= 1
+    return true
+  }
+
+  /** Moves past a problem she hasn't solved. She can come back to it later. */
+  function skip(): boolean {
+    if (!canSkip.value) return false
+    index.value += 1
+    return true
+  }
+
+  /**
+   * Finishes the test from the last problem. Returns false when problems are unanswered and she hasn't
+   * confirmed yet (the page then asks "Submit anyway?"). Unanswered problems count as missed.
+   */
+  function submitTest(confirmed = false): boolean {
+    if (!canSubmit.value) return false
+    if (unansweredCount.value > 0 && !confirmed) return false
+    finished.value = true
+    return true
+  }
+
+  /** Keeps what she has typed so it is still there when she comes back to this problem. */
+  function setDraft(boxes: AnswerBoxes) {
+    activeWork.value.draft = { ...boxes }
+  }
+
   /** Moves on once the problem is solved and, when asked, proved. Returns false if not ready. */
   function next(): boolean {
     if (!current.value || !canAdvance.value) return false
@@ -587,7 +707,7 @@ export const usePracticeStore = defineStore('practice', () => {
     if (retry.value) {
       const [following, ...rest] = retry.value.queue
       retry.value = following === undefined ? null : { index: following, queue: rest }
-      work.value = newWork()
+      retryWork.value = newWork()
       return true
     }
     if (index.value >= problems.value.length - 1) {
@@ -595,7 +715,6 @@ export const usePracticeStore = defineStore('practice', () => {
     } else {
       index.value += 1
     }
-    work.value = newWork()
     return true
   }
 
@@ -637,7 +756,7 @@ export const usePracticeStore = defineStore('practice', () => {
     if (!unlockDone.value || summary.value.items[i]?.correct !== false) return
     similar.value = null
     retry.value = { index: i, queue: [] }
-    work.value = newWork()
+    retryWork.value = newWork()
   }
 
   /** Reopens every missed problem, one after another. */
@@ -647,14 +766,14 @@ export const usePracticeStore = defineStore('practice', () => {
     if (first === undefined) return
     similar.value = null
     retry.value = { index: first, queue: rest }
-    work.value = newWork()
+    retryWork.value = newWork()
   }
 
   /** Leaves a retry and goes back to the summary. */
   function backToSummary() {
     retry.value = null
     similar.value = null
-    work.value = newWork()
+    retryWork.value = newWork()
   }
 
   /** "Try one like it": a new problem with the same operation and regroup setting. Doesn't change the score. */
@@ -663,6 +782,7 @@ export const usePracticeStore = defineStore('practice', () => {
     if (!source) return
     const like = generateSimilarProblem(source, MAX_DENOMINATOR, rng)
     const hasStory = 'story' in source && source.story !== undefined
+    similarCount.value += 1
     similar.value = { problem: hasStory ? withStory(like, rng) : like, work: newWork() }
   }
 
@@ -679,7 +799,8 @@ export const usePracticeStore = defineStore('practice', () => {
     score.value = 0
     retry.value = null
     similar.value = null
-    work.value = newWork()
+    works.value = []
+    retryWork.value = newWork()
   }
 
   return {
@@ -708,19 +829,33 @@ export const usePracticeStore = defineStore('practice', () => {
     proofStreak,
     proofMaster,
     proofsAsked,
-    work,
+    works,
+    retryWork,
     retry,
     similar,
+    similarCount,
     lastHint,
     lastSuccess,
     lastWrongMessage,
+    lastProofSlip,
     total,
     current,
     view,
     isSolved,
+    proofPending,
     isSimilar,
     isRetry,
     canAdvance,
+    canNavigate,
+    canLeaveForward,
+    isLastProblem,
+    unansweredCount,
+    canGoBack,
+    canSkip,
+    canSubmit,
+    scratchKey,
+    draft,
+    solvedAnswer,
     currentMissedAnswer,
     feedback,
     proof,
@@ -740,6 +875,10 @@ export const usePracticeStore = defineStore('practice', () => {
     skipExamples,
     continueToSummary,
     next,
+    back,
+    skip,
+    submitTest,
+    setDraft,
     retryProblem,
     retryMissed,
     backToSummary,

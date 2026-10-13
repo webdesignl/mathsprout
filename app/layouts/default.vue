@@ -77,7 +77,7 @@ const pending = computed(() => usePracticeStore().pendingReviewCount)
       </div>
     </header>
 
-    <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+    <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
       <slot />
     </main>
   </div>

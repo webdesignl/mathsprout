@@ -9,7 +9,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-6
 
 <template>
   <!-- The live region is always on the page so screen readers announce new feedback. -->
-  <div role="status" aria-live="polite" class="min-h-16">
+  <div role="status" aria-live="polite">
     <p v-if="feedback?.kind === 'correct'" class="celebrate text-3xl font-bold text-emerald-900">
       <span aria-hidden="true">🎉</span> {{ feedback.message }}
     </p>
