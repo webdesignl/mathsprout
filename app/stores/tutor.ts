@@ -40,7 +40,7 @@ import type { Proof } from './practice'
 
 /**
  * The Tutor is a state machine, one thing on screen at a time:
- * capture -> confirm -> understand -> attempt -> hint1 -> hint2 -> hint3 -> teach -> check -> explain -> done.
+ * capture -> understand -> confirm -> attempt -> hint1 -> hint2 -> hint3 -> teach -> check -> explain -> done.
  * The fraction engine decides whether an answer is right. The AI only reads the problem, writes
  * hint questions and gives feedback on her explanation.
  */
@@ -246,13 +246,24 @@ export const useTutorStore = defineStore('tutor', () => {
   }
 
   /** Every problem goes to "confirm" first, however it was captured: the AI can misread handwriting. */
+  /**
+   * She thinks about the question before she sees the full problem, because "Is this your problem?" shows the
+   * operation. Typed numbers skip this step: she chose the operation herself when she typed it.
+   */
+  function startUnderstanding() {
+    state.value = 'understand'
+    understanding.value = { text: '', source: '', loading: false, wrong: 0, choice: null, message: '', done: false, revealed: false }
+    understandingPromise = loadUnderstanding()
+  }
+
   function takeProblem(next: AnyProblem, from: ProblemSource, text = '', how: 'high' | 'low' = 'high') {
     problem.value = next
     source.value = from
     problemText.value = text
     confidence.value = how
-    state.value = 'confirm'
     error.value = null
+    if (from === 'typed') state.value = 'confirm'
+    else startUnderstanding()
   }
 
   /** A typed problem (two numbers and + or -). Returns a message if it can't be used. */
@@ -307,12 +318,27 @@ export const useTutorStore = defineStore('tutor', () => {
     }
   }
 
-  /** "Yes, this is my problem." Next she understands the question and finds the operation. */
+  /**
+   * "Yes, this is my problem." Then she solves it. If she has not thought about the question yet (she came here
+   * early because it looked wrong), she does that first.
+   */
   function confirmProblem(): boolean {
     if (state.value !== 'confirm' || !problem.value) return false
-    state.value = 'understand'
-    understanding.value = { text: '', source: '', loading: false, wrong: 0, choice: null, message: '', done: false, revealed: false }
-    understandingPromise = loadUnderstanding()
+    if (source.value !== 'typed' && !understanding.value.done) {
+      startUnderstanding()
+      return true
+    }
+    state.value = 'attempt'
+    return true
+  }
+
+  /**
+   * "This isn't my problem": the AI may have misread the numbers or the symbol, so she can go straight to
+   * the screen where she can fix it, before she is asked about the operation.
+   */
+  function doesNotLookRight(): boolean {
+    if (state.value !== 'understand') return false
+    state.value = 'confirm'
     return true
   }
 
@@ -348,10 +374,10 @@ export const useTutorStore = defineStore('tutor', () => {
     return 'wrong'
   }
 
-  /** On to solving, once she has the operation. */
+  /** On to "Is this your problem?", once she has found the operation. */
   function continueFromUnderstanding(): boolean {
     if (state.value !== 'understand' || !understanding.value.done) return false
-    state.value = 'attempt'
+    state.value = 'confirm'
     return true
   }
 
@@ -366,6 +392,8 @@ export const useTutorStore = defineStore('tutor', () => {
     problem.value = next
     confidence.value = 'high'
     error.value = null
+    // The numbers or the operation may have changed, so she thinks about the corrected problem first.
+    if (source.value !== 'typed') startUnderstanding()
     return null
   }
 
@@ -613,6 +641,7 @@ export const useTutorStore = defineStore('tutor', () => {
     loadUnderstanding,
     whenUnderstood,
     confirmProblem,
+    doesNotLookRight,
     chooseOperation,
     continueFromUnderstanding,
     editProblem,

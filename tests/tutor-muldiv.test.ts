@@ -210,9 +210,9 @@ describe('the Tutor page logic for multiplication and division', () => {
     const store = useTutorStore()
     store.setApi(api(problem))
     await store.readProblem({ text: 'x' })
-    store.confirmProblem()
     store.chooseOperation(store.problem!.op)
     store.continueFromUnderstanding()
+    store.confirmProblem()
     return store
   }
 

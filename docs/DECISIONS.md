@@ -388,7 +388,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 ### D-47: The Tutor explains the question and she finds the operation first (#18)
 - **Date:** 2026-10
 - **Source:** User (issue #18)
-- **Decision:** A new step, "Let's understand it", sits between confirm and the attempt (state machine: capture, confirm, understand, attempt, hint1, hint2, hint3, teach, check, explain, done). The tutor explains the question in two or three short sentences and helps her picture it ("Imagine you have 6 cups..."). The explanation never names the operation and never gives the answer, a step or a result. The numbers show with a "?" where the operation goes. She picks Add, Subtract, Multiply or Divide, and the engine checks. A wrong choice gets a hint question (the wrong-operation hints from D-46); after two wrong choices the tutor says which operation it is and why, so she is never stuck. A right choice gets praise and the reason. Only then does she solve.
+- **Decision:** A new step, "Let's understand it", sits before she solves (before the attempt; its place relative to confirm changed in D-52) (state machine at the time: capture, confirm, understand, attempt, ...; the order changed in D-52). The tutor explains the question in two or three short sentences and helps her picture it ("Imagine you have 6 cups..."). The explanation never names the operation and never gives the answer, a step or a result. The numbers show with a "?" where the operation goes. She picks Add, Subtract, Multiply or Divide, and the engine checks. A wrong choice gets a hint question (the wrong-operation hints from D-46); after two wrong choices the tutor says which operation it is and why, so she is never stuck. A right choice gets praise and the reason. Only then does she solve.
 - **How the explanation is made:** a new route, `/api/tutor/understand`. The AI (Haiku) writes it from her problem's words. Our checks reject any explanation with an operation word, an answer or a step result, or that is longer than 60 words; it retries once, then uses a plain template. Typed numbers have no story, so they use the template with no API call. The same limits apply as on the other routes (shared rate limit, 8 second limit, personal details removed, demo mode canned, nothing logged).
 - **Also from #18:** after a correct answer the Tutor now gives a short, varied success line, like Practice. A wrong answer already gets "Not quite." and a hint.
 - **Alternatives:** Writing the explanation by hand for every problem (cannot cover photographed and word problems).
@@ -417,6 +417,14 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Source:** User (the gap noted under D-46)
 - **Decision:** For an add or subtract problem, `diagnose` now also recognises an answer that equals the product, or the quotient either way round, as `wrongOperation` with no step index. The hint is "We aren't repeating or splitting. Are we putting together or taking away?" (12 words, one question). Adding and subtracting mixed up with each other keeps its own hint, "Are we putting together or taking away?". The second hint is unchanged ("in all" adds, "left" subtracts). The Tutor's operation step uses the same hint when she picks multiply or divide for an add or subtract problem, the Tutor's hint templates and the AI hint writer are told the same idea, and a correct answer is never flagged even when two operations agree (2 + 2 = 2 × 2).
 - **Status:** Active
+
+### D-52: "Let's understand it" comes before "Is this your problem?" (#20)
+- **Date:** 2026-10
+- **Source:** User (issue #20)
+- **Decision:** The Tutor order is now capture, understand, confirm, attempt. The confirm screen shows the whole problem including the operation, which gave the operation away before she had thought about it. So she first sees the numbers with a "?" where the operation goes, reads the explanation and picks the operation, and only then sees "Is this your problem?". Confirm is still always shown.
+- **Misreads:** because she now picks the operation before confirming, a misread symbol could mark a right choice as wrong. So the understand step has a "This isn't my problem" button that goes straight to the confirm screen to fix it, and a low-confidence read says so there. After "Fix it", or after jumping ahead, she thinks about the corrected problem before confirming again.
+- **Typed numbers** skip the understand step: she chose the operation herself when she typed it, and there is no story to explain. They go from capture to confirm to the attempt.
+- **Status:** Active. Replaces the order in D-47.
 
 ---
 

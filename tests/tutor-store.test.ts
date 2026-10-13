@@ -35,9 +35,10 @@ async function atAttempt(api = fakeApi()) {
   const store = useTutorStore()
   store.setApi(api)
   await store.readProblem(PHOTO)
-  store.confirmProblem()
+  // Understand the question and find the operation first, then confirm the problem.
   store.chooseOperation(store.problem!.op)
   store.continueFromUnderstanding()
+  store.confirmProblem()
   return { store, api }
 }
 
@@ -53,77 +54,131 @@ beforeEach(() => {
   setActivePinia(createPinia())
 })
 
-describe('capture and confirm', () => {
+describe('capture, understand and confirm', () => {
   it('starts at capture', () => {
     const store = useTutorStore()
     expect(store.state).toBe('capture')
     expect(store.problem).toBeNull()
   })
 
-  it('a photo always goes to confirm, never straight to the attempt', async () => {
+  it('a photo goes to "understand" first, because "Is this your problem?" would show the operation', async () => {
     const store = useTutorStore()
     const api = fakeApi()
     store.setApi(api)
     expect(await store.readProblem(PHOTO)).toBe(true)
-    expect(store.state).toBe('confirm')
+    expect(store.state).toBe('understand')
     expect(store.source).toBe('photo')
     expect(store.problem).toEqual(SUB)
     expect(api.read).toHaveBeenCalledWith(PHOTO)
   })
 
-  it('a typed word problem goes to confirm too, even when the AI is sure', async () => {
+  it('a typed word problem goes to understand too', async () => {
     const store = useTutorStore()
     store.setApi(fakeApi())
     await store.readProblem({ text: 'An elephant has 8 1/5 buckets and drinks 4 3/4.' })
-    expect(store.state).toBe('confirm')
+    expect(store.state).toBe('understand')
     expect(store.source).toBe('text')
     expect(store.confidence).toBe('high')
   })
 
-  it('typed numbers go to confirm too', () => {
+  it('typed numbers skip understanding (she chose the operation herself) and go to confirm', () => {
     const store = useTutorStore()
     expect(store.enterTyped(SUB)).toBeNull()
     expect(store.state).toBe('confirm')
     expect(store.source).toBe('typed')
+    expect(store.confirmProblem()).toBe(true)
+    expect(store.state).toBe('attempt') // no understand step for typed numbers
   })
 
-  it('a low-confidence read still goes to confirm and says so', async () => {
+  it('a low-confidence read still starts with understanding, and says so', async () => {
     const store = useTutorStore()
     store.setApi(fakeApi({ read: { ok: true, problem: SUB, operands: ['', ''], problemText: 'x', confidence: 'low' } }))
     await store.readProblem(PHOTO)
-    expect(store.state).toBe('confirm')
+    expect(store.state).toBe('understand')
     expect(store.confidence).toBe('low')
   })
 
-  it('she cannot answer until she says "Yes" on the confirm step', async () => {
+  it('the order is understand, then confirm, then attempt: she cannot skip either', async () => {
     const store = useTutorStore()
     store.setApi(fakeApi())
     await store.readProblem(PHOTO)
+    expect(store.state).toBe('understand')
+    expect(await store.submitAnswer('3 9/20')).toBeNull()
+    expect(store.confirmProblem()).toBe(false) // not confirm yet
+    expect(store.continueFromUnderstanding()).toBe(false) // she has not found the operation
+    store.chooseOperation(SUB.op)
+    expect(store.continueFromUnderstanding()).toBe(true)
+    expect(store.state).toBe('confirm')
     expect(await store.submitAnswer('3 9/20')).toBeNull()
     expect(await store.imStuck()).toBe(false)
-    expect(store.state).toBe('confirm')
     expect(store.confirmProblem()).toBe(true)
-    expect(store.state).toBe('understand')
-    store.chooseOperation(store.problem!.op)
-    expect(store.continueFromUnderstanding()).toBe(true)
     expect(store.state).toBe('attempt')
   })
 
-  it('"Fix it" changes the problem and she has to confirm again', async () => {
+  it('the operation is not on the screen data until she reaches confirm: understand shows numbers only', async () => {
     const store = useTutorStore()
     store.setApi(fakeApi())
     await store.readProblem(PHOTO)
-    expect(store.editProblem(ADD)).toBeNull()
-    expect(store.state).toBe('confirm')
-    expect(store.problem).toEqual(ADD)
-    expect(store.confirmProblem()).toBe(true)
+    // The page hides the operation in this step; the store only moves on once she names it.
+    expect(store.understanding.choice).toBeNull()
     expect(store.state).toBe('understand')
   })
 
-  it('"Fix it" rejects numbers that make no sense, with a kind message, and stays on confirm', async () => {
+  it('"This isn\'t my problem" goes straight to confirm so she can fix a misread', async () => {
     const store = useTutorStore()
     store.setApi(fakeApi())
     await store.readProblem(PHOTO)
+    expect(store.doesNotLookRight()).toBe(true)
+    expect(store.state).toBe('confirm')
+    expect(store.editProblem(ADD)).toBeNull()
+    expect(store.problem).toEqual(ADD)
+    expect(store.state).toBe('understand') // she thinks about the corrected problem
+  })
+
+  it('if she says "Yes" after jumping ahead, she still thinks about the question first', async () => {
+    const store = useTutorStore()
+    store.setApi(fakeApi())
+    await store.readProblem(PHOTO)
+    store.doesNotLookRight()
+    expect(store.confirmProblem()).toBe(true)
+    expect(store.state).toBe('understand')
+    store.chooseOperation(SUB.op)
+    store.continueFromUnderstanding()
+    expect(store.state).toBe('confirm')
+    expect(store.confirmProblem()).toBe(true)
+    expect(store.state).toBe('attempt')
+  })
+
+  it('"Fix it" at confirm changes the problem, and she thinks about the corrected one before confirming again', async () => {
+    const store = useTutorStore()
+    store.setApi(fakeApi())
+    await store.readProblem(PHOTO)
+    store.chooseOperation(SUB.op)
+    store.continueFromUnderstanding()
+    expect(store.state).toBe('confirm')
+    expect(store.editProblem(ADD)).toBeNull()
+    expect(store.problem).toEqual(ADD)
+    expect(store.state).toBe('understand')
+    expect(store.understanding.done).toBe(false)
+    store.chooseOperation('add')
+    store.continueFromUnderstanding()
+    expect(store.confirmProblem()).toBe(true)
+    expect(store.state).toBe('attempt')
+  })
+
+  it('"Fix it" on typed numbers just stays at confirm', () => {
+    const store = useTutorStore()
+    store.enterTyped(SUB)
+    expect(store.editProblem(ADD)).toBeNull()
+    expect(store.state).toBe('confirm')
+    expect(store.problem).toEqual(ADD)
+  })
+
+  it('"Fix it" rejects numbers that make no sense, with a kind message, and stays put', async () => {
+    const store = useTutorStore()
+    store.setApi(fakeApi())
+    await store.readProblem(PHOTO)
+    store.doesNotLookRight()
     const smallFirst: Problem = { op: 'subtract', a: { whole: 1, num: 1, den: 4 }, b: { whole: 3, num: 0, den: 1 } }
     expect(store.editProblem(smallFirst)).toMatch(/bigger number first/)
     expect(store.problem).toEqual(SUB)
