@@ -270,6 +270,48 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 
 ---
 
+## Tutor page (feature-0011)
+
+### D-31: The Tutor is a state machine, one thing on screen at a time
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** `useTutorStore` moves through capture, confirm, attempt, hint1, hint2, hint3, teach, check, explain, done. Actions only work in the right state (for example she cannot answer on the confirm step). The fraction engine decides every answer; the server routes (D-26) only read, hint and give feedback. The API is injected into the store so tests use a fake. It reuses the Practice pieces: the answer boxes, the problem card, `LearnPanel` (without "Try one like it" and "Back"), the proof component for the add-back, and `diagnose`.
+- **Status:** Active
+
+### D-32: The confirm step always appears, however the problem was captured
+- **Date:** 2026-10
+- **Source:** User spec ("never skip")
+- **Decision:** A photo, a typed word problem and typed numbers all go to "Is this your problem?" with Yes and Fix it. A low-confidence read adds a warning. "Fix it" changes the numbers and she confirms again. Typed numbers are checked first (no zero bottom number; the bigger number first when subtracting).
+- **Why:** The AI can misread handwriting, and a child may mistype.
+- **Status:** Active
+
+### D-33: The hint ladder
+- **Date:** 2026-10
+- **Source:** User spec, from docs/PLAN.md
+- **Decision:** A wrong answer or "I'm stuck" moves up one step: attempt, hint1, hint2, hint3, then teach. A correct answer at any point goes to the check. "Equal but not simplest" never counts as wrong: it stays where she is and asks her to simplify. In teach, a wrong answer stays in teach with the steps in view, and "I'm stuck" is hidden. A wrong answer sends the tutor her answer so the hint aims at the slip; "I'm stuck" aims at the first step.
+- **Status:** Active
+
+### D-34: The check is required, and she can pick add back or estimate
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** She cannot reach the explanation until the check is done. Add back reuses the proof step (one wrong try gets encouragement and a hint, two show the worked add-back). Estimate: she rounds each number to the nearest half or whole herself (ties round up), the app shows the estimate, and she says whether her answer is close. "Close" means within half a whole, because each rounding is off by at most 1/4, so a correct answer is always close (a property test checks this). `estimateCheck` and `roundToHalf` live in `fraction.ts`. Two wrong roundings show the roundings, and two wrong "close?" choices finish the check, so she is never stuck.
+- **Status:** Active
+
+### D-35: Explain-back gets one extra try, and the mic is optional
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** After a follow-up question she gets one extra try, then moves on. She can also skip after a follow-up, or when the tutor cannot be reached. The microphone uses the browser's Web Speech API only where it exists, off until she taps it, with a note under it.
+- **Why:** Typing is always possible. Some browsers send the voice to their speech service.
+- **Status:** Active. Known gap: voice may leave the device depending on the browser. Decide whether to keep it for a child's device.
+
+### D-36: Offline and photo handling
+- **Date:** 2026-10
+- **Source:** User spec
+- **Decision:** Photos are shrunk in the browser to at most 1568px on the long edge and saved as JPEG at quality 0.8 before upload. If the tutor can't be reached, hints come from the same hand-written templates (moved to `app/utils/tutorHints.ts` and shared with the server), and she is told so. Reading a photo and the explanation show a friendly "no internet" message instead.
+- **Status:** Active. Not done yet: saving hints used and the mistake type to a mastery record (planned in docs/PLAN.md).
+
+---
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?

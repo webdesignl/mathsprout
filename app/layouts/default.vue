@@ -44,6 +44,15 @@ const pending = computed(() => usePracticeStore().pendingReviewCount)
             </li>
             <li>
               <NuxtLink
+                to="/tutor"
+                class="inline-flex min-h-12 items-center rounded-lg px-4 font-semibold text-emerald-900 hover:bg-emerald-100"
+                active-class="bg-emerald-100 underline underline-offset-4"
+              >
+                Tutor
+              </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink
                 to="/parent"
                 class="inline-flex min-h-12 items-center gap-2 rounded-lg px-4 font-semibold text-emerald-900 hover:bg-emerald-100"
                 active-class="bg-emerald-100 underline underline-offset-4"

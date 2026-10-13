@@ -538,3 +538,46 @@ export function inverseProblem(problem: Problem, answer?: Operand): Problem {
   const result = answer ?? (problem.op === 'add' ? add : subtract)(problem.a, problem.b)
   return { op: problem.op === 'add' ? 'subtract' : 'add', a: result, b: problem.b }
 }
+
+/** Rounds a non-negative value to the nearest half or whole (2 1/4 -> 2 1/2, 2 1/8 -> 2). Ties round up. */
+export function roundToHalf(x: Operand): Fraction {
+  const f = toFraction(x)
+  if (f.numerator < 0) throw new RangeError('roundToHalf only supports non-negative values')
+  // halves = round(2n / d), done with integers: floor((4n + d) / (2d))
+  const halves = Math.floor((4 * f.numerator + f.denominator) / (2 * f.denominator))
+  return simplify(makeFraction(halves, 2))
+}
+
+/** An estimate is "close" when it is within half a whole of the answer. */
+export const ESTIMATE_TOLERANCE: Fraction = { numerator: 1, denominator: 2 }
+
+export interface EstimateCheck {
+  roundedA: Fraction
+  roundedB: Fraction
+  /** The rounded numbers combined: what the answer should be about. */
+  estimate: Fraction
+  /** How far the answer is from the estimate (never negative). */
+  difference: Fraction
+  /** True when the answer is within half a whole of the estimate. */
+  close: boolean
+}
+
+/**
+ * Checks an answer by estimating: round each number to the nearest half or whole, combine them,
+ * and see if the answer is close. Each rounding is off by at most 1/4, so a correct answer is
+ * always within 1/2 of the estimate; one that is farther away has gone off track.
+ */
+export function estimateCheck(a: Operand, b: Operand, op: Op, answer: Operand): EstimateCheck {
+  const roundedA = roundToHalf(a)
+  const roundedB = roundToHalf(b)
+  const estimate = (op === 'add' ? add : subtract)(roundedA, roundedB)
+  const gap = subtract(estimate, answer)
+  const difference = { numerator: Math.abs(gap.numerator), denominator: gap.denominator }
+  return {
+    roundedA,
+    roundedB,
+    estimate,
+    difference,
+    close: difference.numerator * ESTIMATE_TOLERANCE.denominator <= ESTIMATE_TOLERANCE.numerator * difference.denominator,
+  }
+}
