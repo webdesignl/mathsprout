@@ -451,6 +451,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Cost:** two calls instead of one, about 25% more for a photo (roughly 1.8 cents against 1.4 cents, by token counts). Typed problems are unchanged. Open idea: a smaller model for the second call.
 - **Status:** Active
 
+### D-56: The similar problem shows its question, and the hint sits under the question
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** "Try one like it" now shows the question again with the new numbers ("Another one like it: ..."). Code makes it: each fraction in the story is swapped for a new one, and the same fraction is swapped the same way everywhere it appears (so "1/5 did not finish" in the story and in two steps stay one quantity). Fractions written as words ("one fifth") cannot be swapped safely, so the story then falls back to "Here is another one like it, with new numbers." with only the step questions. No AI call. In a multi-step problem the hint box now sits under the question and above the numbers card; single-step problems are unchanged.
+- **Fixed on the way:** the similar plan used to swap each occurrence of a fraction separately, so a fraction used in two steps could become two different numbers.
+- **Status:** Active
+
 ---
 
 ## Open questions

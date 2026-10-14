@@ -31,7 +31,7 @@ import {
   pickDifferent,
   proofHint,
 } from '../utils/messages'
-import { resolvePlan, similarPlan, type Plan } from '../utils/plan'
+import { resolvePlan, similarPlan, similarStory, type Plan } from '../utils/plan'
 import { localHint, operationHint, understandTemplate } from '../utils/tutorHints'
 import {
   createTutorApi,
@@ -433,10 +433,14 @@ export const useTutorStore = defineStore('tutor', () => {
       state.value = 'done'
       return false
     }
-    plan.value = next
+    // The question is shown again with the new numbers, so she knows what she is solving.
+    const story = similarStory(problemText.value, next.swaps)
+    plan.value = next.plan
     inSimilar.value = true
     finishedSteps.value = []
-    problemText.value = 'Here is another one like it, with new numbers. The steps are the same as before.'
+    problemText.value = story
+      ? `Another one like it: ${story}`
+      : 'Here is another one like it, with new numbers. The steps are the same as before.'
     startStep(0)
     return true
   }
