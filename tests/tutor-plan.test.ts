@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useTutorStore } from '../app/stores/tutor'
 import { formatMixed, problemAnswer, toMixed } from '../app/utils/fraction'
-import { resolvePlan, similarPlan, type Plan } from '../app/utils/plan'
+import { resolvePlan, similarPlan, similarStory, type Plan } from '../app/utils/plan'
 import type { ReadReply, TutorApi } from '../app/utils/tutorApi'
 import { readProblem, safeLabel } from '../server/utils/tutor/read'
 import { handleRead } from '../server/utils/tutor/handlers'
@@ -226,19 +226,76 @@ function seeded(seed: number) {
 describe('similarPlan', () => {
   it('keeps the steps and swaps the fractions, and the engine accepts it', () => {
     for (let seed = 1; seed <= 200; seed++) {
-      const next = similarPlan(MARATHON, seeded(seed))!
-      expect(next).not.toBeNull()
+      const found = similarPlan(MARATHON, seeded(seed))!
+      expect(found).not.toBeNull()
+      const next = found.plan
       expect(resolvePlan(next).ok).toBe(true)
       expect(next.steps.map((s) => s.op)).toEqual(MARATHON.steps.map((s) => s.op))
       expect(next.steps[0]!.a).toBe('1')
       expect(next.steps[1]!.a).toBe('r1')
       expect(next.steps[3]!.a).toBe('r2')
       expect(next).not.toEqual(MARATHON)
+      // 1/5 is the same quantity in steps 1 and 3, so it is swapped the same way in both.
+      expect(next.steps[2]!.b).toBe(next.steps[0]!.b)
     }
   })
 
   it('returns null when nothing can be swapped', () => {
     const fixed: Plan = { steps: [{ op: 'add', a: '2', b: '3', label: 'First?' }, { op: 'add', a: 'r1', b: '1', label: 'Then?' }] }
     expect(similarPlan(fixed, seeded(1))).toBeNull()
+  })
+})
+
+describe('similarStory', () => {
+  const STORY = '1/5 of the runners did not finish. 5/6 of those who finished were adults. 1/4 of those who did not finish were children. What fraction were children? (1/5 again)'
+
+  it('swaps every fraction at once, the same way each time it appears, and never twice', () => {
+    const text = similarStory(STORY, [['1/5', '1/4'], ['5/6', '2/3'], ['1/4', '1/5']])
+    expect(text).toBe('1/4 of the runners did not finish. 2/3 of those who finished were adults. 1/5 of those who did not finish were children. What fraction were children? (1/4 again)')
+  })
+
+  it('does not touch longer numbers that contain a fraction', () => {
+    expect(similarStory('11/5 and 1/5 and 1/50', [['1/5', '1/3']])).toBe('11/5 and 1/3 and 1/50')
+  })
+
+  it('returns null when a swapped fraction is not written as a/b in the story', () => {
+    expect(similarStory('One fifth did not finish. 5/6 were adults.', [['1/5', '1/3'], ['5/6', '2/3']])).toBeNull()
+  })
+})
+
+describe('the similar problem shows its question', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('shows the story with the new numbers, matching the steps', async () => {
+    const store = useTutorStore()
+    const story = '1/5 did not finish the race. 5/6 of those who finished were adults. 1/4 of those who did not finish were children. What fraction were children?'
+    const plan: Plan = {
+      steps: [
+        { op: 'subtract', a: '1', b: '1/5', label: 'What fraction finished?' },
+        { op: 'subtract', a: '1', b: '5/6', label: 'What fraction of finishers were children?' },
+        { op: 'multiply', a: 'r1', b: 'r2', label: 'What fraction finished and were children?' },
+        { op: 'multiply', a: '1/4', b: '1/5', label: 'What fraction did not finish and were children?' },
+        { op: 'add', a: 'r3', b: 'r4', label: 'What fraction were children?' },
+      ],
+    }
+    const api = fakeApi(plan)
+    ;(api.read as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, plan, problemText: story, confidence: 'high' })
+    store.setApi(api)
+    await store.readProblem({ text: 'x' })
+    store.confirmProblem()
+    for (const [op, answer] of [['subtract', '4/5'], ['subtract', '1/6'], ['multiply', '2/15'], ['multiply', '1/20'], ['add', '11/60']] as const) {
+      store.chooseOperation(op)
+      store.continueFromUnderstanding()
+      await store.submitAnswer(answer)
+      store.nextStep()
+    }
+    expect(store.startSimilar(seeded(3))).toBe(true)
+    expect(store.problemText).toMatch(/^Another one like it: /)
+    // The words carry the same numbers as the first step and the last multiplication.
+    const first = store.plan!.steps[0]!.b
+    const fourth = store.plan!.steps[3]!
+    expect(store.problemText).toContain(`${first} did not finish`)
+    expect(store.problemText).toContain(`${fourth.a} of those who did not finish`)
+    expect(store.problemText).not.toContain('5/6 of those')
   })
 })

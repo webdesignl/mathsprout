@@ -3,7 +3,6 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useTutorStore } from '../stores/tutor'
 import { boxesToText, isAnswerEmpty, isFractionIncomplete, type AnswerBoxes } from '../utils/answer'
 import { slipName } from '../utils/messages'
-import { NOT_SIMPLEST_MESSAGE } from '../utils/messages'
 import { resizePhoto } from '../utils/image'
 import { opSymbol, type AnyOp, type AnyProblem } from '../utils/fraction'
 
@@ -34,7 +33,6 @@ const OPERATION_CHOICES: Array<{ op: AnyOp; label: string }> = [
 
 const answering = computed(() => ['attempt', 'hint1', 'hint2', 'hint3', 'teach'].includes(store.state))
 const hintNumber = computed(() => (store.state === 'hint1' ? 1 : store.state === 'hint2' ? 2 : store.state === 'hint3' ? 3 : 0))
-const latestHint = computed(() => store.hints.at(-1) ?? '')
 const checkMethodLabel = computed(() =>
   store.checkMethod === 'addBack' ? 'Proof' : store.checkMethod === 'estimate' ? 'Estimate' : 'None',
 )
@@ -307,25 +305,10 @@ function another() {
       <TutorStepHeader />
       <p v-if="store.plan" class="text-2xl font-semibold text-slate-900">{{ store.stepLabel }}</p>
       <p v-if="hintNumber" class="text-xl font-semibold text-slate-800">Hint {{ hintNumber }} of 3</p>
+      <!-- In a multi-step problem the hint sits under the question and above the numbers. -->
+      <TutorHelpMessages v-if="store.plan" />
       <PracticeProblemCard v-if="store.state !== 'teach'" :problem="store.problem" />
-
-      <div role="status" aria-live="polite" class="space-y-3">
-        <p v-if="store.busy === 'hint'" class="text-2xl font-semibold text-slate-800">Thinking…</p>
-        <p v-if="store.wrongMessage" class="text-2xl font-bold text-indigo-950">{{ store.wrongMessage }}</p>
-        <p
-          v-if="latestHint && store.state !== 'teach' && store.busy !== 'hint'"
-          class="rounded-2xl border-2 border-indigo-700 bg-indigo-50 p-4 text-2xl text-slate-900"
-        >
-          {{ latestHint }}
-        </p>
-        <p v-if="store.hintsOffline" class="text-base text-slate-700">The tutor could not be reached, so this hint comes from the app.</p>
-        <p
-          v-if="store.notSimplest"
-          class="rounded-2xl border-2 border-amber-700 bg-amber-100 p-4 text-2xl font-bold text-amber-950"
-        >
-          {{ NOT_SIMPLEST_MESSAGE }}
-        </p>
-      </div>
+      <TutorHelpMessages v-if="!store.plan" />
 
       <PracticeLearnPanel
         v-if="store.state === 'teach'"

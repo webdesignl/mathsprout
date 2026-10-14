@@ -88,23 +88,58 @@ function isProperFraction(text: string): boolean {
   return m !== null && m.whole === 0 && m.num > 0 && m.num < m.den
 }
 
+export interface SimilarPlan {
+  plan: Plan
+  /** Each fraction that was swapped, as [old, new]. The same old fraction always becomes the same new one. */
+  swaps: Array<[string, string]>
+}
+
 /**
  * A similar problem with new numbers: the same steps in the same order, with each fraction swapped for another
- * small one (halves to eighths). Whole numbers and answers carried between steps stay. Only a plan the engine
- * accepts is returned, so it always works out. Null if none is found.
+ * small one (halves to eighths). A fraction that appears in two steps is swapped the same way in both, because
+ * it is the same quantity in the story. Whole numbers and answers carried between steps stay. Only a plan the
+ * engine accepts is returned, so it always works out. Null if none is found.
  */
-export function similarPlan(plan: Plan, random: () => number = Math.random): Plan | null {
+export function similarPlan(plan: Plan, random: () => number = Math.random): SimilarPlan | null {
   const pick = (n: number) => Math.floor(random() * n)
   const fraction = () => {
     const den = 2 + pick(7)
     return `${1 + pick(den - 1)}/${den}`
   }
-  const swap = (text: string) => (isProperFraction(text) ? fraction() : text)
+  const originals = [...new Set(plan.steps.flatMap((s) => [s.a, s.b]).filter(isProperFraction).map((t) => t.trim()))]
+  if (originals.length === 0) return null
 
   for (let i = 0; i < SIMILAR_TRIES; i++) {
+    const swaps: Array<[string, string]> = []
+    for (const old of originals) {
+      let next = fraction()
+      // Different fractions in the story stay different, and every fraction changes.
+      for (let t = 0; t < 10 && (next === old || swaps.some(([, n]) => n === next)); t++) next = fraction()
+      swaps.push([old, next])
+    }
+    const lookup = new Map(swaps)
+    const swap = (text: string) => lookup.get(text.trim()) ?? text
     const next: Plan = { steps: plan.steps.map((s) => ({ ...s, a: swap(s.a), b: swap(s.b) })) }
-    const same = next.steps.every((s, k) => s.a === plan.steps[k]!.a && s.b === plan.steps[k]!.b)
-    if (!same && resolvePlan(next).ok) return next
+    const changed = swaps.every(([old, now]) => old !== now) && new Set(swaps.map(([, n]) => n)).size === swaps.length
+    if (changed && resolvePlan(next).ok) return { plan: next, swaps }
   }
   return null
+}
+
+/**
+ * The story with its fractions swapped for the new ones, all at once so a new fraction is never swapped again.
+ * Null when a swapped fraction is not written as "a/b" in the story (for example "one fifth"), because then the
+ * words would not match the new numbers.
+ */
+export function similarStory(story: string, swaps: Array<[string, string]>): string | null {
+  const lookup = new Map(swaps.map(([old, now]) => [old.replace(/\s+/g, ''), now]))
+  const found = new Set<string>()
+  const text = story.replace(/(?<![\d/])(\d+)\s*\/\s*(\d+)(?![\d/])/g, (match, top: string, bottom: string) => {
+    const key = `${top}/${bottom}`
+    const now = lookup.get(key)
+    if (now === undefined) return match
+    found.add(key)
+    return now
+  })
+  return found.size === lookup.size ? text : null
 }
