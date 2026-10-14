@@ -65,6 +65,12 @@ export const modelReadSchema = z.union([
   }),
 ])
 
+/** What the model returns when it copies a problem out of a photo. */
+export const modelTranscribeSchema = z.union([
+  z.object({ unreadable: z.literal(true) }),
+  z.object({ text: z.string().max(MAX_TEXT_CHARS), confidence: z.enum(['high', 'low']) }),
+])
+
 export const hintInputSchema = z.object({
   problem: problemSchema,
   studentAnswer: z.string().max(40).optional(),

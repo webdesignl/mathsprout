@@ -443,6 +443,14 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Trade-offs:** less feedback on how she reasons (the explain-back was the only check of her reasoning, apart from the proof); she must ask for help with the story. The `/api/tutor/explain` route is still on the server but no page calls it.
 - **Status:** Active. Replaces the explain-back in D-35 and D-50 and the automatic explanation in D-47.
 
+### D-55: A photo is copied out as text first, and she checks it before it is solved
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** Reading a photo is now two steps. The first call (Sonnet, with the picture) only copies the problem out as plain text, ignoring any working or drawings around it. She sees it on "Is this your problem?" in a box she can edit. When she taps "Yes, use this", the second call (Sonnet, text only) reads that text into a single problem or a multi-step plan, exactly as typed text is read. A multi-step plan then starts at step 1, because she has just confirmed the words. A single problem goes to understand and confirm as before.
+- **Why:** the same photo sometimes came back as one calculation and sometimes as a plan, and a misread number only showed up after the plan was made. Reading from text is steadier (the same text gave a plan every time) and she can fix a misread.
+- **Cost:** two calls instead of one, about 25% more for a photo (roughly 1.8 cents against 1.4 cents, by token counts). Typed problems are unchanged. Open idea: a smaller model for the second call.
+- **Status:** Active
+
 ---
 
 ## Open questions

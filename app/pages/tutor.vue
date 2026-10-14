@@ -173,6 +173,34 @@ function another() {
       </div>
     </section>
 
+    <!-- 1b. Check what was read from the photo -->
+    <section v-else-if="store.state === 'review'" class="space-y-6">
+      <h1 class="text-4xl font-bold text-emerald-900">Is this your problem?</h1>
+      <label for="review-text" class="block text-2xl font-semibold text-slate-900">
+        This is what I read from your picture. Fix anything that is wrong.
+      </label>
+      <textarea
+        id="review-text"
+        v-model="store.reviewText"
+        maxlength="1000"
+        rows="6"
+        class="w-full rounded-xl border-2 border-slate-700 bg-white p-4 text-xl text-slate-900"
+      />
+      <p v-if="store.confidence === 'low'" class="text-xl font-semibold text-amber-950" role="status">
+        I am not sure I read this right. Please check the numbers.
+      </p>
+      <div class="flex flex-wrap gap-4">
+        <button type="button" :class="primary" :disabled="store.busy === 'reading'" @click="store.submitReviewed(store.reviewText)">
+          Yes, use this
+        </button>
+        <button type="button" :class="secondary" @click="another">Take another photo</button>
+      </div>
+      <div role="status" aria-live="polite">
+        <p v-if="store.busy === 'reading'" class="text-2xl font-semibold text-slate-800">Thinking…</p>
+        <p v-if="store.error" class="text-xl font-semibold text-red-800" role="alert">{{ store.error }}</p>
+      </div>
+    </section>
+
     <!-- 2a. Confirm a problem with several steps -->
     <section v-else-if="store.state === 'confirm' && store.plan" class="space-y-6">
       <h1 class="text-4xl font-bold text-emerald-900">Is this your problem?</h1>

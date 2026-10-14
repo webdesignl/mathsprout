@@ -49,6 +49,8 @@ import type { Proof } from './practice'
  */
 export type TutorState =
   | 'capture'
+  /** A photo was copied out as text. She checks it and fixes anything wrong before it is solved. */
+  | 'review'
   | 'confirm'
   | 'understand'
   | 'attempt'
@@ -112,6 +114,8 @@ export const useTutorStore = defineStore('tutor', () => {
   const problem = ref<AnyProblem | null>(null)
   const problemText = ref('')
   const confidence = ref<'high' | 'low'>('high')
+  /** The text copied from her photo, which she can edit on the review screen. */
+  const reviewText = ref('')
 
   /** Step 3 of the flow: understand the question, then pick the operation before solving. */
   const understanding = ref({
@@ -233,6 +237,7 @@ export const useTutorStore = defineStore('tutor', () => {
     source.value = null
     problem.value = null
     problemText.value = ''
+    reviewText.value = ''
     confidence.value = 'high'
     understanding.value = { text: '', source: '', loading: false, wrong: 0, choice: null, message: '', done: false, revealed: false }
     understandingPromise = Promise.resolve()
@@ -310,8 +315,44 @@ export const useTutorStore = defineStore('tutor', () => {
       return false
     }
     const from = 'imageBase64' in body ? 'photo' : 'text'
+    if ('transcript' in reply) {
+      source.value = 'photo'
+      reviewText.value = reply.transcript
+      confidence.value = reply.confidence
+      state.value = 'review'
+      return true
+    }
     if ('plan' in reply) return takePlan(reply.plan, from, reply.problemText, reply.confidence)
+    if (!('problem' in reply)) return false
     takeProblem(reply.problem, from, reply.problemText, reply.confidence)
+    return true
+  }
+
+  /**
+   * She has checked the text from her photo. It is read like typed text. A multi-step problem then starts at
+   * step 1 (she has just confirmed the words); a single one goes on to understand and confirm as usual.
+   */
+  async function submitReviewed(text: string): Promise<boolean> {
+    if (state.value !== 'review' || busy.value) return false
+    const words = text.trim()
+    if (!words) {
+      error.value = 'Type the problem first.'
+      return false
+    }
+    busy.value = 'reading'
+    error.value = null
+    const reply = await api.read({ text: words })
+    busy.value = null
+    if (!reply.ok) {
+      error.value = reply.message
+      return false
+    }
+    if ('transcript' in reply) return false
+    if ('plan' in reply) {
+      if (!takePlan(reply.plan, 'photo', reply.problemText, 'high')) return false
+      return confirmProblem()
+    }
+    takeProblem(reply.problem, 'photo', reply.problemText, 'high')
     return true
   }
 
@@ -701,6 +742,8 @@ export const useTutorStore = defineStore('tutor', () => {
     finishedSteps,
     planTotals,
     nextStep,
+    reviewText,
+    submitReviewed,
     mainSteps,
     inSimilar,
     startSimilar,
