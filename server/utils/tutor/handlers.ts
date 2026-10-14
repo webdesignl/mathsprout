@@ -50,6 +50,10 @@ export async function handleRead(body: unknown, deps: TutorDeps): Promise<TutorR
   if (!input.success) return fail('bad_request')
 
   if (deps.demo) {
+    // A photo is copied out as text first, like the real tutor does.
+    if ('imageBase64' in input.data) {
+      return { status: 200, body: { ok: true, transcript: DEMO_PROBLEM_TEXT, confidence: 'high' } }
+    }
     return {
       status: 200,
       body: {

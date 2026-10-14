@@ -8,6 +8,8 @@ export type ReadReply =
   | { ok: true; problem: AnyProblem; operands: [string, string]; problemText: string; confidence: 'high' | 'low' }
   /** A problem in several steps, each one an operation the engine has already checked. */
   | { ok: true; plan: Plan; problemText: string; confidence: 'high' | 'low' }
+  /** From a photo: the problem as text, for her to check before it is read. */
+  | { ok: true; transcript: string; confidence: 'high' | 'low' }
   | Failure
 
 export type HintReply = { ok: true; hint: string; source: string; level: number } | Failure
