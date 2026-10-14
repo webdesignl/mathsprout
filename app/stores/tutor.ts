@@ -36,7 +36,6 @@ import { localHint, operationHint, understandTemplate } from '../utils/tutorHint
 import {
   createTutorApi,
   problemError,
-  type ExplainReply,
   type ReadBody,
   type TutorApi,
 } from '../utils/tutorApi'
@@ -44,9 +43,9 @@ import type { Proof } from './practice'
 
 /**
  * The Tutor is a state machine, one thing on screen at a time:
- * capture -> understand -> confirm -> attempt -> hint1 -> hint2 -> hint3 -> teach -> check -> explain -> done.
+ * capture -> understand -> confirm -> attempt -> hint1 -> hint2 -> hint3 -> teach -> check -> done.
  * The fraction engine decides whether an answer is right. The AI only reads the problem, writes
- * hint questions and gives feedback on her explanation.
+ * hint questions and explains the question when she asks.
  */
 export type TutorState =
   | 'capture'
@@ -58,7 +57,6 @@ export type TutorState =
   | 'hint3'
   | 'teach'
   | 'check'
-  | 'explain'
   /** A step of a multi-step problem is solved. */
   | 'stepDone'
   /** The multi-step problem is solved; she may try a similar one with new numbers. */
@@ -67,8 +65,7 @@ export type TutorState =
 
 export type CheckMethod = 'addBack' | 'estimate'
 export type ProblemSource = 'photo' | 'typed' | 'text'
-export type Busy = 'reading' | 'hint' | 'explain' | null
-export type Verdict = 'clear' | 'partly' | 'missing'
+export type Busy = 'reading' | 'hint' | null
 
 /** Where a wrong answer or "I'm stuck" leads next. From teach she keeps trying with the steps in view. */
 const NEXT_HELP = {
@@ -86,11 +83,6 @@ const ANSWERING: TutorState[] = ['attempt', 'hint1', 'hint2', 'hint3', 'teach']
 const WRONG_ADD_BACKS_BEFORE_STEPS = 2
 const WRONG_ROUNDS_BEFORE_REVEAL = 2
 const WRONG_CLOSE_BEFORE_REVEAL = 2
-/** She gets one extra try after a follow-up question about her explanation. */
-const MAX_EXPLANATION_TRIES = 2
-
-export const SUMMARY_NOT_CLEAR = 'We can look at the explanation together next time.'
-
 /** The correct answer. A problem that divides by zero never gets this far (it is rejected on entry). */
 function answerOf(problem: AnyProblem): Operand {
   return problemAnswer(problem) ?? { numerator: 0, denominator: 1 }
@@ -195,14 +187,6 @@ export const useTutorStore = defineStore('tutor', () => {
     closeMessage: '',
   })
 
-  const explanation = ref({
-    text: '',
-    tries: 0,
-    verdict: null as Verdict | null,
-    praise: '',
-    followUp: '',
-  })
-
   const busy = ref<Busy>(null)
   /** A short, kind message when something could not be done (offline, tutor busy). */
   const error = ref<string | null>(null)
@@ -268,7 +252,6 @@ export const useTutorStore = defineStore('tutor', () => {
     checkDone.value = false
     addBack.value = { wrong: 0, hint: null, encouragement: null, steps: [], result: null, done: false, helped: false }
     estimate.value = { stage: 'round', wrongRounds: 0, roundOk: null, revealed: false, wrongClose: 0, closeMessage: '' }
-    explanation.value = { text: '', tries: 0, verdict: null, praise: '', followUp: '' }
     busy.value = null
     error.value = null
   }
@@ -281,7 +264,16 @@ export const useTutorStore = defineStore('tutor', () => {
   function startUnderstanding() {
     state.value = 'understand'
     understanding.value = { text: '', source: '', loading: false, wrong: 0, choice: null, message: '', done: false, revealed: false }
+    // Only a multi-step problem shows its question at once (it needs no AI call). The AI explanation of a
+    // single problem comes only when she asks for it.
+    understandingPromise = plan.value ? loadUnderstanding() : Promise.resolve()
+  }
+
+  /** "I don't understand the question": the one AI call for the explanation, made only on request. */
+  function explainQuestion(): Promise<void> {
+    if (state.value !== 'understand' || understanding.value.loading || understanding.value.text) return understandingPromise
     understandingPromise = loadUnderstanding()
+    return understandingPromise
   }
 
   function takeProblem(next: AnyProblem, from: ProblemSource, text = '', how: 'high' | 'low' = 'high') {
@@ -693,50 +685,9 @@ export const useTutorStore = defineStore('tutor', () => {
     return false
   }
 
-  /** On to the explanation. Only once the check is done: it can't be skipped. */
+  /** All done. Only once the check is done: it can't be skipped. */
   function continueFromCheck(): boolean {
     if (state.value !== 'check' || !checkDone.value) return false
-    state.value = 'explain'
-    return true
-  }
-
-  // --- Explain-back ---
-
-  /**
-   * Her explanation, sent to the tutor for feedback on her reasoning (the engine already checked the number).
-   * A follow-up question gets one extra try, then we move on.
-   */
-  async function submitExplanation(text: string): Promise<boolean> {
-    const current = problem.value
-    if (!current || state.value !== 'explain' || !checkDone.value || busy.value || text.trim() === '') return false
-
-    busy.value = 'explain'
-    error.value = null
-    const reply: ExplainReply = await api.explain({ problem: current, explanation: text.trim().slice(0, 500) })
-    busy.value = null
-    if (!reply.ok) {
-      error.value = reply.message
-      return false
-    }
-
-    explanation.value.tries += 1
-    explanation.value.text = text.trim()
-    explanation.value.verdict = reply.verdict
-    explanation.value.praise = reply.praise
-    explanation.value.followUp = reply.verdict === 'clear' ? '' : (reply.followUp ?? '')
-    if (reply.verdict === 'clear' || !reply.followUp || explanation.value.tries >= MAX_EXPLANATION_TRIES) {
-      state.value = 'done'
-    }
-    return true
-  }
-
-  /** She can move on after a follow-up question, or when the tutor can't be reached. */
-  const canSkipExplanation = computed(
-    () => state.value === 'explain' && checkDone.value && (error.value !== null || explanation.value.followUp !== ''),
-  )
-
-  function skipExplanation(): boolean {
-    if (!canSkipExplanation.value) return false
     state.value = 'done'
     return true
   }
@@ -773,7 +724,6 @@ export const useTutorStore = defineStore('tutor', () => {
     checkDone,
     addBack,
     estimate,
-    explanation,
     busy,
     error,
     hintsUsed,
@@ -783,7 +733,6 @@ export const useTutorStore = defineStore('tutor', () => {
     estimateInfo,
     estimateAvailable,
     addBackProof,
-    canSkipExplanation,
     setApi,
     reset,
     enterTyped,
@@ -791,6 +740,7 @@ export const useTutorStore = defineStore('tutor', () => {
     understanding,
     successMessage,
     loadUnderstanding,
+    explainQuestion,
     whenUnderstood,
     confirmProblem,
     doesNotLookRight,
@@ -804,7 +754,5 @@ export const useTutorStore = defineStore('tutor', () => {
     submitRounding,
     answerClose,
     continueFromCheck,
-    submitExplanation,
-    skipExplanation,
   }
 })

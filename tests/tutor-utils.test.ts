@@ -46,8 +46,8 @@ describe('createTutorApi (friendly failures)', () => {
     expect(post).toHaveBeenCalledWith('/api/tutor/hint', { problem: SUB, stuck: true, level: 1 })
     await createTutorApi(post).read({ text: 'x' })
     expect(post).toHaveBeenLastCalledWith('/api/tutor/read', { text: 'x' })
-    await createTutorApi(post).explain({ problem: SUB, explanation: 'x' })
-    expect(post).toHaveBeenLastCalledWith('/api/tutor/explain', { problem: SUB, explanation: 'x' })
+    await createTutorApi(post).understand({ problem: SUB })
+    expect(post).toHaveBeenLastCalledWith('/api/tutor/understand', { problem: SUB })
   })
 
   it('keeps the tutor\'s own kind message from a failed request (rate limit, too large)', async () => {
@@ -67,7 +67,7 @@ describe('createTutorApi (friendly failures)', () => {
   it('says "no internet" when the browser reports it is offline', async () => {
     vi.stubGlobal('navigator', { onLine: false })
     const error = Object.assign(new Error('x'), { response: { status: 500 } })
-    const reply = await createTutorApi(async () => { throw error }).explain({ problem: SUB, explanation: 'x' })
+    const reply = await createTutorApi(async () => { throw error }).hint({ problem: SUB, stuck: true, level: 1 })
     expect(reply).toMatchObject({ ok: false, reason: 'offline' })
   })
 

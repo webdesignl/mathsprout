@@ -82,7 +82,6 @@ function fakeApi(plan: Plan = MARATHON) {
     read: vi.fn(async () => read),
     understand: vi.fn(async () => ({ ok: true as const, text: 'unused', source: 'ai' })),
     hint: vi.fn(async ({ level }) => ({ ok: true as const, hint: `Hint ${level}, what do you notice?`, source: 'ai', level })),
-    explain: vi.fn(async () => ({ ok: true as const, verdict: 'clear' as const, praise: 'Good.', source: 'ai' })),
   }
   return api
 }
