@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useTutorStore } from '../app/stores/tutor'
 import type { Problem } from '../app/utils/fraction'
-import type { ExplainReply, HintReply, ReadReply, TutorApi } from '../app/utils/tutorApi'
+import type { HintReply, ReadReply, TutorApi } from '../app/utils/tutorApi'
 
 const SUB: Problem = { op: 'subtract', a: { whole: 8, num: 1, den: 5 }, b: { whole: 4, num: 3, den: 4 } } // 3 9/20
 const ADD: Problem = { op: 'add', a: { whole: 4, num: 1, den: 3 }, b: { whole: 2, num: 5, den: 12 } } // 6 3/4
@@ -11,21 +11,17 @@ const PHOTO = { imageBase64: 'AAAA', mediaType: 'image/jpeg' as const }
 interface FakeOptions {
   read?: ReadReply
   hint?: (level: number) => HintReply
-  explain?: ExplainReply[]
 }
 
 function fakeApi(options: FakeOptions = {}) {
-  const explainReplies = [...(options.explain ?? [])]
   const api: TutorApi & {
     read: ReturnType<typeof vi.fn>
     understand: ReturnType<typeof vi.fn>
     hint: ReturnType<typeof vi.fn>
-    explain: ReturnType<typeof vi.fn>
   } = {
     read: vi.fn(async () => options.read ?? { ok: true, problem: SUB, operands: ['8 1/5', '4 3/4'], problemText: 'An elephant has 8 1/5 buckets.', confidence: 'high' }),
     understand: vi.fn(async () => ({ ok: true, text: 'Imagine the story. What is happening?', source: 'ai' })),
     hint: vi.fn(async ({ level }: { level: 1 | 2 | 3 }) => options.hint?.(level) ?? { ok: true, hint: `Hint ${level}, what do you notice?`, source: 'ai', level }),
-    explain: vi.fn(async () => explainReplies.shift() ?? { ok: true, verdict: 'clear', praise: 'You checked your work.', source: 'ai' }),
   }
   return api
 }
@@ -388,13 +384,11 @@ describe('hints when the tutor cannot be reached', () => {
   })
 })
 
-describe('check is required before explain', () => {
-  it('cannot go to explain, or explain, until the check is done', async () => {
-    const { store, api } = await atCheck()
+describe('check is required before finishing', () => {
+  it('cannot finish until the check is done', async () => {
+    const { store } = await atCheck()
     expect(store.state).toBe('check')
     expect(store.continueFromCheck()).toBe(false)
-    expect(await store.submitExplanation('I matched the bottoms')).toBe(false)
-    expect(api.explain).not.toHaveBeenCalled()
     expect(store.state).toBe('check')
   })
 
@@ -413,7 +407,7 @@ describe('check is required before explain', () => {
     expect(store.checkDone).toBe(true)
     expect(store.checkMethod).toBe('addBack')
     expect(store.continueFromCheck()).toBe(true)
-    expect(store.state).toBe('explain')
+    expect(store.state).toBe('done') // no explain-back: the check is the last step
   })
 
   it('add back for addition uses subtraction', async () => {
@@ -496,82 +490,8 @@ describe('check is required before explain', () => {
   })
 })
 
-describe('explain', () => {
-  async function atExplain(api = fakeApi()) {
-    const { store } = await atAttempt(api)
-    await store.submitAnswer('3 9/20')
-    store.chooseCheck('addBack')
-    store.submitAddBack('8 1/5')
-    store.continueFromCheck()
-    return { store, api }
-  }
-
-  it('a clear explanation goes to done with the praise and verdict', async () => {
-    const { store, api } = await atExplain()
-    expect(await store.submitExplanation('I matched the bottoms, borrowed, and added back.')).toBe(true)
-    expect(api.explain).toHaveBeenCalledWith({ problem: SUB, explanation: 'I matched the bottoms, borrowed, and added back.' })
-    expect(store.state).toBe('done')
-    expect(store.explanation.verdict).toBe('clear')
-    expect(store.explanation.praise).toBe('You checked your work.')
-  })
-
-  it('a follow-up question gets one extra try, then she moves on', async () => {
-    const api = fakeApi({
-      explain: [
-        { ok: true, verdict: 'partly', praise: 'Nice start on the bottoms.', followUp: 'What did you do when the top was too small?', source: 'ai' },
-        { ok: true, verdict: 'partly', praise: 'Good thinking.', followUp: 'Anything else?', source: 'ai' },
-      ],
-    })
-    const { store } = await atExplain(api)
-    await store.submitExplanation('I made the bottoms match')
-    expect(store.state).toBe('explain')
-    expect(store.explanation.followUp).toBe('What did you do when the top was too small?')
-    await store.submitExplanation('I borrowed one whole')
-    expect(store.state).toBe('done')
-    expect(store.explanation.verdict).toBe('partly')
-    expect(api.explain).toHaveBeenCalledTimes(2)
-  })
-
-  it('she can skip after a follow-up question', async () => {
-    const api = fakeApi({
-      explain: [{ ok: true, verdict: 'partly', praise: 'Nice.', followUp: 'Why?', source: 'ai' }],
-    })
-    const { store } = await atExplain(api)
-    expect(store.canSkipExplanation).toBe(false)
-    await store.submitExplanation('I made the bottoms match')
-    expect(store.canSkipExplanation).toBe(true)
-    expect(store.skipExplanation()).toBe(true)
-    expect(store.state).toBe('done')
-  })
-
-  it('when the tutor can not be reached she sees a friendly message and can skip', async () => {
-    const api = fakeApi()
-    api.explain.mockResolvedValue({ ok: false, reason: 'offline', message: 'No internet right now. Check your connection and try again.' })
-    const { store } = await atExplain(api)
-    expect(await store.submitExplanation('I matched the bottoms')).toBe(false)
-    expect(store.state).toBe('explain')
-    expect(store.error).toMatch(/No internet/)
-    expect(store.canSkipExplanation).toBe(true)
-    store.skipExplanation()
-    expect(store.state).toBe('done')
-    expect(store.explanation.verdict).toBeNull()
-  })
-
-  it('sends at most 500 characters', async () => {
-    const { store, api } = await atExplain()
-    await store.submitExplanation('x'.repeat(800))
-    expect(api.explain.mock.calls[0]![0].explanation).toHaveLength(500)
-  })
-
-  it('does nothing in other steps', async () => {
-    const { store, api } = await atAttempt()
-    expect(await store.submitExplanation('anything at all')).toBe(false)
-    expect(api.explain).not.toHaveBeenCalled()
-  })
-})
-
 describe('the whole journey and starting over', () => {
-  it('stuck -> 3 hints -> teach -> answer -> check -> explain -> done, then "Solve another"', async () => {
+  it('stuck -> 3 hints -> teach -> answer -> check -> done, then "Solve another"', async () => {
     const { store } = await atAttempt()
     for (let i = 0; i < 4; i++) await store.imStuck()
     expect(store.state).toBe('teach')
@@ -580,13 +500,8 @@ describe('the whole journey and starting over', () => {
     store.submitRounding('8', '5')
     store.answerClose(true)
     store.continueFromCheck()
-    await store.submitExplanation('I rounded to see if it made sense.')
     expect(store.state).toBe('done')
-    expect({ hints: store.hintsUsed, method: store.checkMethod, verdict: store.explanation.verdict }).toEqual({
-      hints: 3,
-      method: 'estimate',
-      verdict: 'clear',
-    })
+    expect({ hints: store.hintsUsed, method: store.checkMethod }).toEqual({ hints: 3, method: 'estimate' })
 
     store.reset()
     expect(store.state).toBe('capture')
@@ -594,7 +509,6 @@ describe('the whole journey and starting over', () => {
     expect(store.hintsUsed).toBe(0)
     expect(store.attempts).toBe(0)
     expect(store.checkMethod).toBeNull()
-    expect(store.explanation.verdict).toBeNull()
   })
 
   it('actions in the wrong state do nothing', async () => {
@@ -604,7 +518,6 @@ describe('the whole journey and starting over', () => {
     expect(await store.submitAnswer('3 9/20')).toBeNull()
     expect(await store.imStuck()).toBe(false)
     expect(store.continueFromCheck()).toBe(false)
-    expect(store.skipExplanation()).toBe(false)
     await store.readProblem(PHOTO)
     expect(await store.readProblem(PHOTO)).toBe(false) // already past capture
   })

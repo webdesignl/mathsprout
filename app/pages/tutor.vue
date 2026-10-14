@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { useTutorStore, type Verdict } from '../stores/tutor'
+import { useTutorStore } from '../stores/tutor'
 import { boxesToText, isAnswerEmpty, isFractionIncomplete, type AnswerBoxes } from '../utils/answer'
 import { slipName } from '../utils/messages'
 import { NOT_SIMPLEST_MESSAGE } from '../utils/messages'
@@ -38,11 +38,6 @@ const latestHint = computed(() => store.hints.at(-1) ?? '')
 const checkMethodLabel = computed(() =>
   store.checkMethod === 'addBack' ? 'Proof' : store.checkMethod === 'estimate' ? 'Estimate' : 'None',
 )
-const verdictLabels: Record<Verdict, string> = {
-  clear: 'Clear and complete',
-  partly: 'Getting there',
-  missing: 'Let’s talk about it next time',
-}
 const slipLabel = computed(() => (store.slip && store.problem ? slipName(store.slip, store.problem.op) : null))
 
 async function focusAnswer() {
@@ -221,6 +216,9 @@ function another() {
       <PracticeProblemCard :problem="store.problem" :hide-operation="true" />
       <p v-if="store.problemText && !store.plan" class="text-center text-lg text-slate-700">{{ store.problemText }}</p>
 
+      <div v-if="!store.plan && !store.understanding.text && !store.understanding.loading">
+        <button type="button" :class="secondary" @click="store.explainQuestion()">I don’t understand the question</button>
+      </div>
       <div role="status" aria-live="polite" class="space-y-3">
         <p v-if="store.understanding.loading" class="text-2xl font-semibold text-slate-800">Thinking…</p>
         <p
@@ -400,22 +398,9 @@ function another() {
       </div>
     </section>
 
-    <!-- 5. Explain back -->
-    <section v-else-if="store.state === 'explain'" class="space-y-6">
-      <h1 class="sr-only">Explain it</h1>
-      <!-- The problem stays on screen, so she can answer without going back to her photo. -->
-      <PracticeProblemCard v-if="store.problem" :problem="store.problem" />
-      <p v-if="store.problemText" class="text-center text-lg text-slate-700">{{ store.problemText }}</p>
-      <p class="text-center text-xl text-slate-900">
-        Your answer: <span class="font-bold">{{ store.acceptedAnswer }}</span>
-      </p>
-      <TutorExplainPanel />
-    </section>
-
     <!-- 6. Done -->
     <section v-else-if="store.state === 'done'" class="space-y-6">
       <h1 class="text-4xl font-bold text-emerald-900">All done. Great thinking!</h1>
-      <p v-if="store.explanation.praise" class="text-2xl text-slate-900" role="status">{{ store.explanation.praise }}</p>
 
       <ol v-if="store.plan" class="space-y-2 rounded-xl bg-white p-4 text-xl text-slate-900" aria-label="Your steps">
         <li v-for="(done, i) in store.mainSteps" :key="i">
@@ -441,10 +426,6 @@ function another() {
         <div v-if="!store.plan" class="rounded-xl bg-white p-4">
           <dt class="text-lg text-slate-700">How you checked</dt>
           <dd class="text-3xl font-bold">{{ checkMethodLabel }}</dd>
-        </div>
-        <div v-if="!store.plan" class="rounded-xl bg-white p-4">
-          <dt class="text-lg text-slate-700">Your explanation</dt>
-          <dd class="text-3xl font-bold">{{ store.explanation.verdict ? verdictLabels[store.explanation.verdict] : 'Skipped' }}</dd>
         </div>
       </dl>
       <p v-if="slipLabel" class="text-xl text-slate-800">One thing to watch: {{ slipLabel }}.</p>

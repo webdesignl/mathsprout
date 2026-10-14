@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useTutorStore } from '../app/stores/tutor'
 import { OPERATION_WHY, SUCCESS_MESSAGES, WRONG_MESSAGES, opsPhrase } from '../app/utils/messages'
@@ -200,7 +200,6 @@ function api(over: Partial<TutorApi> = {}): TutorApi {
     read: async () => ({ ok: true, problem: SCOOPS, operands: ['6', '3/4'], problemText: SCOOPS_TEXT, confidence: 'high' }),
     understand: async () => ({ ok: true, text: GOOD, source: 'ai' }),
     hint: async ({ level }) => ({ ok: true, hint: `Hint ${level}?`, source: 'ai', level }),
-    explain: async () => ({ ok: true, verdict: 'clear', praise: 'Nice.', source: 'ai' }),
     ...over,
   }
 }
@@ -209,7 +208,8 @@ async function atUnderstand(a: TutorApi = api()) {
   const store = useTutorStore()
   store.setApi(a)
   await store.readProblem({ text: SCOOPS_TEXT })
-  await store.whenUnderstood()
+  // The explanation is only fetched when she asks for it.
+  await store.explainQuestion()
   return store
 }
 
@@ -224,11 +224,25 @@ describe('the Tutor "understand" step', () => {
     expect(await store.submitAnswer('8')).toBeNull() // not yet
   })
 
+  it('makes no AI call until she asks, then only one', async () => {
+    const store = useTutorStore()
+    const understand = vi.fn(async () => ({ ok: true as const, text: GOOD, source: 'ai' }))
+    store.setApi(api({ understand }))
+    await store.readProblem({ text: SCOOPS_TEXT })
+    expect(understand).not.toHaveBeenCalled()
+    expect(store.understanding.text).toBe('')
+    await store.explainQuestion()
+    await store.explainQuestion() // asking again does not call again
+    expect(understand).toHaveBeenCalledTimes(1)
+    expect(store.understanding.text).toBe(GOOD)
+  })
+
   it('shows "Thinking" while the explanation is on its way', async () => {
     const store = useTutorStore()
     let release: (r: UnderstandReply) => void = () => {}
     store.setApi(api({ understand: () => new Promise((resolve) => (release = resolve)) }))
     await store.readProblem({ text: SCOOPS_TEXT })
+    store.explainQuestion()
     expect(store.understanding.loading).toBe(true)
     expect(store.busy).toBeNull() // she can still choose the operation and answer meanwhile
     release({ ok: true, text: GOOD, source: 'ai' })
@@ -315,6 +329,7 @@ describe('the Tutor "understand" step', () => {
     let release: (r: UnderstandReply) => void = () => {}
     store.setApi(api({ understand: () => new Promise((resolve) => (release = resolve)) }))
     await store.readProblem({ text: SCOOPS_TEXT })
+    store.explainQuestion()
     store.reset() // she started over before the explanation arrived
     release({ ok: true, text: GOOD, source: 'ai' })
     await store.whenUnderstood().catch(() => {})

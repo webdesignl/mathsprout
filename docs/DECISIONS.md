@@ -435,6 +435,14 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Check at the end (user):** no proof, estimate or explain-back for multi-step problems (that would be a check after every step). Instead, after the last step she can "Try one like it": the same steps with new small fractions, made and checked by code (`similarPlan`), solved the same way. She can skip it and finish.
 - **Status:** Active
 
+### D-54: Fewer AI calls in the Tutor: no explain-back, and the question explanation only on request
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** (1) The explain-back step is removed for every Tutor problem. The proof or estimate is now the last step before "All done". A multi-step problem already ended with a similar problem (D-53). (2) For a single-step story problem the explanation of the question is no longer fetched automatically. The "Let's understand it" screen has an "I don't understand the question" button, and the one AI call is made only when she taps it (asking again does not call again). A multi-step problem shows each step's question straight away, with no AI call.
+- **Calls now:** a photo or word problem needs 1 read call. Single step: +1 only if she asks for the explanation, +1 per hint. Multi-step: 1 read call for the whole problem, +1 per hint.
+- **Trade-offs:** less feedback on how she reasons (the explain-back was the only check of her reasoning, apart from the proof); she must ask for help with the story. The `/api/tutor/explain` route is still on the server but no page calls it.
+- **Status:** Active. Replaces the explain-back in D-35 and D-50 and the automatic explanation in D-47.
+
 ---
 
 ## Open questions
