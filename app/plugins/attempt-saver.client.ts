@@ -26,6 +26,10 @@ export default defineNuxtPlugin(() => {
       const { error } = await client.from('attempts').insert(row)
       return !error
     },
+    saveAward: async (row) => {
+      const { error } = await client.from('awards').insert(row)
+      return !error
+    },
     saveIdea: async (row) => {
       const { error } = await client.from('ideas').insert(row)
       return !error

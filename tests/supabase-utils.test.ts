@@ -236,3 +236,37 @@ describe('ideas', () => {
     expect(ok).not.toHaveBeenCalled()
   })
 })
+
+describe('stars', () => {
+  it('adds idea stars and Proof Masters and words them kindly', async () => {
+    const { totalStars, starBreakdown, starMessage } = await import('../app/utils/stars')
+    expect(totalStars({ ideas: 2, proofMasters: 1 })).toBe(3)
+    expect(starBreakdown({ ideas: 2, proofMasters: 1 })).toBe('2 from ideas and 1 Proof Master')
+    expect(starBreakdown({ ideas: 1, proofMasters: 2 })).toBe('1 from an idea and 2 Proof Masters')
+    expect(starBreakdown({ ideas: 0, proofMasters: 0 })).toBe('')
+    expect(starMessage(0)).toBe('Your first star is waiting')
+    expect(starMessage(1)).toBe('1 star. Nice start!')
+    expect(starMessage(5)).toBe('5 stars. Nice work!')
+  })
+
+  it('saves a Proof Master award once, with a retry, for the chosen child', async () => {
+    setActivePinia(createPinia())
+    const sync = useSyncStore()
+    const saveAward = vi.fn(async () => false)
+    sync.configure({ save: async () => true, saveAward, familyId: async () => 'f', childId: () => 'c' })
+    await sync.recordAward('proof_master')
+    expect(saveAward).toHaveBeenCalledTimes(2)
+    expect(saveAward).toHaveBeenCalledWith({ family_id: 'f', child_id: 'c', kind: 'proof_master' })
+    expect(sync.failed).toBe(true)
+  })
+})
+
+describe('avatars', () => {
+  it('shows a listed animal and falls back for anything else', async () => {
+    const { avatarOf, DEFAULT_AVATAR, AVATARS } = await import('../app/utils/avatars')
+    expect(avatarOf('🐰')).toBe('🐰')
+    expect(avatarOf('<script>')).toBe(DEFAULT_AVATAR)
+    expect(avatarOf(null)).toBe(DEFAULT_AVATAR)
+    expect(new Set(AVATARS.map((a) => a.emoji)).size).toBe(AVATARS.length)
+  })
+})

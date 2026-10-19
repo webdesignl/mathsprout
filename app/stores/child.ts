@@ -5,6 +5,7 @@ export interface Child {
   id: string
   nickname: string
   grade: number | null
+  avatar?: string | null
 }
 
 export const CHILD_KEY = 'mathsprout.childId'

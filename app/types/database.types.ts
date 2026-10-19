@@ -106,8 +106,41 @@ export type Database = {
           },
         ]
       }
+      awards: {
+        Row: {
+          child_id: string
+          created_at: string
+          family_id: string
+          id: string
+          kind: string
+        }
+        Insert: {
+          child_id: string
+          created_at?: string
+          family_id: string
+          id?: string
+          kind: string
+        }
+        Update: {
+          child_id?: string
+          created_at?: string
+          family_id?: string
+          id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "awards_child_id_family_id_fkey"
+            columns: ["child_id", "family_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id", "family_id"]
+          },
+        ]
+      }
       children: {
         Row: {
+          avatar: string | null
           created_at: string
           family_id: string
           grade: number | null
@@ -115,6 +148,7 @@ export type Database = {
           nickname: string
         }
         Insert: {
+          avatar?: string | null
           created_at?: string
           family_id: string
           grade?: number | null
@@ -122,6 +156,7 @@ export type Database = {
           nickname: string
         }
         Update: {
+          avatar?: string | null
           created_at?: string
           family_id?: string
           grade?: number | null

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useChildStore } from '../stores/child'
+import { avatarOf } from '../utils/avatars'
 
 const comingSoon = [{ label: 'Deep Check', hint: 'Deep Check, coming soon' }]
 
@@ -7,6 +8,7 @@ const comingSoon = [{ label: 'Deep Check', hint: 'Deep Check, coming soon' }]
 const user = useSupabaseUser()
 const client = useSupabaseClient()
 const parent = useParentMode()
+const { fetchChildren } = useChildren()
 async function signOut() {
   await parent.lock()
   useChildStore().select(null)
@@ -27,12 +29,12 @@ async function loadWho() {
     return
   }
   const [kids, family, waiting] = await Promise.all([
-    client.from('children').select('id, nickname, grade').order('created_at'),
+    fetchChildren(),
     client.from('families').select('name').maybeSingle(),
     client.from('ideas').select('id', { count: 'exact', head: true }).is('approved', null),
   ])
   pending.value = waiting.count ?? 0
-  if (!kids.error && kids.data) childStore.setChildren(kids.data)
+  if (kids) childStore.setChildren(kids)
   familyName.value = family.data?.name ?? ''
 }
 watch(user, loadWho, { immediate: true })
@@ -44,7 +46,7 @@ onMounted(() => parent.refresh())
   <div class="flex min-h-screen flex-col">
     <header class="border-b-2 border-emerald-200 bg-white">
       <div
-        class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3"
+        class="flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3 sm:px-6"
       >
         <NuxtLink
           to="/"
@@ -64,6 +66,7 @@ onMounted(() => parent.refresh())
           MathSprout
         </NuxtLink>
 
+        <div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 sm:ml-auto">
         <nav aria-label="Main">
           <ul class="flex flex-wrap items-center gap-2">
             <li>
@@ -117,19 +120,14 @@ onMounted(() => parent.refresh())
           </ul>
         </nav>
 
-        <div
-          v-if="user"
-          class="flex flex-wrap items-center gap-x-4 gap-y-2 sm:ml-auto"
-          aria-label="Signed in"
-          role="group"
-        >
-          <p class="text-lg font-semibold text-emerald-900">
-            Welcome, {{ childStore.selected?.nickname ?? 'friend' }}<span v-if="familyName"> · {{ familyName }}</span>
-          </p>
+        <div v-if="user" class="flex flex-wrap items-center gap-x-2" role="group" aria-label="Signed in">
+          <span class="inline-flex min-h-12 items-center px-2 font-semibold text-emerald-900">
+            <span aria-hidden="true" class="mr-2 text-2xl">{{ avatarOf(childStore.selected?.avatar) }}</span>{{ childStore.selected?.nickname ?? 'No child picked' }}<template v-if="familyName">&nbsp;·&nbsp;{{ familyName }}</template>
+          </span>
           <span v-if="parent.unlocked.value" class="rounded-full bg-amber-200 px-2 py-0.5 text-sm text-amber-950">Parent mode</span>
           <button
             type="button"
-            class="inline-flex min-h-12 items-center rounded-xl bg-white px-4 font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+            class="inline-flex min-h-12 items-center rounded-lg px-3 font-semibold text-emerald-900 underline underline-offset-4 hover:bg-emerald-100"
             @click="signOut"
           >
             Sign out
@@ -138,10 +136,11 @@ onMounted(() => parent.refresh())
         <NuxtLink
           v-else
           to="/login"
-          class="sm:ml-auto inline-flex min-h-12 items-center rounded-xl bg-white px-4 font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+          class="inline-flex min-h-12 items-center rounded-lg px-3 font-semibold text-emerald-900 underline underline-offset-4 hover:bg-emerald-100"
         >
           Parent sign in
         </NuxtLink>
+        </div>
       </div>
     </header>
 

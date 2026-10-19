@@ -660,7 +660,11 @@ export const usePracticeStore = defineStore('practice', () => {
         proofStreak.value = 0
       } else {
         proofStreak.value += 1
-        if (proofStreak.value >= PROOF_MASTER_AT) proofMaster.value = true
+        if (proofStreak.value >= PROOF_MASTER_AT && !proofMaster.value) {
+          proofMaster.value = true
+          // Earned once per visit. It counts as a star on the home screen.
+          void useSyncStore().recordAward('proof_master')
+        }
       }
     } else if (result.status === 'wrong') {
       w.proof.wrong += 1
