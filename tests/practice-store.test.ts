@@ -1450,3 +1450,31 @@ describe('practice store saves attempts', () => {
     })
   })
 })
+
+describe('practice store awards', () => {
+  it('records one Proof Master award when the third proof in a row is correct', async () => {
+    const { useSyncStore } = await import('../app/stores/sync')
+    const awards: unknown[] = []
+    useSyncStore().configure({
+      save: async () => true,
+      saveAward: async (row) => (awards.push(row), true),
+      familyId: async () => 'fam',
+      childId: () => 'kid',
+    })
+    const store = setup([sub, add, SUB_PROBLEM, add])
+    solveAndProve(store, '3 9/20')
+    store.next()
+    solveAndProve(store, '6 3/4')
+    store.next()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(awards).toHaveLength(0)
+    solveAndProve(store, '3 9/20')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(store.proofMaster).toBe(true)
+    expect(awards).toEqual([{ family_id: 'fam', child_id: 'kid', kind: 'proof_master' }])
+    store.next()
+    solveAndProve(store, '6 3/4')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(awards).toHaveLength(1)
+  })
+})

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { useChildStore, type Child } from '../../stores/child'
+import { avatarOf } from '../../utils/avatars'
+import AvatarPicker from './AvatarPicker.vue'
 
 const client = useSupabaseClient()
 const childStore = useChildStore()
+const { fetchChildren } = useChildren()
 
 interface AttemptLine {
   id: string
@@ -17,6 +20,8 @@ const nameInput = ref('')
 const message = ref('')
 const newName = ref('')
 const newGrade = ref<number | null>(null)
+const newAvatar = ref<string | null>(null)
+const editAvatar = ref<string | null>(null)
 const editing = ref<string | null>(null)
 const editName = ref('')
 const editGrade = ref<number | null>(null)
@@ -26,8 +31,8 @@ const attempts = ref<Record<string, AttemptLine[]>>({})
 const blocked = 'Could not save. Is parent mode still on?'
 
 async function load() {
-  const { data, error } = await client.from('children').select('id, nickname, grade').order('created_at')
-  if (error || !data) return
+  const data = await fetchChildren()
+  if (!data) return
   childStore.setChildren(data)
   const { data: family } = await client.from('families').select('name').maybeSingle()
   familyName.value = family?.name ?? ''
@@ -59,11 +64,12 @@ async function add() {
   const nickname = newName.value.trim()
   const { data: family } = await client.rpc('my_family_id')
   if (!nickname || typeof family !== 'string') return
-  const { error } = await client.from('children').insert({ family_id: family, nickname, grade: newGrade.value })
+  const { error } = await client.from('children').insert({ family_id: family, nickname, grade: newGrade.value, avatar: newAvatar.value })
   if (error) message.value = blocked
   else {
     newName.value = ''
     newGrade.value = null
+    newAvatar.value = null
     await load()
   }
 }
@@ -72,11 +78,12 @@ function startEdit(c: Child) {
   editing.value = c.id
   editName.value = c.nickname
   editGrade.value = c.grade
+  editAvatar.value = c.avatar ?? null
 }
 
 async function saveEdit() {
   if (!editing.value) return
-  const { error } = await client.from('children').update({ nickname: editName.value.trim(), grade: editGrade.value }).eq('id', editing.value)
+  const { error } = await client.from('children').update({ nickname: editName.value.trim(), grade: editGrade.value, avatar: editAvatar.value }).eq('id', editing.value)
   if (error) message.value = blocked
   else {
     editing.value = null
@@ -119,11 +126,12 @@ const input = 'min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-
           <form v-if="editing === c.id" class="flex flex-wrap items-end gap-3" @submit.prevent="saveEdit">
             <label class="space-y-1 text-lg font-semibold">Nickname<input v-model="editName" maxlength="30" required :class="[input, 'block']"></label>
             <label class="space-y-1 text-lg font-semibold">Grade<input v-model.number="editGrade" type="number" min="1" max="12" :class="[input, 'block w-24']"></label>
+            <AvatarPicker v-model="editAvatar" label="Pick an animal" class="w-full" />
             <button type="submit" :class="[button, 'bg-emerald-700 text-white']">Save</button>
             <button type="button" :class="ghost" @click="editing = null">Cancel</button>
           </form>
           <div v-else class="flex flex-wrap items-center justify-between gap-3">
-            <p class="text-xl font-bold text-slate-900">{{ c.nickname }}<span v-if="c.grade" class="font-normal"> · Grade {{ c.grade }}</span></p>
+            <p class="text-xl font-bold text-slate-900"><span aria-hidden="true" class="mr-2 text-3xl">{{ avatarOf(c.avatar) }}</span>{{ c.nickname }}<span v-if="c.grade" class="font-normal"> · Grade {{ c.grade }}</span></p>
             <div class="flex flex-wrap gap-2">
               <button type="button" :class="ghost" :aria-label="`Edit ${c.nickname}`" @click="startEdit(c)">Edit</button>
               <button v-if="confirmDelete !== c.id" type="button" :class="ghost" :aria-label="`Delete ${c.nickname}`" @click="confirmDelete = c.id">Delete</button>
@@ -149,6 +157,7 @@ const input = 'min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="add">
         <label class="space-y-1 text-lg font-semibold">Add a child (nickname)<input v-model="newName" maxlength="30" required :class="[input, 'block']"></label>
         <label class="space-y-1 text-lg font-semibold">Grade<input v-model.number="newGrade" type="number" min="1" max="12" :class="[input, 'block w-24']"></label>
+        <AvatarPicker v-model="newAvatar" label="Pick an animal" class="w-full" />
         <button type="submit" :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']">Add</button>
       </form>
     </section>

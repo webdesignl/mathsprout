@@ -8,6 +8,9 @@ export type RowSaver = (row: AttemptRow) => Promise<boolean>
 /** Saves one idea (her own words, already tidied). */
 export type IdeaSaver = (row: { family_id: string; child_id: string; set_number: number; text: string }) => Promise<boolean>
 
+/** Saves one award, like a Proof Master. */
+export type AwardSaver = (row: { family_id: string; child_id: string; kind: 'proof_master' }) => Promise<boolean>
+
 export const NOT_SAVED_NOTE = 'Not saved yet. We will try again.'
 
 /**
@@ -19,6 +22,7 @@ export const useSyncStore = defineStore('sync', () => {
   let familyId: (() => Promise<string | null>) | null = null
   let childId: () => string | null = () => null
   let ideaSaver: IdeaSaver | null = null
+  let awardSaver: AwardSaver | null = null
 
   const pending = ref<AttemptRow[]>([])
   const failed = ref(false)
@@ -29,8 +33,10 @@ export const useSyncStore = defineStore('sync', () => {
     familyId: () => Promise<string | null>
     childId: () => string | null
     saveIdea?: IdeaSaver
+    saveAward?: AwardSaver
   }) {
     ideaSaver = options.saveIdea ?? null
+    awardSaver = options.saveAward ?? null
     saver = options.save
     familyId = options.familyId
     childId = options.childId
@@ -77,10 +83,20 @@ export const useSyncStore = defineStore('sync', () => {
     if (!allSaved) failed.value = true
   }
 
+  /** Saves an award for the chosen child. It never blocks her; one retry, then only the small note. */
+  async function recordAward(kind: 'proof_master'): Promise<void> {
+    const child = childId()
+    if (!awardSaver || !familyId || !child) return
+    const family = await familyId()
+    if (!family) return
+    const row = { family_id: family, child_id: child, kind }
+    if (!(await awardSaver(row)) && !(await awardSaver(row))) failed.value = true
+  }
+
   function clear() {
     pending.value = []
     failed.value = false
   }
 
-  return { pending, failed, note, configure, record, recordIdeas, flush, clear }
+  return { pending, failed, note, configure, record, recordIdeas, recordAward, flush, clear }
 })

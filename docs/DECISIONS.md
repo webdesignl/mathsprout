@@ -467,6 +467,20 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **RLS tests:** `supabase/tests/rls_tests.sql` runs three parents in the SQL Editor and rolls back everything it made.
 - **Status:** Active.
 
+### D-58: Her stars are shown on the home screen
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** The home screen is one calm column so she is not pulled away from practice: her animal, one heading "Welcome, <nickname>" with one line under it ("Let's grow your math."), one big "Start practicing" button, and a small gift pill under it. "Open your gift" makes five small stars hop out for about a second, then the pill shows the count in one line: "3 stars. Nice work!" (1 star: "1 star. Nice start!"; none: "Your first star is waiting"). It closes again on each visit. With reduced motion on, the count shows at once. "Who's practicing?" is the whole page only while no child is picked; with several children a small "Not <nickname>? Switch" link sits under the pill. A star is one idea a parent gave a star to (`ideas.approved = true`) or one Proof Master she earned (3 correct proofs in a row, saved in the new `awards` table). The split between the two is in the pill's hover title. The proof streak stars in Practice are not counted.
+- **Rules:** a Proof Master is saved once per visit (the badge stays on until the page is reloaded), with one retry, and never blocks her. The child's session adds awards like it adds attempts, so they are encouragement, not an exam record; nobody edits an award, and only parent mode can delete one. Counts are read through RLS, so a family sees only its own. A count that cannot be read counts as 0; if neither can be read, no gift is shown.
+- **Status:** Active
+
+### D-59: A cute animal for each child, and a plainer header
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** A parent picks one of 12 animals (an emoji) for each child when adding or editing them (`children.avatar`). It shows in the header next to the nickname, on the child buttons and in the home welcome. Until one is picked a sprout shows. Only an animal from the fixed list is ever shown, so other data cannot reach the screen. The header now reads "<animal> <nickname> · <family>" with no "Welcome" (the welcome is on the home screen), and Sign out is underlined text in line with the nav, on the right.
+- **Why emoji:** no images to download or host, no photos of a child, and it works with screen readers through the animal's name.
+- **Status:** Active
+
 ---
 
 ## Open questions
