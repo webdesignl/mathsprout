@@ -108,24 +108,30 @@ export type Database = {
       }
       awards: {
         Row: {
+          award_date: string | null
           child_id: string
           created_at: string
           family_id: string
           id: string
+          idea_id: string | null
           kind: string
         }
         Insert: {
+          award_date?: string | null
           child_id: string
           created_at?: string
           family_id: string
           id?: string
+          idea_id?: string | null
           kind: string
         }
         Update: {
+          award_date?: string | null
           child_id?: string
           created_at?: string
           family_id?: string
           id?: string
+          idea_id?: string | null
           kind?: string
         }
         Relationships: [
@@ -190,6 +196,47 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      daily_plans: {
+        Row: {
+          child_id: string
+          completed_at: string | null
+          completion_seen: boolean
+          created_at: string
+          family_id: string
+          id: string
+          plan_date: string
+          screen_time_day: boolean
+        }
+        Insert: {
+          child_id: string
+          completed_at?: string | null
+          completion_seen?: boolean
+          created_at?: string
+          family_id: string
+          id?: string
+          plan_date: string
+          screen_time_day?: boolean
+        }
+        Update: {
+          child_id?: string
+          completed_at?: string | null
+          completion_seen?: boolean
+          created_at?: string
+          family_id?: string
+          id?: string
+          plan_date?: string
+          screen_time_day?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_plans_child_id_family_id_fkey"
+            columns: ["child_id", "family_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id", "family_id"]
+          },
+        ]
       }
       families: {
         Row: {
@@ -413,38 +460,103 @@ export type Database = {
           },
         ]
       }
+      task_templates: {
+        Row: {
+          ask_detail: boolean
+          child_id: string
+          created_at: string
+          family_id: string
+          id: string
+          kind: string
+          minutes: number | null
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          ask_detail?: boolean
+          child_id: string
+          created_at?: string
+          family_id: string
+          id?: string
+          kind: string
+          minutes?: number | null
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          ask_detail?: boolean
+          child_id?: string
+          created_at?: string
+          family_id?: string
+          id?: string
+          kind?: string
+          minutes?: number | null
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_child_id_family_id_fkey"
+            columns: ["child_id", "family_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id", "family_id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
+          added_by: string
           child_id: string
           created_at: string
           done: boolean
+          done_at: string | null
           due: string | null
           family_id: string
           id: string
           kind: string
           minutes: number | null
+          note: string | null
+          priority: number | null
+          priority_date: string | null
+          seen_by_parent: boolean
+          start_time: string | null
           title: string
         }
         Insert: {
+          added_by?: string
           child_id: string
           created_at?: string
           done?: boolean
+          done_at?: string | null
           due?: string | null
           family_id: string
           id?: string
           kind: string
           minutes?: number | null
+          note?: string | null
+          priority?: number | null
+          priority_date?: string | null
+          seen_by_parent?: boolean
+          start_time?: string | null
           title: string
         }
         Update: {
+          added_by?: string
           child_id?: string
           created_at?: string
           done?: boolean
+          done_at?: string | null
           due?: string | null
           family_id?: string
           id?: string
           kind?: string
           minutes?: number | null
+          note?: string | null
+          priority?: number | null
+          priority_date?: string | null
+          seen_by_parent?: boolean
+          start_time?: string | null
           title?: string
         }
         Relationships: [
@@ -497,6 +609,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_task: {
+        Args: { child_id: string; due?: string; kind: string; minutes?: number; title: string }
+        Returns: string
+      }
+      give_day_star: { Args: { child_id: string; plan_date: string }; Returns: undefined }
+      report_day_done: { Args: { child_id: string; plan_date: string }; Returns: boolean }
+      uncomplete_task: { Args: { task_id: string }; Returns: undefined }
       complete_task: { Args: { task_id: string }; Returns: undefined }
       current_session_id: { Args: never; Returns: string }
       give_star: { Args: { approved: boolean; idea_id: string }; Returns: undefined }

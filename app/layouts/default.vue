@@ -21,19 +21,28 @@ const familyName = useState<string>('family-name', () => '')
 
 
 /** Ideas waiting for a star, shown on the Parent link. */
-const pending = useState<number>('pending-ideas', () => 0)
+const pendingIdeas = useState<number>('pending-ideas', () => 0)
+/** Tasks she added that a parent has not looked at yet. */
+const unseenTasks = useState<number>('unseen-tasks', () => 0)
+/** Days she finished that a parent has not looked at yet. */
+const unseenCompletions = useState<number>('unseen-completions', () => 0)
+const pending = computed(() => pendingIdeas.value + unseenTasks.value + unseenCompletions.value)
 
 async function loadWho() {
   if (!user.value) {
     familyName.value = ''
     return
   }
-  const [kids, family, waiting] = await Promise.all([
+  const [kids, family, waiting, newTasks, finished] = await Promise.all([
     fetchChildren(),
     client.from('families').select('name').maybeSingle(),
     client.from('ideas').select('id', { count: 'exact', head: true }).is('approved', null),
+    client.from('tasks').select('id', { count: 'exact', head: true }).eq('seen_by_parent', false).eq('done', false),
+    client.from('daily_plans').select('id', { count: 'exact', head: true }).eq('completion_seen', false),
   ])
-  pending.value = waiting.count ?? 0
+  pendingIdeas.value = waiting.count ?? 0
+  unseenTasks.value = newTasks.count ?? 0
+  unseenCompletions.value = finished.count ?? 0
   if (kids) childStore.setChildren(kids)
   familyName.value = family.data?.name ?? ''
 }
@@ -69,6 +78,15 @@ onMounted(() => parent.refresh())
         <div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 sm:ml-auto">
         <nav aria-label="Main">
           <ul class="flex flex-wrap items-center gap-2">
+            <li>
+              <NuxtLink
+                to="/today"
+                class="inline-flex min-h-12 items-center rounded-lg px-4 font-semibold text-emerald-900 hover:bg-emerald-100"
+                active-class="bg-emerald-100 underline underline-offset-4"
+              >
+                Today
+              </NuxtLink>
+            </li>
             <li>
               <NuxtLink
                 to="/practice"
