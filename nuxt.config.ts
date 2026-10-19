@@ -2,7 +2,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@pinia/nuxt'],
+  modules: ['@nuxt/eslint', '@pinia/nuxt', '@nuxtjs/supabase'],
   css: ['~/assets/css/main.css'],
   vite: {
     plugins: [tailwindcss()],
@@ -23,5 +23,14 @@ export default defineNuxtConfig({
     },
   },
   compatibilityDate: '2025-07-15',
-  devtools: { enabled: true }
+  devtools: { enabled: true },
+  supabase: {
+    // Practice and Tutor work without signing in (nothing is saved). Only the Parent page needs an account.
+    redirectOptions: {
+      login: '/login',
+      callback: '/confirm',
+      include: ['/parent(/*)?'],
+      exclude: [],
+    },
+  },
 })

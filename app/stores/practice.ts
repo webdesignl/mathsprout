@@ -38,6 +38,8 @@ import {
 import type { AnswerBoxes } from '../utils/answer'
 import { buildUnlockCards, cleanExamples, type UnlockCard } from '../utils/realWorld'
 import { withStory, type PracticeProblem } from '../utils/stories'
+import { problemToText } from '../utils/attempts'
+import { useSyncStore } from './sync'
 
 export const SET_SIZE = 10
 export const MAX_DENOMINATOR = 12
@@ -184,6 +186,8 @@ interface Work {
   pendingProof: boolean
   /** Her first submission was the right answer (applied when the result is revealed). */
   firstTry: boolean
+  /** The first mistake the engine could name (like "forgotRegroup"), for the parent's record. */
+  errorType: string | null
   /** Whether this problem asks her to prove a correct answer (first 2 of each type). */
   proofAsked: boolean
   proof: ProofWork
@@ -213,6 +217,7 @@ function newWork(): Work {
     solvedAnswer: '',
     pendingProof: false,
     firstTry: false,
+    errorType: null,
     proofAsked: false,
     proof: { wrong: 0, hint: null, encouragement: null, steps: [], result: null, done: false, helped: false },
     wrongCheck: newWrongCheck(),
@@ -513,6 +518,31 @@ export const usePracticeStore = defineStore('practice', () => {
     startWith(list, newOptions)
   }
 
+  /**
+   * Saves one row for a problem in the first pass. It never blocks her; if saving fails the sync store
+   * keeps the row and tries again with the next one.
+   */
+  function saveAttempt(i: number, correct: boolean, w: Work) {
+    const problem = problems.value[i]
+    if (!problem) return
+    void useSyncStore().record({
+      mode: 'practice',
+      problem: problemToText(problem),
+      correct,
+      firstTry: correct && w.firstTry,
+      hintsUsed: w.hintsShown,
+      errorType: w.errorType,
+    })
+  }
+
+  /** At the end of the set, problems she never solved are saved as missed. */
+  function saveMissed() {
+    problems.value.forEach((_problem, i) => {
+      const w = works.value[i]
+      if (w && status.value[i] === 'unanswered') saveAttempt(i, false, w)
+    })
+  }
+
   /** Tells her the answer was right and records it (score, first try, retry). */
   function reveal(w: Work) {
     w.pendingProof = false
@@ -525,6 +555,7 @@ export const usePracticeStore = defineStore('practice', () => {
       status.value[i] = neededHelp ? 'correctWithHelp' : 'correct'
       if (w.firstTry) firstTryCorrect.value[i] = true
       score.value += 1
+      saveAttempt(i, true, w)
     } else if (retry.value && !similar.value) {
       retryCorrect.value[retry.value.index] = true
     }
@@ -559,6 +590,10 @@ export const usePracticeStore = defineStore('practice', () => {
       w.lastAnswer = answer
       if (result.status === 'wrong') {
         w.wrongAttempts += 1
+        if (w.errorType === null) {
+          const slip = diagnose(problem, answer).slip
+          if (slip !== 'none' && slip !== 'unknown') w.errorType = slip
+        }
         w.message = lastWrongMessage.value = pickDifferent(WRONG_MESSAGES, lastWrongMessage.value)
         w.hintTexts = buildHints(problem, answer, lastHint.value)
         // The first hint question appears right away on a wrong answer.
@@ -697,6 +732,7 @@ export const usePracticeStore = defineStore('practice', () => {
   function submitTest(confirmed = false): boolean {
     if (!canSubmit.value) return false
     if (unansweredCount.value > 0 && !confirmed) return false
+    saveMissed()
     finished.value = true
     return true
   }
@@ -721,6 +757,7 @@ export const usePracticeStore = defineStore('practice', () => {
       return true
     }
     if (index.value >= problems.value.length - 1) {
+      saveMissed()
       finished.value = true
     } else {
       index.value += 1
@@ -741,6 +778,7 @@ export const usePracticeStore = defineStore('practice', () => {
     ideaReviews.value.push(
       ...mine.map((text, i) => ({ id: nextId + i, set: setNumber.value, text, approved: null })),
     )
+    void useSyncStore().recordIdeas(setNumber.value, mine)
     unlockCards.value = buildUnlockCards(mine, ops, topics, rng)
     examplesSubmitted.value = true
   }

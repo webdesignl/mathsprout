@@ -1,10 +1,43 @@
 <script setup lang="ts">
-import { usePracticeStore } from '../stores/practice'
+import { useChildStore } from '../stores/child'
 
 const comingSoon = [{ label: 'Deep Check', hint: 'Deep Check, coming soon' }]
 
 /** Ideas waiting for a parent's stars, shown as a small number on the Parent link. */
-const pending = computed(() => usePracticeStore().pendingReviewCount)
+const user = useSupabaseUser()
+const client = useSupabaseClient()
+const parent = useParentMode()
+async function signOut() {
+  await parent.lock()
+  useChildStore().select(null)
+  await client.auth.signOut()
+  await navigateTo('/login')
+}
+
+const childStore = useChildStore()
+const familyName = useState<string>('family-name', () => '')
+
+
+/** Ideas waiting for a star, shown on the Parent link. */
+const pending = useState<number>('pending-ideas', () => 0)
+
+async function loadWho() {
+  if (!user.value) {
+    familyName.value = ''
+    return
+  }
+  const [kids, family, waiting] = await Promise.all([
+    client.from('children').select('id, nickname, grade').order('created_at'),
+    client.from('families').select('name').maybeSingle(),
+    client.from('ideas').select('id', { count: 'exact', head: true }).is('approved', null),
+  ])
+  pending.value = waiting.count ?? 0
+  if (!kids.error && kids.data) childStore.setChildren(kids.data)
+  familyName.value = family.data?.name ?? ''
+}
+watch(user, loadWho, { immediate: true })
+onMounted(() => parent.refresh())
+
 </script>
 
 <template>
@@ -83,6 +116,32 @@ const pending = computed(() => usePracticeStore().pendingReviewCount)
             </li>
           </ul>
         </nav>
+
+        <div
+          v-if="user"
+          class="flex flex-wrap items-center gap-x-4 gap-y-2 sm:ml-auto"
+          aria-label="Signed in"
+          role="group"
+        >
+          <p class="text-lg font-semibold text-emerald-900">
+            Welcome, {{ childStore.selected?.nickname ?? 'friend' }}<span v-if="familyName"> · {{ familyName }}</span>
+          </p>
+          <span v-if="parent.unlocked.value" class="rounded-full bg-amber-200 px-2 py-0.5 text-sm text-amber-950">Parent mode</span>
+          <button
+            type="button"
+            class="inline-flex min-h-12 items-center rounded-xl bg-white px-4 font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+            @click="signOut"
+          >
+            Sign out
+          </button>
+        </div>
+        <NuxtLink
+          v-else
+          to="/login"
+          class="sm:ml-auto inline-flex min-h-12 items-center rounded-xl bg-white px-4 font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+        >
+          Parent sign in
+        </NuxtLink>
       </div>
     </header>
 

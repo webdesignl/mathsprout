@@ -39,7 +39,9 @@ import {
   type ReadBody,
   type TutorApi,
 } from '../utils/tutorApi'
+import { problemToText } from '../utils/attempts'
 import type { Proof } from './practice'
+import { useSyncStore } from './sync'
 
 /**
  * The Tutor is a state machine, one thing on screen at a time:
@@ -391,6 +393,8 @@ export const useTutorStore = defineStore('tutor', () => {
     successMessage.value = ''
     hints.value = []
     hintsOffline.value = false
+    slip.value = null
+    reachedTeach.value = false
     startUnderstanding()
   }
 
@@ -613,6 +617,15 @@ export const useTutorStore = defineStore('tutor', () => {
     const result = checkAnswer(answerOf(current), text)
     if (result.status === 'correct') {
       acceptedAnswer.value = text.trim()
+      // One row per problem (per step in a multi-step problem). It never blocks her.
+      void useSyncStore().record({
+        mode: 'tutor',
+        problem: problemToText(current),
+        correct: true,
+        firstTry: attempts.value === 1,
+        hintsUsed: hints.value.length,
+        errorType: slip.value,
+      })
       successMessage.value = lastSuccessMessage.value = pickDifferent(SUCCESS_MESSAGES, lastSuccessMessage.value)
       if (plan.value) {
         // The answer is stored in simplest form so the next step can use it.
