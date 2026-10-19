@@ -458,6 +458,15 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Fixed on the way:** the similar plan used to swap each occurrence of a fraction separately, so a fraction used in two steps could become two different numbers.
 - **Status:** Active
 
+### D-57: Parent account, parent PIN and saved attempts (Supabase)
+- **Date:** 2026-10
+- **Source:** User (issue 0018)
+- **Decision:** One parent login per family (Supabase Auth, email and password). The database enforces everything: row level security by family, and a parent PIN checked in `unlock_parent_mode` (15 minutes, locked for 15 minutes after 5 wrong tries). The app uses only the publishable key. Only `/parent` needs a login; Practice and Tutor still work signed out and then save nothing. Each finished problem saves one `attempts` row for the chosen child (plain text like "8 1/5 - 4 3/4", correct, first try, hints, the slip `diagnose` named); a failed save is kept and retried with the next one, with a small note. The chosen child id is the only thing kept in the browser. A dev-only page `/dev/security` checks that locked writes are blocked.
+- **Alternatives:** a PIN checked in the browser (rejected: not a real protection); login for the child (rejected: a child has no account).
+- **Ideas and stars:** her ideas are saved to an `ideas` table (the child's session can add one, always unreviewed). Nobody can edit an idea directly (no update policy); a star is given only by `give_star(idea_id, approved)`, which needs `is_parent_unlocked()` and an idea in the family. The Parent page reads ideas from the database, and the header badge counts the waiting ones. The set summary still counts stars from the open tab, so a star given later by a parent is not shown there.
+- **RLS tests:** `supabase/tests/rls_tests.sql` runs three parents in the SQL Editor and rolls back everything it made.
+- **Status:** Active.
+
 ---
 
 ## Open questions

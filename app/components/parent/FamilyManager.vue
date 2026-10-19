@@ -1,0 +1,156 @@
+<script setup lang="ts">
+import { useChildStore, type Child } from '../../stores/child'
+
+const client = useSupabaseClient()
+const childStore = useChildStore()
+
+interface AttemptLine {
+  id: string
+  problem: string | null
+  correct: boolean
+  mode: string
+  created_at: string
+}
+
+const familyName = useState<string>('family-name', () => '')
+const nameInput = ref('')
+const message = ref('')
+const newName = ref('')
+const newGrade = ref<number | null>(null)
+const editing = ref<string | null>(null)
+const editName = ref('')
+const editGrade = ref<number | null>(null)
+const confirmDelete = ref<string | null>(null)
+const attempts = ref<Record<string, AttemptLine[]>>({})
+
+const blocked = 'Could not save. Is parent mode still on?'
+
+async function load() {
+  const { data, error } = await client.from('children').select('id, nickname, grade').order('created_at')
+  if (error || !data) return
+  childStore.setChildren(data)
+  const { data: family } = await client.from('families').select('name').maybeSingle()
+  familyName.value = family?.name ?? ''
+  nameInput.value = familyName.value
+  for (const c of data) {
+    const res = await client
+      .from('attempts')
+      .select('id, problem, correct, mode, created_at')
+      .eq('child_id', c.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    attempts.value[c.id] = res.data ?? []
+  }
+}
+onMounted(load)
+
+async function rename() {
+  message.value = ''
+  const name = nameInput.value.trim()
+  const { data: id } = await client.rpc('my_family_id')
+  if (!name || typeof id !== 'string') return
+  const { error } = await client.from('families').update({ name }).eq('id', id)
+  if (!error) familyName.value = name
+  message.value = error ? blocked : 'Saved.'
+}
+
+async function add() {
+  message.value = ''
+  const nickname = newName.value.trim()
+  const { data: family } = await client.rpc('my_family_id')
+  if (!nickname || typeof family !== 'string') return
+  const { error } = await client.from('children').insert({ family_id: family, nickname, grade: newGrade.value })
+  if (error) message.value = blocked
+  else {
+    newName.value = ''
+    newGrade.value = null
+    await load()
+  }
+}
+
+function startEdit(c: Child) {
+  editing.value = c.id
+  editName.value = c.nickname
+  editGrade.value = c.grade
+}
+
+async function saveEdit() {
+  if (!editing.value) return
+  const { error } = await client.from('children').update({ nickname: editName.value.trim(), grade: editGrade.value }).eq('id', editing.value)
+  if (error) message.value = blocked
+  else {
+    editing.value = null
+    await load()
+  }
+}
+
+async function remove(id: string) {
+  const { error } = await client.from('children').delete().eq('id', id)
+  confirmDelete.value = null
+  if (error) message.value = blocked
+  else await load()
+}
+
+const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-lg font-bold'
+const ghost = `${button} bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100`
+const input = 'min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-xl text-slate-900'
+</script>
+
+<template>
+  <div class="space-y-6">
+    <p v-if="message" role="status" class="text-lg font-semibold text-slate-900">{{ message }}</p>
+
+    <section aria-labelledby="family" class="space-y-3 rounded-2xl bg-white p-5">
+      <h2 id="family" class="text-2xl font-bold">Family</h2>
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="rename">
+        <div class="space-y-1">
+          <label for="family-name" class="text-lg font-semibold">Family name</label>
+          <input id="family-name" v-model="nameInput" maxlength="60" :class="input">
+        </div>
+        <button type="submit" :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']">Rename</button>
+      </form>
+    </section>
+
+    <section aria-labelledby="children" class="space-y-4 rounded-2xl bg-white p-5">
+      <h2 id="children" class="text-2xl font-bold">Children</h2>
+      <p class="text-lg text-slate-700">Use a nickname only. Attempts are saved for the child chosen on the home page.</p>
+      <ul class="space-y-4">
+        <li v-for="c in childStore.children" :key="c.id" class="space-y-2 rounded-xl border-2 border-slate-300 p-4">
+          <form v-if="editing === c.id" class="flex flex-wrap items-end gap-3" @submit.prevent="saveEdit">
+            <label class="space-y-1 text-lg font-semibold">Nickname<input v-model="editName" maxlength="30" required :class="[input, 'block']"></label>
+            <label class="space-y-1 text-lg font-semibold">Grade<input v-model.number="editGrade" type="number" min="1" max="12" :class="[input, 'block w-24']"></label>
+            <button type="submit" :class="[button, 'bg-emerald-700 text-white']">Save</button>
+            <button type="button" :class="ghost" @click="editing = null">Cancel</button>
+          </form>
+          <div v-else class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-xl font-bold text-slate-900">{{ c.nickname }}<span v-if="c.grade" class="font-normal"> · Grade {{ c.grade }}</span></p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" :class="ghost" :aria-label="`Edit ${c.nickname}`" @click="startEdit(c)">Edit</button>
+              <button v-if="confirmDelete !== c.id" type="button" :class="ghost" :aria-label="`Delete ${c.nickname}`" @click="confirmDelete = c.id">Delete</button>
+              <template v-else>
+                <button type="button" :class="[button, 'bg-red-700 text-white']" :aria-label="`Yes, delete ${c.nickname} and all attempts`" @click="remove(c.id)">Yes, delete</button>
+                <button type="button" :class="ghost" @click="confirmDelete = null">Keep</button>
+              </template>
+            </div>
+          </div>
+          <details>
+            <summary class="min-h-12 cursor-pointer text-lg font-semibold text-emerald-900">Last 20 attempts</summary>
+            <p v-if="!attempts[c.id]?.length" class="text-lg text-slate-700">None yet.</p>
+            <ul v-else class="space-y-1 text-lg">
+              <li v-for="a in attempts[c.id]" :key="a.id">
+                <span aria-hidden="true">{{ a.correct ? '✅' : '❌' }}</span>
+                <span class="sr-only">{{ a.correct ? 'Correct' : 'Not correct' }}:</span>
+                {{ a.problem ?? 'Problem' }} <span class="text-slate-700">({{ a.mode }})</span>
+              </li>
+            </ul>
+          </details>
+        </li>
+      </ul>
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="add">
+        <label class="space-y-1 text-lg font-semibold">Add a child (nickname)<input v-model="newName" maxlength="30" required :class="[input, 'block']"></label>
+        <label class="space-y-1 text-lg font-semibold">Grade<input v-model.number="newGrade" type="number" min="1" max="12" :class="[input, 'block w-24']"></label>
+        <button type="submit" :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']">Add</button>
+      </form>
+    </section>
+  </div>
+</template>

@@ -1423,3 +1423,30 @@ describe('add and subtract answered with a multiplication or division result (Pr
     expect(fb.hints[0]).toBe('We aren’t repeating or splitting. Are we putting together or taking away?')
   })
 })
+
+describe('practice store saves attempts', () => {
+  it('records one row per problem with the right payload, and missed ones at the end', async () => {
+    const { useSyncStore } = await import('../app/stores/sync')
+    const sync = useSyncStore()
+    const rows: Array<Record<string, unknown>> = []
+    sync.configure({
+      save: async (row) => (rows.push(row as unknown as Record<string, unknown>), true),
+      familyId: async () => 'fam',
+      childId: () => 'kid',
+    })
+    const store = setup()
+    solveAndProve(store, '3 9/20')
+    await Promise.resolve()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      family_id: 'fam',
+      child_id: 'kid',
+      mode: 'practice',
+      problem: '8 1/5 - 4 3/4',
+      correct: true,
+      first_try: true,
+      hints_used: 0,
+    })
+  })
+})
