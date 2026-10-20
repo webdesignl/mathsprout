@@ -14,6 +14,24 @@ export const TASK_KINDS: { kind: TaskKind; label: string }[] = [
   { kind: 'reading', label: 'Bedtime reading' },
 ]
 
+export type TaskCategory = 'routine' | 'timed' | 'important'
+
+export const TASK_CATEGORIES: { category: TaskCategory; label: string; hint: string }[] = [
+  { category: 'routine', label: 'Daily routine', hint: 'Not carried over if missed' },
+  { category: 'timed', label: 'Time-sensitive', hint: 'Needs a due date; gone after it' },
+  { category: 'important', label: 'Important', hint: 'Carries over, then the Backlog' },
+]
+
+/** The category a kind of task usually has. A parent or child can pick another. */
+export function defaultCategory(kind: TaskKind): TaskCategory {
+  if (kind === 'ixl' || kind === 'reading' || kind === 'map') return 'routine'
+  if (kind === 'testPrep' || kind === 'olympiad') return 'timed'
+  return 'important'
+}
+
+/** An important task is carried over for this many days; from the next day it sits in the Backlog. */
+export const CARRY_DAYS = 3
+
 export const MAP_PER_WEEK = 3
 
 export interface TodayTask {
@@ -27,6 +45,9 @@ export interface TodayTask {
   priority: number | null
   priority_date: string | null
   created_at: string
+  category?: TaskCategory
+  /** The day the task belongs to (YYYY-MM-DD). It moves forward when a parent resumes after a pause. */
+  for_date?: string
   minutes?: number | null
   /** The parent's start time for today, like "16:30:00". Counts only when priority_date is today. */
   start_time?: string | null
@@ -147,6 +168,62 @@ export function carriedLabel(createdAt: string, today: string): string {
   return days === 1 ? 'From yesterday' : `From ${days} days ago`
 }
 
+export function categoryOf(task: Pick<TodayTask, 'kind' | 'category'>): TaskCategory {
+  return task.category ?? defaultCategory(task.kind)
+}
+
+export function forDateOf(task: Pick<TodayTask, 'for_date' | 'created_at'>): string {
+  return task.for_date ?? todayString(new Date(task.created_at))
+}
+
+/** How many days ago the task belongs to. 0 = today. */
+export function ageDays(task: Pick<TodayTask, 'for_date' | 'created_at'>, today: string): number {
+  return daysBetween(forDateOf(task), today)
+}
+
+export type TaskState = 'active' | 'backlog' | 'expired'
+
+/** The carry-over rule. The database has the same rule (task_state), and a test keeps the two equal. */
+export function taskState(task: Pick<TodayTask, 'kind' | 'category' | 'for_date' | 'created_at' | 'due'>, today: string): TaskState {
+  const category = categoryOf(task)
+  const age = ageDays(task, today)
+  if (category === 'routine') return age <= 0 ? 'active' : 'expired'
+  if (category === 'timed') return task.due !== null && daysBetween(today, task.due) >= 0 ? 'active' : 'expired'
+  return age <= CARRY_DAYS ? 'active' : 'backlog'
+}
+
+/** "From yesterday" or "From 2 days ago" for an important task carried over; empty for a task of today. */
+export function carriedText(age: number): string {
+  if (age <= 0) return ''
+  return age === 1 ? 'From yesterday' : `From ${age} days ago`
+}
+
+/**
+ * Splits the open tasks:
+ *  - list: today's numbered list (today's tasks, timed tasks, and anything a parent put in today's order)
+ *  - carried: important tasks from the last 3 days, shown under a friendly reminder
+ *  - backlog: important tasks older than that, for a parent to decide
+ * Expired tasks are not shown anywhere.
+ */
+export function splitOpen(tasks: TodayTask[], today: string) {
+  const list: TodayTask[] = []
+  const carried: TodayTask[] = []
+  const backlog: TodayTask[] = []
+  for (const t of tasks) {
+    if (t.done) continue
+    const state = taskState(t, today)
+    if (state === 'expired') continue
+    if (state === 'backlog') {
+      backlog.push(t)
+      continue
+    }
+    const pinnedToday = t.priority !== null && t.priority_date === today
+    if (categoryOf(t) === 'important' && ageDays(t, today) > 0 && !pinnedToday) carried.push(t)
+    else list.push(t)
+  }
+  return { list, carried, backlog }
+}
+
 /** Open tasks in order, then the ones she already finished. */
 export function orderToday(tasks: TodayTask[], ctx: TodayContext): { open: OrderedTask[]; done: TodayTask[] } {
   const open = tasks
@@ -166,4 +243,12 @@ export function orderDay(tasks: TodayTask[], ctx: TodayContext): OrderedTask[] {
     .map((t) => ({ t, r: rankOf(t, ctx) }))
     .sort((a, b) => a.r.rank - b.r.rank || (a.t.due ?? '9999').localeCompare(b.t.due ?? '9999') || a.t.created_at.localeCompare(b.t.created_at))
     .map(({ t, r }) => ({ ...t, reason: r.reason }))
+}
+
+/** "Due Fri 24 Oct" from YYYY-MM-DD. */
+export function dueText(due: string | null | undefined): string {
+  const m = due?.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return ''
+  const date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return `Due ${date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
 }

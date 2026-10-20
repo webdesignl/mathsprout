@@ -523,6 +523,20 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Date:** 2026-10
 - **Source:** User
 - **Decision:** An unfinished task stays open, so it shows on the next day's list by itself, with a small blue tag ("From yesterday", "From 3 days ago"). Finished tasks from earlier days are not shown. On the same day she can press "Clear finished" to hide them (`archive_done_tasks()`); they stay in the database, so "MAP 3 times a week" still counts them, and the day still counts as finished. Finished tasks older than 14 days are deleted (`tidy_tasks()`, run quietly when Today loads). A parent's order and start times are for one day, so a carried-over task goes back to the rule order the next day. Both functions only touch the caller's own family.
+- **Status:** Active. The 14-day delete (`tidy_tasks`) is replaced by D-65.
+
+### D-65: Task categories, backlog, pause and a 30-day history
+- **Date:** 2026-10
+- **Source:** User (after a project-manager review of the carry-over flow)
+- **Categories (picked when a task is added, with a usual default per kind):**
+  - **Daily routine** (IXL, reading, MAP practice): never carried over. If not done it expires at the end of the day. A usual task can be marked "Add every day", and then today's copy is added by itself (`ensure_routines`, once per day).
+  - **Time-sensitive** (test prep, Olympiad): a due date is required (the database refuses one without it, or in the past). The task expires after the due date. It is never carried over or sent to the Backlog.
+  - **Important** (homework pages, writing a summary): carried over for 3 days with "From yesterday" and "From 2 days ago". From day 4 it is in the **Backlog**.
+- **For her:** carried-over tasks are not mixed into her numbered list. A friendly "Did you forget yesterday's homework?" box with "Show me (N)" lists them when she taps it, and she can tick them there. The Backlog is not shown to her.
+- **For a parent:** a Backlog section (badge on the sidebar and the Parent link) with Do it today, Done on paper, and Delete for each task. A "Pause" button for a child (holiday or sick): she sees "Taking a break", routines do not repeat, and on Resume open important tasks move forward by the days paused so nothing aged.
+- **History:** finished tasks are no longer kept. At the start of a new day (when Today loads), the day's finished tasks become one short summary (Routine, Homework, Extra; at most 1500 characters; MAP count kept for the weekly rule) and the tasks are deleted, along with expired ones. Summaries and daily plans older than 30 days are deleted. A finished day waits in History with Give a star and Seen until a parent acts; once starred or seen it shows no buttons. A day can be starred within a week; after that it says "Not reviewed". If a finished day has waited 5 to 7 days, the Parent page says "Forgot to give this week's Task done stars?!".
+- **Notifications:** in app only (badges, banners, the reminder line). No email or text service, so there is no cost. Email or push would need a service and a scheduled function and is not planned.
+- **Same rule in two places:** the carry-over rule is in the app (`taskState`) and in the database (`task_state`, used when deciding whether the day is finished). A test compares them for every kind, age and due date.
 - **Status:** Active
 
 ---

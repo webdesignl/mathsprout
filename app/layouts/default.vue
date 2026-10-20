@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useChildStore } from '../stores/child'
 import { avatarOf } from '../utils/avatars'
+import { todayString } from '../utils/todayPlan'
 
 const comingSoon = [{ label: 'Deep Check', hint: 'Deep Check, coming soon' }]
 
@@ -26,23 +27,33 @@ const pendingIdeas = useState<number>('pending-ideas', () => 0)
 const unseenTasks = useState<number>('unseen-tasks', () => 0)
 /** Days she finished that a parent has not looked at yet. */
 const unseenCompletions = useState<number>('unseen-completions', () => 0)
-const pending = computed(() => pendingIdeas.value + unseenTasks.value + unseenCompletions.value)
+const backlogCount = useState<number>('backlog-count', () => 0)
+const pending = computed(() => pendingIdeas.value + unseenTasks.value + unseenCompletions.value + backlogCount.value)
+
+/** An important task not done for 4 days or more is in the Backlog. */
+function staleDate() {
+  const d = new Date()
+  d.setDate(d.getDate() - 4)
+  return todayString(d)
+}
 
 async function loadWho() {
   if (!user.value) {
     familyName.value = ''
     return
   }
-  const [kids, family, waiting, newTasks, finished] = await Promise.all([
+  const [kids, family, waiting, newTasks, finished, stale] = await Promise.all([
     fetchChildren(),
     client.from('families').select('name').maybeSingle(),
     client.from('ideas').select('id', { count: 'exact', head: true }).is('approved', null),
     client.from('tasks').select('id', { count: 'exact', head: true }).eq('seen_by_parent', false).eq('done', false),
     client.from('daily_plans').select('id', { count: 'exact', head: true }).eq('completion_seen', false),
+    client.from('tasks').select('id', { count: 'exact', head: true }).eq('category', 'important').eq('done', false).lte('for_date', staleDate()),
   ])
   pendingIdeas.value = waiting.count ?? 0
   unseenTasks.value = newTasks.count ?? 0
   unseenCompletions.value = finished.count ?? 0
+  backlogCount.value = stale.count ?? 0
   if (kids) childStore.setChildren(kids)
   familyName.value = family.data?.name ?? ''
 }

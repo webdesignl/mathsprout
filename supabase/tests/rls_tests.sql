@@ -206,22 +206,79 @@ begin
   report := report || case when ok then 'PASS ' else 'FAIL ' end || E'unticking a task takes back the finished-day report\n';
   if not ok then failures := failures + 1; end if;
 
-  -- tidying: she can hide her finished tasks, not another family's; old finished tasks are deleted
-  insert into public.tasks (family_id, child_id, kind, title, done, done_at) values (fam_a, kid_a, 'homework', 'Old finished', true, now() - interval '20 days');
-  insert into public.tasks (family_id, child_id, kind, title, done, done_at) values (fam_a, kid_a, 'homework', 'Recent finished', true, now() - interval '2 days');
-  insert into public.tasks (family_id, child_id, kind, title) values (fam_a, kid_a, 'homework', 'Still open');
+  -- categories and the carry-over rule
+  select public.task_state('routine', current_date - 1, null, current_date) = 'expired'
+     and public.task_state('routine', current_date, null, current_date) = 'active'
+     and public.task_state('timed', current_date - 5, current_date, current_date) = 'active'
+     and public.task_state('timed', current_date - 5, current_date - 1, current_date) = 'expired'
+     and public.task_state('important', current_date - 3, null, current_date) = 'active'
+     and public.task_state('important', current_date - 4, null, current_date) = 'backlog' into ok;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'routine tasks expire, timed tasks expire after the due date, important tasks go to the backlog on day 4\n';
+  if not ok then failures := failures + 1; end if;
+
   set local role authenticated;
-  perform public.tidy_tasks();
-  select count(*) into n from public.tasks where title = 'Old finished';
-  ok := n = 0;
-  select count(*) into n from public.tasks where title in ('Recent finished', 'Still open');
-  ok := ok and n = 2;
-  begin perform public.archive_done_tasks(kid_b); ok := false; exception when others then null; end;
-  perform public.archive_done_tasks(kid_a);
+  begin perform public.add_task(kid_a, 'testPrep', 'Test prep'); ok := false; exception when others then ok := true; end;
+  begin perform public.add_task(kid_a, 'testPrep', 'Test prep', current_date - 1); ok := false; exception when others then null; end;
+  perform public.add_task(kid_a, 'testPrep', 'Fractions test prep', current_date + 3);
   reset role;
-  select ok and (select archived from public.tasks where title = 'Recent finished')
-         and not (select archived from public.tasks where title = 'Still open') into ok;
-  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'finished tasks older than 14 days are deleted; clearing hides only finished ones, only for her own child\n';
+  select ok and exists (select 1 from public.tasks where title = 'Fractions test prep' and category = 'timed') into ok;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'a time-sensitive task needs a due date that is not in the past\n';
+  if not ok then failures := failures + 1; end if;
+
+  -- closing past days: summarise finished tasks, delete them, drop expired ones, keep carried and backlog
+  delete from public.tasks where family_id = fam_a and id <> task_a;
+  insert into public.tasks (family_id, child_id, kind, title, category, for_date, done, done_at, done_on) values
+    (fam_a, kid_a, 'homework', 'Yesterday HW pages 1-10', 'important', current_date - 1, true, now() - interval '20 hours', current_date - 1),
+    (fam_a, kid_a, 'ixl', 'Yesterday IXL', 'routine', current_date - 1, true, now() - interval '22 hours', current_date - 1),
+    (fam_a, kid_a, 'map', 'Yesterday MAP', 'routine', current_date - 1, true, now() - interval '21 hours', current_date - 1);
+  insert into public.tasks (family_id, child_id, kind, title, category, for_date, due) values
+    (fam_a, kid_a, 'reading', 'Old routine', 'routine', current_date - 2, null),
+    (fam_a, kid_a, 'testPrep', 'Overdue test', 'timed', current_date - 6, current_date - 1),
+    (fam_a, kid_a, 'homework', 'Carried HW', 'important', current_date - 2, null),
+    (fam_a, kid_a, 'homework', 'Backlog HW', 'important', current_date - 5, null),
+    (fam_a, kid_a, 'homework', 'Today HW', 'important', current_date, null);
+  insert into public.day_summaries (family_id, child_id, summary_date, summary) values (fam_a, kid_a, current_date - 40, 'too old');
+  update public.daily_plans set completed_at = now() - interval '20 hours', completion_seen = false
+    where child_id = kid_a and plan_date = current_date - 1;
+  insert into public.daily_plans (family_id, child_id, plan_date, completed_at, completion_seen)
+    select fam_a, kid_a, current_date - 1, now() - interval '20 hours', false
+    where not exists (select 1 from public.daily_plans where child_id = kid_a and plan_date = current_date - 1);
+  set local role authenticated;
+  perform public.close_past_days(current_date);
+  reset role;
+  select not exists (select 1 from public.tasks where title like 'Yesterday%')
+     and not exists (select 1 from public.tasks where title in ('Old routine', 'Overdue test'))
+     and (select count(*) from public.tasks where title in ('Carried HW', 'Backlog HW', 'Today HW')) = 3 into ok;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'closing past days deletes finished and expired tasks and keeps carried, backlog and today''s\n';
+  if not ok then failures := failures + 1; end if;
+
+  select exists (
+    select 1 from public.day_summaries
+    where child_id = kid_a and summary_date = current_date - 1 and done_count = 3 and map_done = 1
+      and finished_all and not seen
+      and summary like 'Routine: Yesterday IXL, Yesterday MAP.%' and summary like '%Homework: Yesterday HW pages 1-10.%'
+  ) and not exists (select 1 from public.day_summaries where summary_date = current_date - 40) into ok;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'the day summary lists routine and homework, counts MAP, waits for the parent, and 30-day-old summaries are deleted\n';
+  if not ok then failures := failures + 1; end if;
+
+  set local role authenticated;
+  select count(*) into n from public.day_summaries where family_id = fam_b;
+  begin update public.day_summaries set seen = true where child_id = kid_a; get diagnostics n = row_count; exception when others then n := 0; end;
+  reset role;
+  select ok and n = 0 and (select not seen from public.day_summaries where child_id = kid_a and summary_date = current_date - 1) into ok;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'A cannot edit a summary directly\n';
+  if not ok then failures := failures + 1; end if;
+
+  -- routines repeat every day for templates marked so, once per day
+  insert into public.task_templates (family_id, child_id, kind, title, category, repeat_daily)
+    values (fam_a, kid_a, 'ixl', 'Daily IXL', 'routine', true), (fam_a, kid_a, 'reading', 'Not daily', 'routine', false);
+  set local role authenticated;
+  perform public.ensure_routines(kid_a, current_date);
+  perform public.ensure_routines(kid_a, current_date);
+  reset role;
+  select count(*) = 1 into ok from public.tasks where title = 'Daily IXL' and for_date = current_date;
+  select ok and not exists (select 1 from public.tasks where title = 'Not daily') into ok;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'a daily routine is added once a day, and only when marked to repeat\n';
   if not ok then failures := failures + 1; end if;
 
   -- ideas: child session can add, cannot approve
@@ -285,6 +342,37 @@ begin
   reset role;
   select count(*) = 1 into ok from public.awards where child_id = kid_a and kind = 'day_done';
   report := report || case when ok then 'PASS ' else 'FAIL ' end || E'A (unlocked) gives the day star, and a second try adds none\n';
+  if not ok then failures := failures + 1; end if;
+
+  -- parent: mark a summary seen, a day can be starred within a week, pause and resume
+  set local role authenticated;
+  perform public.mark_summary_seen(kid_a, current_date - 1);
+  reset role;
+  select seen into ok from public.day_summaries where child_id = kid_a and summary_date = current_date - 1;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'a parent can mark a finished day as seen\n';
+  if not ok then failures := failures + 1; end if;
+
+  insert into public.daily_plans (family_id, child_id, plan_date, completed_at, completion_seen)
+    values (fam_a, kid_a, current_date - 9, now() - interval '9 days', false);
+  set local role authenticated;
+  begin perform public.give_day_star(kid_a, current_date - 9); ok := false; exception when others then ok := true; end;
+  reset role;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'a day older than a week can no longer be starred\n';
+  if not ok then failures := failures + 1; end if;
+
+  update public.tasks set for_date = current_date - 2, done = false, done_at = null, done_on = null where title = 'Carried HW';
+  set local role authenticated;
+  perform public.set_child_paused(kid_a, true);
+  reset role;
+  update public.children set paused_at = now() - interval '3 days' where id = kid_a;
+  set local role authenticated;
+  perform public.ensure_routines(kid_a, current_date);
+  perform public.set_child_paused(kid_a, false);
+  reset role;
+  select exists (select 1 from public.children where id = kid_a and paused_at is null)
+     and (select for_date from public.tasks where title = 'Carried HW') = current_date + 1
+    into ok;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'resuming after a pause moves open important tasks forward so nothing aged\n';
   if not ok then failures := failures + 1; end if;
 
   -- star ledger, the one-week rule, and keeping only 3 reviewed ideas

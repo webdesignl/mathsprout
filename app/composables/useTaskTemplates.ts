@@ -15,7 +15,7 @@ export function useTaskTemplates(childId: Ref<string | null>) {
     if (!childId.value) return
     const { data, error } = await client
       .from('task_templates')
-      .select('id, kind, title, minutes, ask_detail, sort_order')
+      .select('id, kind, title, minutes, ask_detail, category, repeat_daily, sort_order')
       .eq('child_id', childId.value)
       .order('sort_order')
       .order('created_at')

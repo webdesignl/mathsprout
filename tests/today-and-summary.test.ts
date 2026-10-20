@@ -216,3 +216,59 @@ describe('carried over tasks', () => {
     expect(carriedLabel(new Date(2026, 9, 17, 15).toISOString(), '2026-10-20')).toBe('From 3 days ago')
   })
 })
+
+import { CARRY_DAYS, ageDays, carriedText, defaultCategory, dueText, splitOpen, taskState } from '../app/utils/todayPlan'
+
+describe('categories and the carry-over rule', () => {
+  const T = '2026-10-20'
+  const make = (kind: TodayTask['kind'], forDate: string, over: Partial<TodayTask> = {}) =>
+    task(kind, { for_date: forDate, category: defaultCategory(kind), ...over })
+
+  it('picks a usual category for each kind', () => {
+    expect(defaultCategory('ixl')).toBe('routine')
+    expect(defaultCategory('reading')).toBe('routine')
+    expect(defaultCategory('map')).toBe('routine')
+    expect(defaultCategory('testPrep')).toBe('timed')
+    expect(defaultCategory('olympiad')).toBe('timed')
+    expect(defaultCategory('homework')).toBe('important')
+  })
+
+  it('routine tasks expire after their day', () => {
+    expect(taskState(make('ixl', T), T)).toBe('active')
+    expect(taskState(make('ixl', '2026-10-19'), T)).toBe('expired')
+  })
+
+  it('timed tasks last until the due date and then expire', () => {
+    expect(taskState(make('testPrep', '2026-10-10', { due: '2026-10-20' }), T)).toBe('active')
+    expect(taskState(make('testPrep', '2026-10-10', { due: '2026-10-19' }), T)).toBe('expired')
+    expect(taskState(make('olympiad', T, { due: null }), T)).toBe('expired')
+  })
+
+  it('important tasks carry over for 3 days and then go to the backlog', () => {
+    expect(CARRY_DAYS).toBe(3)
+    expect(taskState(make('homework', '2026-10-17'), T)).toBe('active')
+    expect(taskState(make('homework', '2026-10-16'), T)).toBe('backlog')
+    expect(ageDays({ for_date: '2026-10-18', created_at: '2026-10-01T00:00:00Z' }, T)).toBe(2)
+    expect(carriedText(0)).toBe('')
+    expect(carriedText(1)).toBe('From yesterday')
+    expect(carriedText(2)).toBe('From 2 days ago')
+  })
+
+  it('splits open tasks into today, carried and backlog, and drops expired ones', () => {
+    const today = make('homework', T)
+    const carried = make('homework', '2026-10-18')
+    const backlog = make('homework', '2026-10-10')
+    const expiredRoutine = make('reading', '2026-10-19')
+    const pinned = make('homework', '2026-10-18', { priority: 1, priority_date: T })
+    const done = make('homework', T, { done: true })
+    const parts = splitOpen([today, carried, backlog, expiredRoutine, pinned, done], T)
+    expect(parts.list.map((t) => t.id).sort()).toEqual([today.id, pinned.id].sort())
+    expect(parts.carried.map((t) => t.id)).toEqual([carried.id])
+    expect(parts.backlog.map((t) => t.id)).toEqual([backlog.id])
+  })
+
+  it('writes a due date for her to read', () => {
+    expect(dueText('2026-10-24')).toMatch(/^Due /)
+    expect(dueText(null)).toBe('')
+  })
+})

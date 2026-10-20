@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { isOnList, taskTitle, type TaskTemplate } from '../utils/taskTemplates'
-import type { TaskKind } from '../utils/todayPlan'
+import { todayString, type TaskCategory, type TaskKind } from '../utils/todayPlan'
 
 const props = defineProps<{
   /** One button per row, full width (for a side column). */
   stacked?: boolean
   templates: TaskTemplate[]
   openTitles: string[]
-  add: (kind: TaskKind, title: string, due: string | null, minutes?: number | null) => Promise<boolean>
+  add: (kind: TaskKind, title: string, due: string | null, minutes?: number | null, category?: TaskCategory) => Promise<boolean>
 }>()
 
 /** The template waiting for page numbers, if she tapped one that asks for them. */
 const asking = ref<TaskTemplate | null>(null)
 const detail = ref('')
+const due = ref('')
 const message = ref('')
 const error = ref('')
 const busy = ref(false)
@@ -21,9 +22,10 @@ const detailInput = ref<HTMLInputElement | null>(null)
 async function pick(t: TaskTemplate) {
   message.value = ''
   error.value = ''
-  if (t.ask_detail) {
+  if (t.ask_detail || t.category === 'timed') {
     asking.value = t
     detail.value = ''
+    due.value = ''
     await nextTick()
     detailInput.value?.focus()
     return
@@ -32,8 +34,13 @@ async function pick(t: TaskTemplate) {
 }
 
 async function send(t: TaskTemplate, text: string) {
+  error.value = ''
+  if (t.category === 'timed' && (!due.value || due.value < todayString())) {
+    error.value = 'Pick the due date first. It cannot be in the past.'
+    return
+  }
   busy.value = true
-  const ok = await props.add(t.kind, taskTitle(t, text), null, t.minutes)
+  const ok = await props.add(t.kind, taskTitle(t, text), t.category === 'timed' ? due.value : null, t.minutes, t.category)
   busy.value = false
   if (ok) {
     message.value = `Added: ${taskTitle(t, text)}. Your parent will see it.`
@@ -66,8 +73,9 @@ const chip = 'inline-flex min-h-14 w-full items-center rounded-2xl px-5 text-lef
 
     <form v-if="asking" class="flex flex-wrap items-end gap-3" @submit.prevent="send(asking, detail)">
       <label class="min-w-48 flex-1 space-y-1 text-lg font-semibold text-slate-900">
-        {{ asking.title }}: which pages?
+        {{ asking.title }}<template v-if="asking.ask_detail">: which pages?</template>
         <input
+          v-if="asking.ask_detail"
           ref="detailInput"
           v-model="detail"
           maxlength="60"
@@ -75,6 +83,10 @@ const chip = 'inline-flex min-h-14 w-full items-center rounded-2xl px-5 text-lef
           placeholder="For example: pages 45 to 47"
           class="block min-h-12 w-full rounded-xl border-2 border-slate-600 bg-white px-4 text-xl text-slate-900"
         >
+      </label>
+      <label v-if="asking.category === 'timed'" class="space-y-1 text-lg font-semibold text-slate-900">
+        Due date (required)
+        <input v-model="due" type="date" :min="todayString()" required class="block min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-xl text-slate-900">
       </label>
       <button type="submit" :disabled="busy" class="inline-flex min-h-12 items-center rounded-xl bg-emerald-700 px-5 text-lg font-bold text-white hover:bg-emerald-800 disabled:opacity-60">
         Add

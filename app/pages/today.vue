@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useChildStore } from '../stores/child'
-import { carriedLabel, kindLabel, startClock } from '../utils/todayPlan'
+import { ageDays, carriedText, dueText, kindLabel, startClock } from '../utils/todayPlan'
 
 useHead({ title: 'Today · MathSprout' })
 
 const user = useSupabaseUser()
 const childStore = useChildStore()
 const childId = computed(() => childStore.selectedId)
-const { day, allDone, dayDoneAt, dayStar, context, load, loaded, failed, complete, uncomplete, clearFinished, add } = useTodayData(childId)
+const { day, carried, paused, allDone, dayDoneAt, dayStar, context, load, loaded, failed, complete, uncomplete, clearFinished, add } = useTodayData(childId)
+/** The friendly "did you forget" reminder shows the carried-over tasks only when she asks. */
+const showCarried = ref(false)
 const anyDone = computed(() => day.value.some((t) => t.done))
 /** The day counts as finished when everything is ticked, or when it was finished and then cleared away. */
 const finished = computed(() => allDone.value || (Boolean(dayDoneAt.value) && day.value.every((t) => t.done)))
@@ -49,8 +51,38 @@ async function toggle(task: { id: string; done: boolean }) {
     <p v-else-if="failed" role="alert" class="text-xl text-red-800">Could not load today’s list. Check your connection.</p>
 
     <template v-else-if="loaded">
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <p v-if="paused" role="status" class="rounded-2xl bg-sky-100 p-5 text-2xl font-bold text-sky-950">
+        <span aria-hidden="true">🌴</span> Taking a break. See you soon!
+      </p>
+      <div v-else class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div class="min-w-0 space-y-6">
+          <section v-if="carried.length" aria-labelledby="forgot" class="space-y-3 rounded-2xl bg-sky-50 p-5 ring-2 ring-sky-200">
+            <h2 id="forgot" class="text-2xl font-bold text-sky-950">Did you forget yesterday’s homework?</h2>
+            <button
+              type="button"
+              class="inline-flex min-h-12 items-center rounded-xl bg-white px-5 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+              :aria-expanded="showCarried"
+              @click="showCarried = !showCarried"
+            >
+              {{ showCarried ? 'Hide it' : `Show me (${carried.length})` }}
+            </button>
+            <ul v-if="showCarried" class="space-y-2">
+              <li v-for="task in carried" :key="task.id" class="flex items-center gap-4 rounded-2xl bg-white p-4">
+                <input
+                  :id="`carried-${task.id}`"
+                  type="checkbox"
+                  class="size-9 shrink-0 accent-emerald-700"
+                  :aria-label="`Mark done: ${task.title}`"
+                  @change="toggle({ id: task.id, done: false })"
+                >
+                <label :for="`carried-${task.id}`" class="min-w-0 flex-1 cursor-pointer">
+                  <span class="block text-2xl font-bold text-slate-900">{{ task.title }}</span>
+                  <span class="block text-lg text-slate-700">{{ carriedText(ageDays(task, context.today)) }}</span>
+                </label>
+              </li>
+            </ul>
+          </section>
+
       <p v-if="finished" role="status" class="rounded-2xl bg-emerald-100 p-4 text-2xl font-bold text-emerald-950">
         <span aria-hidden="true">🎉</span> All done for today. Great work!
         <span v-if="dayStar" class="block text-xl font-semibold"><span aria-hidden="true">⭐</span> You earned a star for finishing the day.</span>
@@ -88,7 +120,8 @@ async function toggle(task: { id: string; done: boolean }) {
                 <span v-if="startClock(task, context.today)" class="rounded-full bg-amber-100 px-3 py-0.5 font-semibold text-amber-950">
                   <span aria-hidden="true">⏰</span> {{ startClock(task, context.today) }}
                 </span>
-                <span v-if="!task.done && carriedLabel(task.created_at, context.today)" class="rounded-full bg-sky-100 px-3 py-0.5 font-semibold text-sky-950">{{ carriedLabel(task.created_at, context.today) }}</span>
+                <span v-if="!task.done && carriedText(ageDays(task, context.today))" class="rounded-full bg-sky-100 px-3 py-0.5 font-semibold text-sky-950">{{ carriedText(ageDays(task, context.today)) }}</span>
+                <span v-if="!task.done && task.due" class="rounded-full bg-rose-100 px-3 py-0.5 font-semibold text-rose-950">{{ dueText(task.due) }}</span>
                 <span v-if="task.id === nextId" class="rounded-full bg-emerald-100 px-3 py-0.5 font-semibold text-emerald-950">Do this next</span>
                 <span v-if="!task.done && task.seen_by_parent === false" class="rounded-full bg-slate-100 px-3 py-0.5 text-slate-800">Sent to your parent</span>
                 <span>{{ kindLabel(task.kind) }}<template v-if="task.minutes"> · {{ task.minutes }} min</template> · {{ task.reason }}</span>
