@@ -17,6 +17,7 @@ create policy "save family awards" on public.awards
 
 create or replace function public.report_day_done(child_id uuid, plan_date date)
 returns boolean language plpgsql security definer set search_path = '' as $$
+#variable_conflict use_column
 declare
   fid uuid := public.my_family_id();
 begin

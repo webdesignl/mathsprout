@@ -23,6 +23,7 @@ drop policy if exists "parent deletes awards" on public.awards;
 -- Give a star (true), "not this time" (false) or put it back to waiting (null).
 create or replace function public.give_star(idea_id uuid, approved boolean)
 returns void language plpgsql security definer set search_path = '' as $$
+#variable_conflict use_column
 declare
   fid uuid := public.my_family_id();
   cur public.ideas;

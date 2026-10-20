@@ -512,6 +512,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Decision:** `SUPABASE_URL` and `SUPABASE_KEY` (the publishable key) are read when the site is built. If either is missing, the Supabase module used to fail and every page and API route answered 500. Now `nuxt.config.ts` falls back to a harmless local address, so Practice and Tutor keep working, and the login page says "Sign-in isn't set up on this site yet." The fallback holds no secret. On Vercel the two variables must be set for every environment that is deployed (Production and Preview), and the site must be redeployed after adding them, because they are read at build time.
 - **Status:** Active
 
+### D-63: Migrations and RLS tests run in `npm run test:run`
+- **Date:** 2026-10
+- **Source:** Bug (finishing the day failed with `column reference "child_id" is ambiguous`)
+- **Decision:** Three database functions used a parameter name that is also a column name (`child_id`, `plan_date`, `approved`), which Postgres only reports when the function runs. `tests/database.test.ts` now runs every migration in order in an in-memory Postgres (PGlite, a dev dependency) with small stand-ins for Supabase's auth schema and roles, then runs `supabase/tests/rls_tests.sql`. It fails with the same error as before the fix. The affected functions now say `#variable_conflict use_column` and refer to their own parameters by function name (`report_day_done.child_id`).
+- **Limits:** PGlite is not Supabase. The stand-ins copy only what the migrations use (roles, `auth.users`, `auth.uid()`, `auth.jwt()`), so a test pass is strong evidence, not proof. Run the same script in the Supabase SQL Editor after applying new migrations.
+- **Status:** Active
+
 ---
 
 ## Open questions
