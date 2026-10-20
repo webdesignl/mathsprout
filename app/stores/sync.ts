@@ -47,7 +47,8 @@ export const useSyncStore = defineStore('sync', () => {
     return (await saver!(row)) || (await saver!(row))
   }
 
-  async function flush(): Promise<void> {
+  /** Saves the waiting rows, oldest first. */
+  async function drain(): Promise<void> {
     while (pending.value.length > 0) {
       const next = pending.value[0]!
       if (!(await trySave(next))) {
@@ -57,6 +58,16 @@ export const useSyncStore = defineStore('sync', () => {
       pending.value.shift()
     }
     failed.value = false
+  }
+
+  /**
+   * One flush at a time. Two answers close together used to start two flushes that both saved the same
+   * first row; now each flush waits for the one before it.
+   */
+  let chain: Promise<void> = Promise.resolve()
+  function flush(): Promise<void> {
+    chain = chain.then(drain, drain)
+    return chain
   }
 
   /** Records a finished problem. Does nothing when nobody is signed in or no child is picked. */

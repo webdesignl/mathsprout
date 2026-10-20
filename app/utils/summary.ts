@@ -61,7 +61,9 @@ const MASTERED_MIN_ATTEMPTS = 3
 const STRUGGLE_MIN_ATTEMPTS = 2
 
 /** A 5-minute read of the last 20 problems. Code counts everything; nothing here is written by AI. */
-export function summarize(lines: AttemptLine[]): Summary {
+export function summarize(allLines: AttemptLine[]): Summary {
+  // Deep Check answers are about understanding, not problems; they have their own summary.
+  const lines = allLines.filter((l) => l.mode !== 'deep_check')
   const needsHelp = (l: AttemptLine) => !l.correct || !l.first_try || l.hints_used > 0
   const bySkill = new Map<string, AttemptLine[]>()
   for (const l of lines) {

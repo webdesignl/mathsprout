@@ -272,3 +272,14 @@ describe('categories and the carry-over rule', () => {
     expect(dueText(null)).toBe('')
   })
 })
+
+describe('the practice summary ignores Deep Check answers', () => {
+  it('does not count quiz answers as problems', () => {
+    const s = summarize([
+      { mode: 'practice', problem: '1/2 + 1/3', correct: true, first_try: true, hints_used: 0, error_type: null },
+      { mode: 'deep_check', problem: 'R2 asn', correct: false, first_try: false, hints_used: 0, error_type: null },
+    ])
+    expect(s.total).toBe(1)
+    expect(s.struggled).toBe(0)
+  })
+})

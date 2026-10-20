@@ -122,6 +122,12 @@ const check = 'flex min-h-11 cursor-pointer items-center gap-3 text-base font-se
           >
             Practice {{ SET_SIZE }} questions
           </button>
+          <NuxtLink
+            to="/deep-check"
+            class="inline-flex min-h-11 items-center justify-center rounded-lg px-2 text-base font-semibold text-emerald-900 underline underline-offset-4 hover:bg-emerald-50"
+          >
+            Try the fun quiz first
+          </NuxtLink>
         </template>
         <p v-else class="mt-auto inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-base font-semibold text-slate-800">Coming soon</p>
       </li>

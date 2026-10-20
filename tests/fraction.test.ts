@@ -545,3 +545,17 @@ describe('estimateCheck', () => {
     }
   })
 })
+
+import { isSimplestFraction } from '../app/utils/fraction'
+
+describe('isSimplestFraction', () => {
+  it('is true only when top and bottom share no factor except 1', () => {
+    expect(isSimplestFraction({ numerator: 5, denominator: 8 })).toBe(true)
+    expect(isSimplestFraction({ numerator: 1, denominator: 2 })).toBe(true)
+    expect(isSimplestFraction({ numerator: 7, denominator: 3 })).toBe(true)
+    expect(isSimplestFraction({ numerator: 4, denominator: 8 })).toBe(false)
+    expect(isSimplestFraction({ numerator: 6, denominator: 9 })).toBe(false)
+    expect(isSimplestFraction({ numerator: 0, denominator: 5 })).toBe(false)
+    expect(() => isSimplestFraction({ numerator: 1, denominator: 0 })).toThrow()
+  })
+})
