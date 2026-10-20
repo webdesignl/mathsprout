@@ -3,6 +3,7 @@
 
 create or replace function public.report_day_done(child_id uuid, plan_date date)
 returns boolean language plpgsql security definer set search_path = '' as $$
+#variable_conflict use_column
 declare
   fid uuid := public.my_family_id();
 begin
@@ -33,6 +34,7 @@ $$;
 -- A parent gives the star for a day she finished. One per child per day.
 create or replace function public.give_day_star(child_id uuid, plan_date date)
 returns void language plpgsql security definer set search_path = '' as $$
+#variable_conflict use_column
 declare
   fid uuid := public.my_family_id();
 begin
