@@ -3,6 +3,11 @@ import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useChildStore } from '../stores/child'
 import PinPad from '../components/parent/PinPad.vue'
 import FamilyManager from '../components/parent/FamilyManager.vue'
+import ParentTodayPlan from '../components/parent/TodayPlan.vue'
+import TemplateManager from '../components/parent/TemplateManager.vue'
+import AddTask from '../components/parent/AddTask.vue'
+import ProgressSummary from '../components/parent/ProgressSummary.vue'
+import { avatarOf } from '../utils/avatars'
 import IdeaReviews from '../components/parent/IdeaReviews.vue'
 
 useHead({ title: 'Parent · MathSprout' })
@@ -64,6 +69,25 @@ async function signOut() {
   await navigateTo('/login')
 }
 
+const route = useRoute()
+const unseenTasks = useState<number>('unseen-tasks', () => 0)
+const unseenCompletions = useState<number>('unseen-completions', () => 0)
+const pendingIdeas = useState<number>('pending-ideas', () => 0)
+
+const sections = computed(() => [
+  { id: 'plan', label: 'Prioritise tasks', badge: unseenTasks.value + unseenCompletions.value, needsChild: true },
+  { id: 'add', label: 'Add new task', badge: 0, needsChild: true },
+  { id: 'progress', label: 'Progress', badge: 0, needsChild: false },
+  { id: 'ideas', label: 'Real-life examples', badge: pendingIdeas.value, needsChild: false },
+  { id: 'family', label: 'Family account', badge: 0, needsChild: false },
+])
+/** The open section is kept in the address (?tab=), so a reload or a link lands on the same one. */
+const tab = computed(() => sections.value.find((x) => x.id === route.query.tab)?.id ?? 'plan')
+const current = computed(() => sections.value.find((x) => x.id === tab.value)!)
+function go(id: string) {
+  void navigateTo({ path: '/parent', query: { tab: id } }, { replace: true })
+}
+
 const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-lg font-bold'
 </script>
 
@@ -74,10 +98,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
   <div v-else-if="!parent.unlocked.value" class="mx-auto max-w-3xl space-y-4">
     <PinPad :title="pinTitle" :error="pinError" :busy="pinBusy" @submit="onPin" />
     <div v-if="parent.hasPin.value === true" class="mx-auto max-w-xs space-y-2 text-center text-lg text-slate-700">
-      <p>
-        Forgot the PIN? Sign out, then sign in again with your password. Within 10 minutes, tap
-        “Reset PIN” here.
-      </p>
+      <p>Forgot it? Sign out and sign in again, then tap Reset PIN within 10 minutes.</p>
       <button type="button" class="min-h-12 font-semibold text-emerald-900 underline" @click="resetting = !resetting; firstPin = null; pinError = ''">
         {{ resetting ? 'Back to entering my PIN' : 'Reset PIN' }}
       </button>
@@ -86,14 +107,62 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
       <button type="button" class="min-h-12 text-lg font-semibold text-emerald-900 underline" @click="signOut">Sign out</button>
     </div>
   </div>
-  <div v-else class="mx-auto max-w-3xl space-y-8">
+  <div v-else class="mx-auto max-w-5xl space-y-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <p class="text-lg text-slate-700" role="timer">Parent mode ends in {{ countdown }}</p>
-      <button type="button" :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600']" @click="parent.lock()">Lock now</button>
+      <h1 class="text-3xl font-bold text-emerald-900">Parent</h1>
+      <div class="flex flex-wrap items-center gap-3">
+        <p class="text-lg text-slate-700" role="timer">Unlocked · {{ countdown }} left</p>
+        <button type="button" :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600']" @click="parent.lock()">Lock now</button>
+      </div>
     </div>
 
-    <FamilyManager />
+    <div class="grid gap-5 md:grid-cols-[15rem_minmax(0,1fr)]">
+      <nav aria-label="Parent sections" class="md:sticky md:top-4 md:self-start">
+        <ul class="flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible md:pb-0">
+          <li v-for="item in sections" :key="item.id" class="shrink-0">
+            <button
+              type="button"
+              class="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-4 text-left text-lg font-semibold"
+              :class="tab === item.id ? 'bg-emerald-700 text-white' : 'bg-white text-slate-900 ring-2 ring-slate-300 hover:bg-emerald-50'"
+              :aria-current="tab === item.id ? 'page' : undefined"
+              @click="go(item.id)"
+            >
+              <span class="whitespace-nowrap">{{ item.label }}</span>
+              <span
+                v-if="item.badge > 0"
+                class="rounded-full bg-amber-200 px-2 py-0.5 text-sm font-bold text-amber-950"
+                :aria-label="`${item.badge} new`"
+              >{{ item.badge }}</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
 
-    <IdeaReviews />
+      <div class="min-w-0 space-y-4">
+        <div v-if="current.needsChild && childStore.children.length > 1" role="group" aria-label="Choose a child" class="flex flex-wrap items-center gap-2">
+          <span class="text-lg font-semibold text-slate-900">For:</span>
+          <button
+            v-for="c in childStore.children"
+            :key="c.id"
+            type="button"
+            :aria-pressed="childStore.selectedId === c.id"
+            class="min-h-12 rounded-xl px-4 text-lg font-bold"
+            :class="childStore.selectedId === c.id ? 'bg-emerald-700 text-white' : 'bg-white text-slate-900 ring-2 ring-slate-600'"
+            @click="childStore.select(c.id)"
+          >
+            <span aria-hidden="true" class="mr-1">{{ avatarOf(c.avatar) }}</span>{{ c.nickname }}
+          </button>
+        </div>
+
+        <ParentTodayPlan v-if="tab === 'plan'" />
+        <template v-else-if="tab === 'add'">
+          <AddTask />
+          <TemplateManager />
+        </template>
+        <ProgressSummary v-else-if="tab === 'progress'" />
+        <IdeaReviews v-else-if="tab === 'ideas'" />
+        <FamilyManager v-else @signout="signOut" />
+      </div>
+    </div>
   </div>
 </template>

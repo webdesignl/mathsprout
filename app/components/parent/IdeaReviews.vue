@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useChildStore } from '../../stores/child'
-import { groupIdeas, type IdeaRow } from '../../utils/ideas'
+import { canChangeReview, groupIdeas, recentReviewed, type IdeaRow } from '../../utils/ideas'
 
 const client = useSupabaseClient()
 const childStore = useChildStore()
@@ -8,56 +8,64 @@ const childStore = useChildStore()
 const pendingCount = useState<number>('pending-ideas', () => 0)
 
 const rows = ref<IdeaRow[]>([])
+const starsGiven = ref<number | null>(null)
 const message = ref('')
-const groups = computed(() => groupIdeas(rows.value))
+const pending = computed(() => groupIdeas(rows.value).pending)
+const recent = computed(() => recentReviewed(rows.value))
 
 function who(childId: string) {
   return childStore.children.find((c) => c.id === childId)?.nickname ?? 'Child'
 }
 
 async function load() {
-  const { data, error } = await client
-    .from('ideas')
-    .select('id, child_id, set_number, text, approved')
-    .order('created_at', { ascending: false })
-  if (error || !data) {
+  const [ideas, stars] = await Promise.all([
+    client.from('ideas').select('id, child_id, set_number, text, approved, reviewed_at, created_at').order('created_at', { ascending: false }),
+    // The ledger counts every star a parent gave, even for ideas that were deleted later.
+    client.from('awards').select('id', { count: 'exact', head: true }).in('kind', ['idea_star', 'day_done']),
+  ])
+  if (ideas.error || !ideas.data) {
     message.value = 'Could not load ideas.'
     return
   }
-  rows.value = data
-  pendingCount.value = groupIdeas(data).pending.length
+  rows.value = ideas.data
+  pendingCount.value = groupIdeas(ideas.data).pending.length
+  starsGiven.value = stars.error ? null : (stars.count ?? 0)
 }
 onMounted(load)
 
-/** The database refuses this if parent mode has ended, so a failure here is shown, never hidden. */
+/** The database refuses this if parent mode ended, or if the review is more than a week old. */
 async function review(id: string, approved: boolean | null) {
   message.value = ''
   const { error } = await client.rpc('give_star', { idea_id: id, approved: approved as boolean })
-  if (error) message.value = 'Could not save. Is parent mode still on?'
-  else await load()
+  if (error) {
+    message.value = /week/i.test(error.message) ? 'Reviews are final after a week.' : 'Could not save. Is parent mode still on?'
+  } else {
+    await load()
+  }
 }
 
 const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-lg font-bold'
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="space-y-2">
-      <h2 class="text-2xl font-bold">Real-life ideas</h2>
-      <p class="text-xl text-slate-900">
-        Your child shared real-life uses for fractions. Give a star for each idea that makes sense.
+  <div class="space-y-5">
+    <div class="space-y-1">
+      <h2 class="text-2xl font-bold">Real-life examples</h2>
+      <p v-if="starsGiven !== null" class="text-xl text-slate-900">
+        <span aria-hidden="true">⭐</span> {{ starsGiven }} {{ starsGiven === 1 ? 'star' : 'stars' }} given so far
       </p>
+      <p class="text-lg text-slate-700">Stars stay for good. After a week, a review is final.</p>
     </div>
     <p v-if="message" role="alert" class="text-lg font-semibold text-red-800">{{ message }}</p>
 
-    <p v-if="rows.length === 0" class="rounded-2xl bg-white p-5 text-xl text-slate-900">
-      Nothing to review yet. Ideas show up here after your child finishes a set.
+    <p v-if="pending.length === 0 && recent.length === 0" class="rounded-2xl bg-white p-5 text-xl text-slate-900">
+      Nothing yet. Ideas appear after a set.
     </p>
 
-    <section v-if="groups.pending.length" aria-labelledby="to-review" class="space-y-3">
-      <h3 id="to-review" class="text-2xl font-bold">To review ({{ groups.pending.length }})</h3>
+    <section v-if="pending.length" aria-labelledby="to-review" class="space-y-3">
+      <h3 id="to-review" class="text-xl font-bold">To review ({{ pending.length }})</h3>
       <ul class="space-y-3">
-        <li v-for="idea in groups.pending" :key="idea.id" class="space-y-3 rounded-2xl bg-white p-5">
+        <li v-for="idea in pending" :key="idea.id" class="space-y-3 rounded-2xl bg-white p-5">
           <p class="text-lg text-slate-700">{{ who(idea.child_id) }} · Set {{ idea.set_number }}</p>
           <p class="text-2xl text-slate-900">{{ idea.text }}</p>
           <div class="flex flex-wrap gap-3">
@@ -82,16 +90,10 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
       </ul>
     </section>
 
-    <section v-if="groups.reviewed.length" aria-labelledby="done" class="space-y-3">
-      <h3 id="done" class="text-2xl font-bold">
-        Reviewed ({{ groups.reviewed.length }}) · {{ groups.stars }} {{ groups.stars === 1 ? 'star' : 'stars' }} given
-      </h3>
+    <section v-if="recent.length" aria-labelledby="recent" class="space-y-3">
+      <h3 id="recent" class="text-xl font-bold">Recent</h3>
       <ul class="space-y-3">
-        <li
-          v-for="idea in groups.reviewed"
-          :key="idea.id"
-          class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-5"
-        >
+        <li v-for="idea in recent" :key="idea.id" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-5">
           <div>
             <p class="text-lg text-slate-700">{{ who(idea.child_id) }} · Set {{ idea.set_number }}</p>
             <p class="text-xl text-slate-900">{{ idea.text }}</p>
@@ -102,6 +104,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
               <span v-else>No star</span>
             </span>
             <button
+              v-if="canChangeReview(idea.reviewed_at)"
               type="button"
               :class="[button, 'bg-white text-emerald-900 ring-2 ring-emerald-700 hover:bg-emerald-50']"
               :aria-label="`${idea.approved ? 'Take back the star' : 'Give a star'} for: ${idea.text}`"
@@ -109,9 +112,11 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
             >
               {{ idea.approved ? 'Take back' : 'Give a star' }}
             </button>
+            <span v-else class="text-lg text-slate-700">Final</span>
           </div>
         </li>
       </ul>
+      <p class="text-base text-slate-700">Only the 3 newest reviewed ideas are kept. Older ones are deleted; their stars stay.</p>
     </section>
   </div>
 </template>

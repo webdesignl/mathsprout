@@ -17,13 +17,18 @@ async function load(childId: string | null) {
   phase.value = 'closed'
   counts.value = { ...NO_STARS }
   if (!childId) return
-  const [ideas, awards] = await Promise.all([
-    client.from('ideas').select('id', { count: 'exact', head: true }).eq('child_id', childId).eq('approved', true),
+  const [ideas, awards, days] = await Promise.all([
+    client.from('awards').select('id', { count: 'exact', head: true }).eq('child_id', childId).eq('kind', 'idea_star'),
     client.from('awards').select('id', { count: 'exact', head: true }).eq('child_id', childId).eq('kind', 'proof_master'),
+    client.from('awards').select('id', { count: 'exact', head: true }).eq('child_id', childId).eq('kind', 'day_done'),
   ])
   // Each count stands alone: if one can't be read, it counts as 0 and the other still shows.
-  if (ideas.error && awards.error) return
-  counts.value = { ideas: ideas.error ? 0 : (ideas.count ?? 0), proofMasters: awards.error ? 0 : (awards.count ?? 0) }
+  if (ideas.error && awards.error && days.error) return
+  counts.value = {
+    ideas: ideas.error ? 0 : (ideas.count ?? 0),
+    proofMasters: awards.error ? 0 : (awards.count ?? 0),
+    daysDone: days.error ? 0 : (days.count ?? 0),
+  }
   loaded.value = true
 }
 watch(() => childStore.selectedId, load, { immediate: true })

@@ -240,10 +240,13 @@ describe('ideas', () => {
 describe('stars', () => {
   it('adds idea stars and Proof Masters and words them kindly', async () => {
     const { totalStars, starBreakdown, starMessage } = await import('../app/utils/stars')
-    expect(totalStars({ ideas: 2, proofMasters: 1 })).toBe(3)
-    expect(starBreakdown({ ideas: 2, proofMasters: 1 })).toBe('2 from ideas and 1 Proof Master')
-    expect(starBreakdown({ ideas: 1, proofMasters: 2 })).toBe('1 from an idea and 2 Proof Masters')
-    expect(starBreakdown({ ideas: 0, proofMasters: 0 })).toBe('')
+    expect(totalStars({ ideas: 2, proofMasters: 1, daysDone: 0 })).toBe(3)
+    expect(starBreakdown({ ideas: 2, proofMasters: 1, daysDone: 0 })).toBe('2 from ideas and 1 Proof Master')
+    expect(starBreakdown({ ideas: 1, proofMasters: 2, daysDone: 0 })).toBe('1 from an idea and 2 Proof Masters')
+    expect(starBreakdown({ ideas: 0, proofMasters: 0, daysDone: 0 })).toBe('')
+    expect(totalStars({ ideas: 1, proofMasters: 1, daysDone: 3 })).toBe(5)
+    expect(starBreakdown({ ideas: 1, proofMasters: 1, daysDone: 3 })).toBe('1 from an idea, 1 Proof Master and 3 finished days')
+    expect(starBreakdown({ ideas: 0, proofMasters: 0, daysDone: 1 })).toBe('1 finished day')
     expect(starMessage(0)).toBe('Your first star is waiting')
     expect(starMessage(1)).toBe('1 star. Nice start!')
     expect(starMessage(5)).toBe('5 stars. Nice work!')
@@ -268,5 +271,25 @@ describe('avatars', () => {
     expect(avatarOf('<script>')).toBe(DEFAULT_AVATAR)
     expect(avatarOf(null)).toBe(DEFAULT_AVATAR)
     expect(new Set(AVATARS.map((a) => a.emoji)).size).toBe(AVATARS.length)
+  })
+})
+
+describe('idea memory and the one-week rule', () => {
+  it('keeps the 3 newest reviewed ideas per child and never hides the waiting ones', async () => {
+    const { recentReviewed, groupIdeas, canChangeReview } = await import('../app/utils/ideas')
+    const rows = [1, 2, 3, 4, 5].map((n) => ({
+      id: `a${n}`, child_id: 'a', set_number: n, text: `t${n}`, approved: true as boolean | null, reviewed_at: `2026-10-0${n}T00:00:00Z`,
+    }))
+    rows.push({ id: 'b1', child_id: 'b', set_number: 1, text: 'b', approved: false, reviewed_at: '2026-10-01T00:00:00Z' })
+    rows.push({ id: 'p', child_id: 'a', set_number: 6, text: 'waiting', approved: null, reviewed_at: null as never })
+    const kept = recentReviewed(rows).map((r) => r.id)
+    expect(kept.filter((id) => id.startsWith('a'))).toEqual(['a5', 'a4', 'a3'])
+    expect(kept).toContain('b1')
+    expect(groupIdeas(rows).pending.map((r) => r.id)).toEqual(['p'])
+
+    const now = new Date('2026-10-20T00:00:00Z')
+    expect(canChangeReview('2026-10-15T00:00:00Z', now)).toBe(true)
+    expect(canChangeReview('2026-10-12T00:00:00Z', now)).toBe(false)
+    expect(canChangeReview(null, now)).toBe(true)
   })
 })
