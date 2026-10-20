@@ -139,6 +139,14 @@ export function startClock(task: Pick<TodayTask, 'start_time' | 'priority_date'>
   return task.priority_date === today ? formatClock(task.start_time) : ''
 }
 
+/** "From yesterday" or "From 3 days ago" for a task still open from an earlier day; empty for today's own tasks. */
+export function carriedLabel(createdAt: string, today: string): string {
+  const created = todayString(new Date(createdAt))
+  const days = daysBetween(created, today)
+  if (days <= 0) return ''
+  return days === 1 ? 'From yesterday' : `From ${days} days ago`
+}
+
 /** Open tasks in order, then the ones she already finished. */
 export function orderToday(tasks: TodayTask[], ctx: TodayContext): { open: OrderedTask[]; done: TodayTask[] } {
   const open = tasks

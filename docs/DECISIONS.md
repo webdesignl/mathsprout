@@ -519,6 +519,12 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Limits:** PGlite is not Supabase. The stand-ins copy only what the migrations use (roles, `auth.users`, `auth.uid()`, `auth.jwt()`), so a test pass is strong evidence, not proof. Run the same script in the Supabase SQL Editor after applying new migrations.
 - **Status:** Active
 
+### D-64: Clearing finished tasks, and unfinished ones carry over
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** An unfinished task stays open, so it shows on the next day's list by itself, with a small blue tag ("From yesterday", "From 3 days ago"). Finished tasks from earlier days are not shown. On the same day she can press "Clear finished" to hide them (`archive_done_tasks()`); they stay in the database, so "MAP 3 times a week" still counts them, and the day still counts as finished. Finished tasks older than 14 days are deleted (`tidy_tasks()`, run quietly when Today loads). A parent's order and start times are for one day, so a carried-over task goes back to the rule order the next day. Both functions only touch the caller's own family.
+- **Status:** Active
+
 ---
 
 ## Open questions

@@ -206,3 +206,13 @@ describe('the day as one list', () => {
     expect(orderDay([c, b, a], ctx()).find((t) => t.id === a.id)!.done).toBe(true)
   })
 })
+
+import { carriedLabel } from '../app/utils/todayPlan'
+
+describe('carried over tasks', () => {
+  it('says how long a task has been waiting', () => {
+    expect(carriedLabel(new Date(2026, 9, 20, 15).toISOString(), '2026-10-20')).toBe('')
+    expect(carriedLabel(new Date(2026, 9, 19, 15).toISOString(), '2026-10-20')).toBe('From yesterday')
+    expect(carriedLabel(new Date(2026, 9, 17, 15).toISOString(), '2026-10-20')).toBe('From 3 days ago')
+  })
+})

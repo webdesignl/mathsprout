@@ -206,6 +206,24 @@ begin
   report := report || case when ok then 'PASS ' else 'FAIL ' end || E'unticking a task takes back the finished-day report\n';
   if not ok then failures := failures + 1; end if;
 
+  -- tidying: she can hide her finished tasks, not another family's; old finished tasks are deleted
+  insert into public.tasks (family_id, child_id, kind, title, done, done_at) values (fam_a, kid_a, 'homework', 'Old finished', true, now() - interval '20 days');
+  insert into public.tasks (family_id, child_id, kind, title, done, done_at) values (fam_a, kid_a, 'homework', 'Recent finished', true, now() - interval '2 days');
+  insert into public.tasks (family_id, child_id, kind, title) values (fam_a, kid_a, 'homework', 'Still open');
+  set local role authenticated;
+  perform public.tidy_tasks();
+  select count(*) into n from public.tasks where title = 'Old finished';
+  ok := n = 0;
+  select count(*) into n from public.tasks where title in ('Recent finished', 'Still open');
+  ok := ok and n = 2;
+  begin perform public.archive_done_tasks(kid_b); ok := false; exception when others then null; end;
+  perform public.archive_done_tasks(kid_a);
+  reset role;
+  select ok and (select archived from public.tasks where title = 'Recent finished')
+         and not (select archived from public.tasks where title = 'Still open') into ok;
+  report := report || case when ok then 'PASS ' else 'FAIL ' end || E'finished tasks older than 14 days are deleted; clearing hides only finished ones, only for her own child\n';
+  if not ok then failures := failures + 1; end if;
+
   -- ideas: child session can add, cannot approve
   perform set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated', 'session_id', sa)::text, true);
   set local role authenticated;
