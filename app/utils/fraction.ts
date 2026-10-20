@@ -165,6 +165,12 @@ export function isSimplestMixed(m: MixedNumber): boolean {
   return m.num < m.den && gcd(m.num, m.den) === 1
 }
 
+/** True when the top and bottom share no factor except 1 (a positive fraction in lowest terms). */
+export function isSimplestFraction(f: Fraction): boolean {
+  const { numerator, denominator } = makeFraction(f.numerator, f.denominator)
+  return numerator > 0 && gcd(numerator, denominator) === 1
+}
+
 /** a + b, always simplified. */
 export function add(a: Operand, b: Operand): Fraction {
   const x = toFraction(a)

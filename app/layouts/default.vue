@@ -71,6 +71,7 @@ const closeButton = ref<HTMLButtonElement | null>(null)
 const links = [
   { to: '/today', label: 'Today' },
   { to: '/practice', label: 'Practice' },
+  { to: '/deep-check', label: 'Deep Check' },
   { to: '/tutor', label: 'Tutor' },
   { to: '/parent', label: 'Parent' },
 ]

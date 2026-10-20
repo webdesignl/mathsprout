@@ -305,3 +305,20 @@ describe('supabase url', () => {
     expect(normalizeSupabaseUrl('')).toBe('')
   })
 })
+
+describe('sync store with answers close together', () => {
+  it('saves each row once even when several are recorded at the same moment', async () => {
+    setActivePinia(createPinia())
+    const sync = useSyncStore()
+    const saved: string[] = []
+    sync.configure({
+      save: async (row) => (saved.push(row.problem), true),
+      familyId: async () => 'f',
+      childId: () => 'c',
+    })
+    const input = (problem: string) => ({ mode: 'practice' as const, problem, correct: true, firstTry: true, hintsUsed: 0, errorType: null })
+    await Promise.all(['a', 'b', 'c', 'd'].map((p) => sync.record(input(p))))
+    expect(saved.sort()).toEqual(['a', 'b', 'c', 'd'])
+    expect(sync.pending).toHaveLength(0)
+  })
+})

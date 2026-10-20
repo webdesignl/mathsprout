@@ -554,6 +554,17 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **In the Fractions card:** check boxes for Add, Subtract, Multiply and Divide, "All" (ticks or clears the four), "Word problems", and "Tricky regrouping" (shown only when Subtract is ticked), and a "Practice 10 questions" button. Ticking several operations mixes them: each of the 10 problems uses one of the ticked operations at random. With none ticked, the button says "Tick at least one" instead of being disabled.
 - **Status:** Active. Replaces the one-choice operation buttons.
 
+### D-68: Deep Check: fun quizzes that test understanding
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** A new Deep Check page (in the main menu, and a "Try the fun quiz first" link on the Fractions card in Practice). It has 8 rules (R1 to R8: simplest form, mixed numbers in simplest form, equal forms, same bottom first, regroup one whole, check by adding back, greatest difference, division is a fraction). Each rule has a Learn mode (bar or number-line pictures, the rule, and the wrong idea it fixes) and a quiz of 5 questions, one of each type: Always/Sometimes/Never, Spot the mistake, Which doesn't belong, Reverse it and Draw it. A Chapter quiz mixes 10 questions from all rules. One try per question, then she sees why, right or wrong. No timer.
+- **Code grades everything.** Choice questions are checked by index. "Reverse it" answers are read and checked with `fraction.ts` (equal value, not in simplest form, the right bottom number, a division like 3 ÷ 5). "Draw it" is a bar builder (pieces, whole bars, cut into other sizes, regroup, break a bar) whose end state is checked. An answer that cannot be read ("banana") is not counted. AI never grades. A test checks the math behind every "which doesn't belong" item and every explanation with the fraction engine.
+- **Items are original** and written for these rules; they are kept in `app/data/deepCheck.ts` (40 items), not in the database yet.
+- **Saved:** each answer is an `attempts` row with mode `deep_check` and text like "R2 asn" (rule and question type only; nothing personal). A rule earns a star for each question type answered right at least once, and is "Mastered" at 5. The Parent page's Progress shows this under "Understanding (Deep Check)". The practice summary ignores these rows.
+- **Fixed on the way:** two answers saved at the same moment could save the same row twice; saving now waits its turn.
+- **Not built (optional, later):** AI-drafted new items that a parent approves. It needs the items in the database (the `items` table has an `approved` flag), a server route that asks the AI for items in a fixed shape, code that checks every drafted item (the answer must be recomputed by `fraction.ts`, not trusted), and a parent approval screen. The AI would see only the rule text, never a child's details.
+- **Status:** Active
+
 ---
 
 ## Open questions
