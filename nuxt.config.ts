@@ -1,5 +1,12 @@
 import tailwindcss from '@tailwindcss/vite'
 
+// Supabase needs a URL and the publishable key at build time. Without them the whole site used to answer 500
+// (the Supabase module cannot start). So the app falls back to a harmless local address: Practice and Tutor
+// keep working, and the login page says plainly that sign-in is not set up. Never put a secret key here.
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || ''
+const supabaseKey = process.env.SUPABASE_KEY || process.env.NUXT_PUBLIC_SUPABASE_KEY || ''
+const supabaseConfigured = Boolean(supabaseUrl && supabaseKey)
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@pinia/nuxt', '@nuxtjs/supabase'],
@@ -11,6 +18,10 @@ export default defineNuxtConfig({
   // NUXT_ANTHROPIC_API_KEY fills in anthropicApiKey.
   runtimeConfig: {
     anthropicApiKey: '',
+    public: {
+      // True when the site was built with a Supabase URL and publishable key.
+      supabaseConfigured,
+    },
   },
   hooks: {
     // The engine playground is a developer tool. Drop every /dev route from production builds,
@@ -25,6 +36,8 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   supabase: {
+    url: supabaseUrl || 'http://127.0.0.1:54321',
+    key: supabaseKey || 'supabase-not-configured',
     // Practice and Tutor work without signing in (nothing is saved). Only the Parent page needs an account.
     redirectOptions: {
       login: '/login',

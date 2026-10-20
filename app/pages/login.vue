@@ -4,6 +4,7 @@ import { authErrorMessage } from '../utils/friendlyErrors'
 useHead({ title: 'Parent sign in · MathSprout' })
 
 const client = useSupabaseClient()
+const configured = useRuntimeConfig().public.supabaseConfigured
 const user = useSupabaseUser()
 
 const email = ref('')
@@ -82,6 +83,10 @@ const field = 'min-h-12 w-full rounded-xl border-2 border-slate-600 bg-white px-
       </button>
     </div>
     <p class="text-xl text-slate-900">Your child does not need an account. This is only for you.</p>
+
+    <p v-if="!configured" role="alert" class="rounded-2xl bg-amber-100 p-4 text-lg font-semibold text-amber-950">
+      Sign-in isn’t set up on this site yet. Practice and Tutor still work.
+    </p>
 
     <form class="space-y-4 rounded-2xl bg-white p-5" @submit.prevent="submit">
       <template v-if="creating">

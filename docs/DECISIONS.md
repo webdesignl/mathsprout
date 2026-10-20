@@ -506,6 +506,12 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Stars are protected:** every star a parent gives (idea or day) is a row in the `awards` ledger. An idea star (`idea_star`, with the idea's id but no foreign key) stays after its idea is deleted. The home count and "N stars given so far" read the ledger, not the ideas. Nobody can delete a star from the app (the delete policy on `awards` is gone). A review can be changed only within 7 days of the first review (`Reviews are final after a week`), and changing it takes the star back or gives it again; the week does not restart when flipping. Day stars have no take-back button.
 - **Status:** Active. Replaces the parent delete of awards (D-60) and the star count from the ideas table (D-58).
 
+### D-62: The site must not answer 500 when Supabase is not configured
+- **Date:** 2026-10
+- **Source:** Bug (Vercel preview returned 500 on every page)
+- **Decision:** `SUPABASE_URL` and `SUPABASE_KEY` (the publishable key) are read when the site is built. If either is missing, the Supabase module used to fail and every page and API route answered 500. Now `nuxt.config.ts` falls back to a harmless local address, so Practice and Tutor keep working, and the login page says "Sign-in isn't set up on this site yet." The fallback holds no secret. On Vercel the two variables must be set for every environment that is deployed (Production and Preview), and the site must be redeployed after adding them, because they are read at build time.
+- **Status:** Active
+
 ---
 
 ## Open questions
