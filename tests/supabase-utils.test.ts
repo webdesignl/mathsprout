@@ -293,3 +293,15 @@ describe('idea memory and the one-week rule', () => {
     expect(canChangeReview(null, now)).toBe(true)
   })
 })
+
+describe('supabase url', () => {
+  it('keeps only the project address', async () => {
+    const { normalizeSupabaseUrl } = await import('../app/utils/supabaseUrl')
+    expect(normalizeSupabaseUrl('https://abc.supabase.co')).toBe('https://abc.supabase.co')
+    expect(normalizeSupabaseUrl('https://abc.supabase.co/')).toBe('https://abc.supabase.co')
+    expect(normalizeSupabaseUrl('https://abc.supabase.co/rest/v1')).toBe('https://abc.supabase.co')
+    expect(normalizeSupabaseUrl(' https://abc.supabase.co/rest/v1/ ')).toBe('https://abc.supabase.co')
+    expect(normalizeSupabaseUrl('https://abc.supabase.co/auth/v1')).toBe('https://abc.supabase.co')
+    expect(normalizeSupabaseUrl('')).toBe('')
+  })
+})
