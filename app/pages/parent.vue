@@ -92,15 +92,7 @@ async function checkForgotten() {
   forgotStars.value = (data ?? []).some((r) => daysBetween(r.summary_date, today) >= 5 && daysBetween(r.summary_date, today) <= 7)
 }
 
-const sections = computed(() => [
-  { id: 'plan', label: 'Prioritise tasks', badge: unseenTasks.value + unseenCompletions.value, needsChild: true },
-  { id: 'add', label: 'Add new task', badge: 0, needsChild: true },
-  { id: 'backlog', label: 'Backlog', badge: backlogCount.value, needsChild: true },
-  { id: 'history', label: 'History', badge: historyUnseen.value, needsChild: false },
-  { id: 'progress', label: 'Progress', badge: 0, needsChild: false },
-  { id: 'ideas', label: 'Real-life examples', badge: pendingIdeas.value, needsChild: false },
-  { id: 'family', label: 'Family account', badge: 0, needsChild: false },
-])
+const { sections } = useParentSections()
 /** The open section is kept in the address (?tab=), so a reload or a link lands on the same one. */
 const tab = computed(() => sections.value.find((x) => x.id === route.query.tab)?.id ?? 'plan')
 const current = computed(() => sections.value.find((x) => x.id === tab.value)!)
@@ -137,9 +129,10 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
     </div>
 
     <div class="grid gap-5 md:grid-cols-[15rem_minmax(0,1fr)]">
-      <nav aria-label="Parent sections" class="md:sticky md:top-4 md:self-start">
-        <ul class="flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible md:pb-0">
-          <li v-for="item in sections" :key="item.id" class="shrink-0">
+      <!-- From tablets up the sections sit in a side panel. On phones they are in the header menu, under Parent. -->
+      <nav aria-label="Parent sections" class="hidden md:sticky md:top-32 md:block md:self-start">
+        <ul class="space-y-1">
+          <li v-for="item in sections" :key="item.id">
             <button
               type="button"
               class="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-4 text-left text-lg font-semibold"
@@ -159,6 +152,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
       </nav>
 
       <div class="min-w-0 space-y-4">
+        <p class="text-base font-semibold text-slate-700 md:hidden" aria-hidden="true">Parent · {{ current.label }}</p>
         <div v-if="current.needsChild && childStore.children.length > 1" role="group" aria-label="Choose a child" class="flex flex-wrap items-center gap-2">
           <span class="text-lg font-semibold text-slate-900">For:</span>
           <button

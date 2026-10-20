@@ -52,6 +52,8 @@ export const HINTS_BEFORE_CHECK = 3
 
 export interface PracticeOptions {
   op: ProblemOp
+  /** When several operations are ticked: each problem uses one of these, picked at random. */
+  ops?: Array<'add' | 'subtract' | 'multiply' | 'divide'>
   needsRegroup: boolean
   /** Wrap each problem in a short story. The numbers and the answer stay the same. */
   stories?: boolean
@@ -509,8 +511,11 @@ export const usePracticeStore = defineStore('practice', () => {
   /** Starts a new set of SET_SIZE generated problems. */
   function start(newOptions: PracticeOptions, rng: Random = Math.random) {
     const list = Array.from({ length: SET_SIZE }, () => {
+      const chosen = newOptions.ops?.length
+        ? newOptions.ops[Math.min(Math.floor(rng() * newOptions.ops.length), newOptions.ops.length - 1)]!
+        : newOptions.op
       const problem = generateProblem(
-        { op: newOptions.op, maxDenominator: MAX_DENOMINATOR, needsRegroup: newOptions.needsRegroup },
+        { op: chosen, maxDenominator: MAX_DENOMINATOR, needsRegroup: newOptions.needsRegroup },
         rng,
       )
       return newOptions.stories ? withStory(problem, rng) : problem

@@ -539,6 +539,21 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Same rule in two places:** the carry-over rule is in the app (`taskState`) and in the database (`task_state`, used when deciding whether the day is finished). A test compares them for every kind, age and due date.
 - **Status:** Active
 
+### D-66: Responsive layout, a menu on the left, and an Add task panel
+- **Date:** 2026-10
+- **Source:** User (before sharing the project)
+- **Text size:** the page root is the browser's 16px, so a person's own text-size setting works. The earlier 18px root was a design choice for a young reader, not an accessibility rule, and it made every page big. Sizes now come from one type scale in `main.css`: pages for her are larger than the Parent page, and phones are one step smaller than tablets and desktops. Body text stays at 16px or more, and controls stay at least 44px to tap.
+- **Header:** below 1024px (phones and tablets) there is a menu button on the left that opens a drawer from the left, and a thin strip under the header with the child's name and Sign in or Sign out. The drawer has the four main links, and Sign in or Sign out at the bottom. Parent is a group that opens inside the drawer and stays open, showing its seven sections; there is no section dropdown in the middle of the Parent page on phones. At 1024px and up, the links sit in one row, and the Parent sections are a side panel from 768px. The menu closes on Escape or when a link is chosen, and the page has a "Skip to content" link.
+- **Today:** the list and the notices (finished day, "Did you forget", break) are one pane. Adding tasks is another pane with three tabs: Quick add (usual tasks), Homework (the checklist) and New task. It sits beside the list on wide screens and above it on phones, starts open on wide screens and closed on phones, and "Add task" and "Done" open and minimize it, so the list can have the whole page.
+- **Status:** Active
+
+### D-67: Practice is a set of chapter cards with search
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** The Practice start screen has a green header with the title, a "Search chapter" box with a magnifier icon, and a Grade drop-down (only "Grade 4" for now). Below are chapter cards: Fractions (ready), Decimals and Place value (coming soon, cannot be started). Search matches a chapter's name and a few keywords (so "add" finds Fractions). If nothing matches it says "No results found", suggests the chapters, and has a "Clear search" button. The grid is 1 card across on a phone, 2 on a large phone, 3 on a tablet and 5 on a desktop.
+- **In the Fractions card:** check boxes for Add, Subtract, Multiply and Divide, "All" (ticks or clears the four), "Word problems", and "Tricky regrouping" (shown only when Subtract is ticked), and a "Practice 10 questions" button. Ticking several operations mixes them: each of the 10 problems uses one of the ticked operations at random. With none ticked, the button says "Tick at least one" instead of being disabled.
+- **Status:** Active. Replaces the one-choice operation buttons.
+
 ---
 
 ## Open questions
