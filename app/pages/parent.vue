@@ -7,6 +7,9 @@ import ParentTodayPlan from '../components/parent/TodayPlan.vue'
 import TemplateManager from '../components/parent/TemplateManager.vue'
 import AddTask from '../components/parent/AddTask.vue'
 import ProgressSummary from '../components/parent/ProgressSummary.vue'
+import BacklogList from '../components/parent/BacklogList.vue'
+import HistoryList from '../components/parent/HistoryList.vue'
+import { daysBetween, todayString } from '../utils/todayPlan'
 import { avatarOf } from '../utils/avatars'
 import IdeaReviews from '../components/parent/IdeaReviews.vue'
 
@@ -22,7 +25,11 @@ const pinBusy = ref(false)
 const firstPin = ref<string | null>(null)
 const resetting = ref(false)
 
-onMounted(() => parent.refresh())
+onMounted(async () => {
+  await parent.refresh()
+  if (parent.unlocked.value) await checkForgotten()
+})
+watch(() => parent.unlocked.value, (on) => on && checkForgotten())
 onBeforeUnmount(() => parent.stopTimer())
 
 const pinTitle = computed(() => {
@@ -73,14 +80,19 @@ const route = useRoute()
 const unseenTasks = useState<number>('unseen-tasks', () => 0)
 const unseenCompletions = useState<number>('unseen-completions', () => 0)
 const pendingIdeas = useState<number>('pending-ideas', () => 0)
+const backlogCount = useState<number>('backlog-count', () => 0)
+const historyUnseen = useState<number>('history-unseen', () => 0)
+/** Finished days still waiting for a star or "seen" after 5 days: remind before the one-week limit. */
+const forgotStars = ref(false)
 
-const sections = computed(() => [
-  { id: 'plan', label: 'Prioritise tasks', badge: unseenTasks.value + unseenCompletions.value, needsChild: true },
-  { id: 'add', label: 'Add new task', badge: 0, needsChild: true },
-  { id: 'progress', label: 'Progress', badge: 0, needsChild: false },
-  { id: 'ideas', label: 'Real-life examples', badge: pendingIdeas.value, needsChild: false },
-  { id: 'family', label: 'Family account', badge: 0, needsChild: false },
-])
+async function checkForgotten() {
+  const { data } = await client.from('day_summaries').select('summary_date').eq('finished_all', true).eq('seen', false)
+  const today = todayString()
+  historyUnseen.value = data?.length ?? 0
+  forgotStars.value = (data ?? []).some((r) => daysBetween(r.summary_date, today) >= 5 && daysBetween(r.summary_date, today) <= 7)
+}
+
+const { sections } = useParentSections()
 /** The open section is kept in the address (?tab=), so a reload or a link lands on the same one. */
 const tab = computed(() => sections.value.find((x) => x.id === route.query.tab)?.id ?? 'plan')
 const current = computed(() => sections.value.find((x) => x.id === tab.value)!)
@@ -117,9 +129,10 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
     </div>
 
     <div class="grid gap-5 md:grid-cols-[15rem_minmax(0,1fr)]">
-      <nav aria-label="Parent sections" class="md:sticky md:top-4 md:self-start">
-        <ul class="flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible md:pb-0">
-          <li v-for="item in sections" :key="item.id" class="shrink-0">
+      <!-- From tablets up the sections sit in a side panel. On phones they are in the header menu, under Parent. -->
+      <nav aria-label="Parent sections" class="hidden md:sticky md:top-32 md:block md:self-start">
+        <ul class="space-y-1">
+          <li v-for="item in sections" :key="item.id">
             <button
               type="button"
               class="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-4 text-left text-lg font-semibold"
@@ -139,6 +152,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
       </nav>
 
       <div class="min-w-0 space-y-4">
+        <p class="text-base font-semibold text-slate-700 md:hidden" aria-hidden="true">Parent · {{ current.label }}</p>
         <div v-if="current.needsChild && childStore.children.length > 1" role="group" aria-label="Choose a child" class="flex flex-wrap items-center gap-2">
           <span class="text-lg font-semibold text-slate-900">For:</span>
           <button
@@ -154,11 +168,18 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
           </button>
         </div>
 
+        <p v-if="forgotStars" role="status" class="rounded-2xl bg-amber-100 p-4 text-lg font-semibold text-amber-950">
+          Forgot to give this week’s Task done stars?!
+          <button type="button" class="ml-2 min-h-12 underline" @click="go('history')">Open History</button>
+        </p>
+
         <ParentTodayPlan v-if="tab === 'plan'" />
         <template v-else-if="tab === 'add'">
           <AddTask />
           <TemplateManager />
         </template>
+        <BacklogList v-else-if="tab === 'backlog'" />
+        <HistoryList v-else-if="tab === 'history'" />
         <ProgressSummary v-else-if="tab === 'progress'" />
         <IdeaReviews v-else-if="tab === 'ideas'" />
         <FamilyManager v-else @signout="signOut" />

@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useChildStore } from '../stores/child'
-import { carriedLabel, kindLabel, startClock } from '../utils/todayPlan'
+import { ageDays, carriedText, dueText, kindLabel, startClock } from '../utils/todayPlan'
 
 useHead({ title: 'Today · MathSprout' })
 
 const user = useSupabaseUser()
 const childStore = useChildStore()
 const childId = computed(() => childStore.selectedId)
-const { day, allDone, dayDoneAt, dayStar, context, load, loaded, failed, complete, uncomplete, clearFinished, add } = useTodayData(childId)
+const { day, carried, paused, allDone, dayDoneAt, dayStar, context, load, loaded, failed, complete, uncomplete, clearFinished, add } = useTodayData(childId)
+/** The friendly "did you forget" reminder shows the carried-over tasks only when she asks. */
+const showCarried = ref(false)
 const anyDone = computed(() => day.value.some((t) => t.done))
 /** The day counts as finished when everything is ticked, or when it was finished and then cleared away. */
 const finished = computed(() => allDone.value || (Boolean(dayDoneAt.value) && day.value.every((t) => t.done)))
@@ -24,6 +26,16 @@ const openTitles = computed(() => day.value.filter((t) => !t.done).map((t) => t.
 const nextId = computed(() => day.value.find((t) => !t.done)?.id ?? null)
 const message = ref('')
 
+/**
+ * The Add task panel sits beside the list on wide screens and above it on phones. It can be minimized so only the
+ * list shows. It starts open on a wide screen and closed on a phone.
+ */
+const addOpen = ref(false)
+onMounted(() => {
+  addOpen.value = window.matchMedia('(min-width: 1024px)').matches
+})
+const canAdd = computed(() => Boolean(user.value) && Boolean(childStore.selected) && loaded.value && !paused.value && !failed.value)
+
 /** Ticking works like a shopping list: tick to cross out, tick again to bring it back. */
 async function tidy() {
   message.value = (await clearFinished()) ? '' : 'Could not clear. Try again.'
@@ -38,7 +50,21 @@ async function toggle(task: { id: string; done: boolean }) {
 
 <template>
   <div class="mx-auto max-w-5xl space-y-6">
-    <h1 class="text-4xl font-bold text-emerald-900">Today</h1>
+    <div class="flex items-center justify-between gap-3">
+      <h1 class="text-4xl font-bold text-emerald-900">Today</h1>
+      <button
+        v-if="canAdd"
+        type="button"
+        class="inline-flex min-h-12 items-center gap-2 rounded-xl px-4 text-lg font-bold"
+        :class="addOpen ? 'bg-white text-slate-900 ring-2 ring-slate-600' : 'bg-emerald-700 text-white hover:bg-emerald-800'"
+        :aria-expanded="addOpen"
+        aria-controls="add-task-pane"
+        @click="addOpen = !addOpen"
+      >
+        <span aria-hidden="true">{{ addOpen ? '–' : '+' }}</span>
+        {{ addOpen ? 'Hide add task' : 'Add task' }}
+      </button>
+    </div>
 
     <p v-if="!user" class="text-xl text-slate-900">
       <NuxtLink to="/login" class="font-semibold text-emerald-900 underline">A parent can sign in</NuxtLink> to see today’s list.
@@ -49,8 +75,38 @@ async function toggle(task: { id: string; done: boolean }) {
     <p v-else-if="failed" role="alert" class="text-xl text-red-800">Could not load today’s list. Check your connection.</p>
 
     <template v-else-if="loaded">
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <p v-if="paused" role="status" class="rounded-2xl bg-sky-100 p-5 text-2xl font-bold text-sky-950">
+        <span aria-hidden="true">🌴</span> Taking a break. See you soon!
+      </p>
+      <div v-else class="grid gap-6" :class="addOpen ? 'lg:grid-cols-[minmax(0,1fr)_24rem]' : ''">
         <div class="min-w-0 space-y-6">
+          <section v-if="carried.length" aria-labelledby="forgot" class="space-y-3 rounded-2xl bg-sky-50 p-5 ring-2 ring-sky-200">
+            <h2 id="forgot" class="text-2xl font-bold text-sky-950">Did you forget yesterday’s homework?</h2>
+            <button
+              type="button"
+              class="inline-flex min-h-12 items-center rounded-xl bg-white px-5 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+              :aria-expanded="showCarried"
+              @click="showCarried = !showCarried"
+            >
+              {{ showCarried ? 'Hide it' : `Show me (${carried.length})` }}
+            </button>
+            <ul v-if="showCarried" class="space-y-2">
+              <li v-for="task in carried" :key="task.id" class="flex items-center gap-4 rounded-2xl bg-white p-4">
+                <input
+                  :id="`carried-${task.id}`"
+                  type="checkbox"
+                  class="size-9 shrink-0 accent-emerald-700"
+                  :aria-label="`Mark done: ${task.title}`"
+                  @change="toggle({ id: task.id, done: false })"
+                >
+                <label :for="`carried-${task.id}`" class="min-w-0 flex-1 cursor-pointer">
+                  <span class="block text-2xl font-bold text-slate-900">{{ task.title }}</span>
+                  <span class="block text-lg text-slate-700">{{ carriedText(ageDays(task, context.today)) }}</span>
+                </label>
+              </li>
+            </ul>
+          </section>
+
       <p v-if="finished" role="status" class="rounded-2xl bg-emerald-100 p-4 text-2xl font-bold text-emerald-950">
         <span aria-hidden="true">🎉</span> All done for today. Great work!
         <span v-if="dayStar" class="block text-xl font-semibold"><span aria-hidden="true">⭐</span> You earned a star for finishing the day.</span>
@@ -60,7 +116,7 @@ async function toggle(task: { id: string; done: boolean }) {
       <section aria-labelledby="todo" class="space-y-3">
         <h2 id="todo" class="sr-only">Today’s list</h2>
         <p v-if="day.length === 0" class="rounded-2xl bg-white p-5 text-xl text-slate-900">
-          Nothing on the list yet. Add your first task below.
+          Nothing on the list yet. Tap “Add task” to start.
         </p>
         <template v-else>
         <p v-if="anyDone" class="text-right">
@@ -88,7 +144,8 @@ async function toggle(task: { id: string; done: boolean }) {
                 <span v-if="startClock(task, context.today)" class="rounded-full bg-amber-100 px-3 py-0.5 font-semibold text-amber-950">
                   <span aria-hidden="true">⏰</span> {{ startClock(task, context.today) }}
                 </span>
-                <span v-if="!task.done && carriedLabel(task.created_at, context.today)" class="rounded-full bg-sky-100 px-3 py-0.5 font-semibold text-sky-950">{{ carriedLabel(task.created_at, context.today) }}</span>
+                <span v-if="!task.done && carriedText(ageDays(task, context.today))" class="rounded-full bg-sky-100 px-3 py-0.5 font-semibold text-sky-950">{{ carriedText(ageDays(task, context.today)) }}</span>
+                <span v-if="!task.done && task.due" class="rounded-full bg-rose-100 px-3 py-0.5 font-semibold text-rose-950">{{ dueText(task.due) }}</span>
                 <span v-if="task.id === nextId" class="rounded-full bg-emerald-100 px-3 py-0.5 font-semibold text-emerald-950">Do this next</span>
                 <span v-if="!task.done && task.seen_by_parent === false" class="rounded-full bg-slate-100 px-3 py-0.5 text-slate-800">Sent to your parent</span>
                 <span>{{ kindLabel(task.kind) }}<template v-if="task.minutes"> · {{ task.minutes }} min</template> · {{ task.reason }}</span>
@@ -111,24 +168,14 @@ async function toggle(task: { id: string; done: boolean }) {
         <p v-if="message" role="alert" class="text-lg font-semibold text-red-800">{{ message }}</p>
       </section>
 
-      <section aria-labelledby="my-homework" class="space-y-3 rounded-2xl bg-white p-5">
-        <h2 id="my-homework" class="text-2xl font-bold text-slate-900">My homework</h2>
-        <p class="text-lg text-slate-700">Type each thing you need to do. Your parent will see it.</p>
-        <HomeworkChecklist :add="add" />
-      </section>
-
         </div>
-        <aside class="space-y-6 lg:sticky lg:top-4 lg:self-start" aria-label="Add tasks">
-      <section v-if="templates.length" aria-labelledby="quick" class="space-y-3 rounded-2xl bg-white p-5">
-        <h2 id="quick" class="text-2xl font-bold text-slate-900">My usual tasks</h2>
-        <p class="text-lg text-slate-700">Tap one to add it to today.</p>
-        <QuickAdd stacked :templates="templates" :open-titles="openTitles" :add="add" />
-      </section>
-
-      <section aria-labelledby="add-task" class="space-y-3 rounded-2xl bg-white p-5">
-        <h2 id="add-task" class="text-2xl font-bold text-slate-900">What’s not on the list?</h2>
-        <TaskAdder :add="add" />
-      </section>
+        <aside
+          v-if="addOpen"
+          id="add-task-pane"
+          class="order-first lg:sticky lg:top-24 lg:order-none lg:self-start"
+          aria-label="Add a task"
+        >
+          <AddTaskPanel :templates="templates" :open-titles="openTitles" :add="add" @close="addOpen = false" />
         </aside>
       </div>
     </template>

@@ -3,6 +3,7 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { defaultCategory, taskState, todayString } from '../app/utils/todayPlan'
 
 /**
  * Runs every migration, in order, in an in-memory Postgres (PGlite) with small stand-ins for Supabase's
@@ -25,18 +26,42 @@ alter default privileges in schema public grant all on functions to anon, authen
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 `
 
+async function migratedDb() {
+  const db = new PGlite({ extensions: { pgcrypto } })
+  await db.exec(SUPABASE_STANDINS)
+  const files = readdirSync(join(ROOT, 'migrations')).filter((f) => f.endsWith('.sql')).sort()
+  for (const file of files) {
+    try {
+      await db.exec(readFileSync(join(ROOT, 'migrations', file), 'utf8'))
+    } catch (e) {
+      throw new Error(`Migration ${file} failed: ${(e as Error).message}`)
+    }
+  }
+  return db
+}
+
 describe('database migrations and row level security', () => {
-  it('applies every migration and passes the RLS tests', async () => {
-    const db = new PGlite({ extensions: { pgcrypto } })
-    await db.exec(SUPABASE_STANDINS)
-    const files = readdirSync(join(ROOT, 'migrations')).filter((f) => f.endsWith('.sql')).sort()
-    for (const file of files) {
-      try {
-        await db.exec(readFileSync(join(ROOT, 'migrations', file), 'utf8'))
-      } catch (e) {
-        throw new Error(`Migration ${file} failed: ${(e as Error).message}`)
+  it('keeps the carry-over rule in the database equal to the one in the app', async () => {
+    const db = await migratedDb()
+    const today = '2026-10-20'
+    const kinds = ['ixl', 'homework', 'testPrep'] as const
+    for (const kind of kinds) {
+      for (let age = -1; age <= 6; age++) {
+        for (const dueOffset of [null, -1, 0, 4]) {
+          const forDate = todayString(new Date(2026, 9, 20 - age))
+          const due = dueOffset === null ? null : todayString(new Date(2026, 9, 20 + dueOffset))
+          const category = defaultCategory(kind)
+          const fromApp = taskState({ kind, category, for_date: forDate, created_at: `${forDate}T12:00:00Z`, due }, today)
+          const { rows } = await db.query<{ s: string }>('select public.task_state($1, $2::date, $3::date, $4::date) as s', [category, forDate, due, today])
+          expect(rows[0]!.s, `${kind} age ${age} due ${due}`).toBe(fromApp)
+        }
       }
     }
+    await db.close()
+  }, 60_000)
+
+  it('applies every migration and passes the RLS tests', async () => {
+    const db = await migratedDb()
     // The test script ends with an error on purpose: its message is the report, and it rolls everything back.
     let report = ''
     try {

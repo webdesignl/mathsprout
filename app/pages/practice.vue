@@ -9,7 +9,7 @@ import {
   type AnswerBoxes,
 } from '../utils/answer'
 import type { AnyProblem } from '../utils/fraction'
-import type { ProblemOp } from '../utils/problems'
+import { setupFor, type ChapterOp } from '../utils/chapters'
 
 useHead({ title: 'Practice · MathSprout' })
 
@@ -18,17 +18,6 @@ const scratch = useScratchStore()
 
 /** Rough work is for working on problems, not for choosing a set or reading results. */
 const showPad = computed(() => scratch.open && store.view === 'playing' && store.current !== null)
-
-const choices: Array<{ value: ProblemOp; label: string }> = [
-  { value: 'add', label: 'Add' },
-  { value: 'subtract', label: 'Subtract' },
-  { value: 'multiply', label: 'Multiply' },
-  { value: 'divide', label: 'Divide' },
-  { value: 'all', label: 'All' },
-]
-const op = ref<ProblemOp>('add')
-const needsRegroup = ref(false)
-const stories = ref(true)
 
 /** The answer boxes belong to the problem on screen, so what she typed is kept when she moves around. */
 const answer = computed<AnswerBoxes>({
@@ -72,9 +61,9 @@ watch(
   },
 )
 
-function begin() {
+function begin(setup: { ops: ChapterOp[]; needsRegroup: boolean; stories: boolean }) {
   scratch.reset()
-  store.start({ op: op.value, needsRegroup: needsRegroup.value, stories: stories.value })
+  store.start({ ...setupFor(setup.ops), needsRegroup: setup.needsRegroup, stories: setup.stories })
   focusInput()
 }
 
@@ -130,48 +119,12 @@ function leave() {
   <div
     :class="[
       'mx-auto',
-      showPad ? 'max-w-7xl lg:grid lg:grid-cols-[minmax(0,1fr)_34rem] lg:items-start lg:gap-8' : 'max-w-3xl',
+      showPad ? 'max-w-7xl lg:grid lg:grid-cols-[minmax(0,1fr)_34rem] lg:items-start lg:gap-8' : store.view === 'idle' ? 'max-w-7xl' : 'max-w-3xl',
     ]"
   >
     <div :class="['min-w-0 space-y-6', showPad ? 'pb-[60vh] lg:pb-0' : '']">
     <!-- Choose what to practice -->
-    <section v-if="store.view === 'idle'" class="space-y-6">
-      <h1 class="text-4xl font-bold text-emerald-900">Practice</h1>
-
-      <fieldset class="space-y-3">
-        <legend class="text-2xl font-semibold">What do you want to practice?</legend>
-        <div class="flex flex-wrap gap-3">
-          <label
-            v-for="choice in choices"
-            :key="choice.value"
-            class="flex min-h-12 cursor-pointer items-center rounded-xl border-2 border-emerald-700 bg-white px-6 text-xl font-bold text-emerald-900 has-checked:bg-emerald-700 has-checked:text-white has-focus-visible:outline-4 has-focus-visible:outline-offset-2 has-focus-visible:outline-indigo-700"
-          >
-            <input v-model="op" type="radio" name="op" :value="choice.value" class="sr-only" />
-            {{ choice.label }}
-          </label>
-        </div>
-      </fieldset>
-
-      <label class="flex min-h-12 cursor-pointer items-center gap-3 text-xl font-semibold">
-        <input v-model="needsRegroup" type="checkbox" class="size-7 accent-emerald-700" />
-        Tricky regrouping
-        <span class="text-lg font-normal text-slate-700">(subtraction where you borrow)</span>
-      </label>
-
-      <label class="flex min-h-12 cursor-pointer items-center gap-3 text-xl font-semibold">
-        <input v-model="stories" type="checkbox" class="size-7 accent-emerald-700" />
-        Story problems
-        <span class="text-lg font-normal text-slate-700">(real-life word problems)</span>
-      </label>
-
-      <button
-        type="button"
-        :class="[button, 'min-h-16 bg-emerald-700 px-10 text-2xl text-white hover:bg-emerald-800']"
-        @click="begin"
-      >
-        Start {{ SET_SIZE }} problems
-      </button>
-    </section>
+    <PracticeChapterPicker v-if="store.view === 'idle'" @start="begin" />
 
     <!-- Real-world ideas for extra credit -->
     <PracticeRealWorldUnlock

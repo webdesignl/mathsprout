@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useChildStore } from '../../stores/child'
-import { TASK_KINDS, kindLabel, type TaskKind } from '../../utils/todayPlan'
+import { TASK_CATEGORIES, TASK_KINDS, defaultCategory, kindLabel, type TaskCategory, type TaskKind } from '../../utils/todayPlan'
 
 const childStore = useChildStore()
 const childId = computed(() => childStore.selectedId)
@@ -10,6 +10,12 @@ const kind = ref<TaskKind>('homework')
 const title = ref('')
 const minutes = ref<number | null>(null)
 const askDetail = ref(false)
+const category = ref<TaskCategory>('important')
+const repeatDaily = ref(false)
+watch(kind, (k) => {
+  category.value = defaultCategory(k)
+  repeatDaily.value = false
+})
 const message = ref('')
 const blocked = 'Could not save. Is parent mode still on?'
 
@@ -19,12 +25,20 @@ async function submit() {
     message.value = 'Type a name for the task.'
     return
   }
-  const ok = await add({ kind: kind.value, title: title.value.trim(), minutes: minutes.value, ask_detail: askDetail.value })
+  const ok = await add({
+    kind: kind.value,
+    title: title.value.trim(),
+    minutes: minutes.value,
+    ask_detail: askDetail.value,
+    category: category.value,
+    repeat_daily: category.value === 'routine' && repeatDaily.value,
+  })
   message.value = ok ? 'Added.' : blocked
   if (ok) {
     title.value = ''
     minutes.value = null
     askDetail.value = false
+    repeatDaily.value = false
   }
 }
 async function usual() {
@@ -53,7 +67,7 @@ const input = 'min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-
           <span class="min-w-0 flex-1 text-xl font-bold text-slate-900">
             {{ t.title }}
             <span class="block text-lg font-normal text-slate-700">
-              {{ kindLabel(t.kind) }}<template v-if="t.minutes"> · {{ t.minutes }} min</template><template v-if="t.ask_detail"> · she adds pages</template>
+              {{ TASK_CATEGORIES.find((c) => c.category === t.category)?.label }}<template v-if="t.repeat_daily"> · every day</template> · {{ kindLabel(t.kind) }}<template v-if="t.minutes"> · {{ t.minutes }} min</template><template v-if="t.ask_detail"> · she adds pages</template>
             </span>
           </span>
           <button type="button" :class="ghost" :aria-label="`Delete ${t.title}`" @click="del(t.id)">Delete</button>
@@ -69,11 +83,19 @@ const input = 'min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-
             <option v-for="k in TASK_KINDS" :key="k.kind" :value="k.kind">{{ k.label }}</option>
           </select>
         </label>
+        <label class="space-y-1 text-lg font-semibold">Kind of task
+          <select v-model="category" :class="[input, 'block']">
+            <option v-for="c in TASK_CATEGORIES" :key="c.category" :value="c.category">{{ c.label }}</option>
+          </select>
+        </label>
         <label class="min-w-48 flex-1 space-y-1 text-lg font-semibold">Name
           <input v-model="title" maxlength="80" :class="[input, 'block w-full']" autocomplete="off">
         </label>
         <label class="space-y-1 text-lg font-semibold">Minutes
           <input v-model.number="minutes" type="number" min="1" max="240" :class="[input, 'block w-24']">
+        </label>
+        <label v-if="category === 'routine'" class="flex min-h-12 items-center gap-2 text-lg font-semibold">
+          <input v-model="repeatDaily" type="checkbox" class="size-6 accent-emerald-700"> Add every day
         </label>
         <label class="flex min-h-12 items-center gap-2 text-lg font-semibold">
           <input v-model="askDetail" type="checkbox" class="size-6 accent-emerald-700"> She adds pages

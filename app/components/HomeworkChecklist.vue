@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import type { TaskKind } from '../utils/todayPlan'
+import type { TaskCategory, TaskKind } from '../utils/todayPlan'
 
-const props = defineProps<{ add: (kind: TaskKind, title: string, due: string | null) => Promise<boolean> }>()
+const props = defineProps<{
+  add: (kind: TaskKind, title: string, due: string | null, minutes?: number | null, category?: TaskCategory) => Promise<boolean>
+}>()
 
 const MAX_LINES = 10
 const lines = ref<string[]>([''])
@@ -31,7 +33,7 @@ async function send() {
     return
   }
   busy.value = true
-  const results = await Promise.all(items.map((title) => props.add('homework', title, null)))
+  const results = await Promise.all(items.map((title) => props.add('homework', title, null, null, 'important')))
   busy.value = false
   const failed = items.filter((_, i) => !results[i])
   if (failed.length) {

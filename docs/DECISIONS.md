@@ -523,7 +523,36 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Date:** 2026-10
 - **Source:** User
 - **Decision:** An unfinished task stays open, so it shows on the next day's list by itself, with a small blue tag ("From yesterday", "From 3 days ago"). Finished tasks from earlier days are not shown. On the same day she can press "Clear finished" to hide them (`archive_done_tasks()`); they stay in the database, so "MAP 3 times a week" still counts them, and the day still counts as finished. Finished tasks older than 14 days are deleted (`tidy_tasks()`, run quietly when Today loads). A parent's order and start times are for one day, so a carried-over task goes back to the rule order the next day. Both functions only touch the caller's own family.
+- **Status:** Active. The 14-day delete (`tidy_tasks`) is replaced by D-65.
+
+### D-65: Task categories, backlog, pause and a 30-day history
+- **Date:** 2026-10
+- **Source:** User (after a project-manager review of the carry-over flow)
+- **Categories (picked when a task is added, with a usual default per kind):**
+  - **Daily routine** (IXL, reading, MAP practice): never carried over. If not done it expires at the end of the day. A usual task can be marked "Add every day", and then today's copy is added by itself (`ensure_routines`, once per day).
+  - **Time-sensitive** (test prep, Olympiad): a due date is required (the database refuses one without it, or in the past). The task expires after the due date. It is never carried over or sent to the Backlog.
+  - **Important** (homework pages, writing a summary): carried over for 3 days with "From yesterday" and "From 2 days ago". From day 4 it is in the **Backlog**.
+- **For her:** carried-over tasks are not mixed into her numbered list. A friendly "Did you forget yesterday's homework?" box with "Show me (N)" lists them when she taps it, and she can tick them there. The Backlog is not shown to her.
+- **For a parent:** a Backlog section (badge on the sidebar and the Parent link) with Do it today, Done on paper, and Delete for each task. A "Pause" button for a child (holiday or sick): she sees "Taking a break", routines do not repeat, and on Resume open important tasks move forward by the days paused so nothing aged.
+- **History:** finished tasks are no longer kept. At the start of a new day (when Today loads), the day's finished tasks become one short summary (Routine, Homework, Extra; at most 1500 characters; MAP count kept for the weekly rule) and the tasks are deleted, along with expired ones. Summaries and daily plans older than 30 days are deleted. A finished day waits in History with Give a star and Seen until a parent acts; once starred or seen it shows no buttons. A day can be starred within a week; after that it says "Not reviewed". If a finished day has waited 5 to 7 days, the Parent page says "Forgot to give this week's Task done stars?!".
+- **Notifications:** in app only (badges, banners, the reminder line). No email or text service, so there is no cost. Email or push would need a service and a scheduled function and is not planned.
+- **Same rule in two places:** the carry-over rule is in the app (`taskState`) and in the database (`task_state`, used when deciding whether the day is finished). A test compares them for every kind, age and due date.
 - **Status:** Active
+
+### D-66: Responsive layout, a menu on the left, and an Add task panel
+- **Date:** 2026-10
+- **Source:** User (before sharing the project)
+- **Text size:** the page root is the browser's 16px, so a person's own text-size setting works. The earlier 18px root was a design choice for a young reader, not an accessibility rule, and it made every page big. Sizes now come from one type scale in `main.css`: pages for her are larger than the Parent page, and phones are one step smaller than tablets and desktops. Body text stays at 16px or more, and controls stay at least 44px to tap.
+- **Header:** below 1024px (phones and tablets) there is a menu button on the left that opens a drawer from the left, and a thin strip under the header with the child's name and Sign in or Sign out. The drawer has the four main links, and Sign in or Sign out at the bottom. Parent is a group that opens inside the drawer and stays open, showing its seven sections; there is no section dropdown in the middle of the Parent page on phones. At 1024px and up, the links sit in one row, and the Parent sections are a side panel from 768px. The menu closes on Escape or when a link is chosen, and the page has a "Skip to content" link.
+- **Today:** the list and the notices (finished day, "Did you forget", break) are one pane. Adding tasks is another pane with three tabs: Quick add (usual tasks), Homework (the checklist) and New task. It sits beside the list on wide screens and above it on phones, starts open on wide screens and closed on phones, and "Add task" and "Done" open and minimize it, so the list can have the whole page.
+- **Status:** Active
+
+### D-67: Practice is a set of chapter cards with search
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** The Practice start screen has a green header with the title, a "Search chapter" box with a magnifier icon, and a Grade drop-down (only "Grade 4" for now). Below are chapter cards: Fractions (ready), Decimals and Place value (coming soon, cannot be started). Search matches a chapter's name and a few keywords (so "add" finds Fractions). If nothing matches it says "No results found", suggests the chapters, and has a "Clear search" button. The grid is 1 card across on a phone, 2 on a large phone, 3 on a tablet and 5 on a desktop.
+- **In the Fractions card:** check boxes for Add, Subtract, Multiply and Divide, "All" (ticks or clears the four), "Word problems", and "Tricky regrouping" (shown only when Subtract is ticked), and a "Practice 10 questions" button. Ticking several operations mixes them: each of the 10 problems uses one of the ticked operations at random. With none ticked, the button says "Tick at least one" instead of being disabled.
+- **Status:** Active. Replaces the one-choice operation buttons.
 
 ---
 

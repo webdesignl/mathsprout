@@ -1,4 +1,4 @@
-import type { TaskKind } from './todayPlan'
+import type { TaskCategory, TaskKind } from './todayPlan'
 
 export interface TaskTemplate {
   id: string
@@ -7,6 +7,9 @@ export interface TaskTemplate {
   minutes: number | null
   /** She types the page numbers (or other detail) each time. */
   ask_detail: boolean
+  category: TaskCategory
+  /** A daily routine that is added to her list every day by itself. */
+  repeat_daily: boolean
   sort_order: number
 }
 
@@ -14,12 +17,12 @@ export type NewTemplate = Omit<TaskTemplate, 'id' | 'sort_order'>
 
 /** The usual set a parent can add with one tap, then change. Written to match a typical week, not copied from any book. */
 export const DEFAULT_TEMPLATES: NewTemplate[] = [
-  { kind: 'ixl', title: 'IXL', minutes: null, ask_detail: false },
-  { kind: 'homework', title: 'Math homework book', minutes: null, ask_detail: true },
-  { kind: 'reading', title: 'Reading', minutes: 30, ask_detail: false },
-  { kind: 'homework', title: 'Write a summary of the novel', minutes: null, ask_detail: false },
-  { kind: 'olympiad', title: 'Olympiad practice', minutes: null, ask_detail: false },
-  { kind: 'map', title: 'MAP practice', minutes: 30, ask_detail: false },
+  { kind: 'ixl', title: 'IXL', minutes: null, ask_detail: false, category: 'routine', repeat_daily: true },
+  { kind: 'homework', title: 'Math homework book', minutes: null, ask_detail: true, category: 'important', repeat_daily: false },
+  { kind: 'reading', title: 'Reading', minutes: 30, ask_detail: false, category: 'routine', repeat_daily: true },
+  { kind: 'homework', title: 'Write a summary of the novel', minutes: null, ask_detail: false, category: 'important', repeat_daily: false },
+  { kind: 'olympiad', title: 'Olympiad practice', minutes: null, ask_detail: false, category: 'timed', repeat_daily: false },
+  { kind: 'map', title: 'MAP practice', minutes: 30, ask_detail: false, category: 'routine', repeat_daily: false },
 ]
 
 const MAX_TITLE = 120

@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @layer base {
-  /* 18px body text for young readers; Tailwind sizes scale from this. */
+  /* 16px root: the browser default, so a person's own text-size setting keeps working. */
   html {
-    font-size: 112.5%;
+    font-size: 100%;
   }
 
   body {
@@ -12,5 +12,57 @@
 
   :focus-visible {
     @apply outline-4 outline-offset-2 outline-indigo-700;
+  }
+}
+
+/*
+ * One type scale for the whole app, changed here instead of on every element.
+ * Pages for her are larger than the Parent page, and phones are a step smaller than tablets and desktops.
+ * Body text never goes below 16px.
+ */
+:root {
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+}
+
+@media (max-width: 39.99rem) {
+  :root {
+    --text-lg: 1rem;
+    --text-xl: 1.125rem;
+    --text-2xl: 1.25rem;
+    --text-3xl: 1.5rem;
+    --text-4xl: 1.75rem;
+    --text-5xl: 2.25rem;
+  }
+}
+
+/* The Parent page is for an adult: denser, still easy to read and tap (44px controls). */
+html[data-area='parent'] {
+  --text-lg: 1rem;
+  --text-xl: 1.0625rem;
+  --text-2xl: 1.25rem;
+  --text-3xl: 1.5rem;
+  --text-4xl: 1.75rem;
+}
+html[data-area='parent'] .min-h-12 {
+  min-height: 2.75rem;
+}
+html[data-area='parent'] .min-h-14 {
+  min-height: 3rem;
+}
+
+@media (max-width: 39.99rem) {
+  .min-h-16 {
+    min-height: 3.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
   }
 }

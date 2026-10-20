@@ -4,7 +4,7 @@ import { kindLabel, type OrderedTask } from '../../utils/todayPlan'
 
 const childStore = useChildStore()
 const childId = computed(() => childStore.selectedId)
-const { ordered, context, screenTimeDay, dayDoneAt, dayDoneSeen, dayStar, giveDayStar, markDaySeen, loaded, failed, add, setScreenTimeDay, saveOrder, clearOrder, setNote, markSeen, remove } = useTodayData(childId)
+const { ordered, paused, setPaused, context, screenTimeDay, dayDoneAt, dayDoneSeen, dayStar, giveDayStar, markDaySeen, loaded, failed, add, setScreenTimeDay, saveOrder, clearOrder, setNote, markSeen, remove } = useTodayData(childId)
 const noteDrafts = ref<Record<string, string>>({})
 const timeDrafts = ref<Record<string, string>>({})
 watch(
@@ -18,6 +18,9 @@ watch(
   { immediate: true },
 )
 const doneClock = computed(() => (dayDoneAt.value ? new Date(dayDoneAt.value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''))
+async function togglePause() {
+  message.value = (await setPaused(!paused.value)) ? (paused.value ? 'Paused. Nothing will age until you resume.' : 'Resumed.') : blocked
+}
 async function giveStar() {
   message.value = (await giveDayStar()) ? 'Star given.' : blocked
 }
@@ -83,6 +86,12 @@ const ghost = 'inline-flex min-h-12 items-center justify-center rounded-xl bg-wh
     <p v-else-if="failed" role="alert" class="text-lg text-red-800">Could not load the plan.</p>
 
     <template v-else-if="loaded">
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl p-3" :class="paused ? 'bg-sky-100' : 'bg-slate-50'">
+        <p class="text-lg font-semibold text-slate-900">
+          {{ paused ? 'Paused: no list, nothing ages.' : 'Going on a break or sick?' }}
+        </p>
+        <button type="button" :class="ghost" @click="togglePause">{{ paused ? 'Resume' : 'Pause' }}</button>
+      </div>
       <label class="flex min-h-12 items-center gap-3 text-xl font-semibold text-slate-900">
         <input type="checkbox" class="size-7 accent-emerald-700" :checked="screenTimeDay" @change="toggleScreen">
         Screen-time day (IXL first)
