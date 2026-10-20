@@ -1,9 +1,10 @@
 import tailwindcss from '@tailwindcss/vite'
+import { normalizeSupabaseUrl } from './app/utils/supabaseUrl'
 
 // Supabase needs a URL and the publishable key at build time. Without them the whole site used to answer 500
 // (the Supabase module cannot start). So the app falls back to a harmless local address: Practice and Tutor
 // keep working, and the login page says plainly that sign-in is not set up. Never put a secret key here.
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || ''
+const supabaseUrl = normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || '')
 const supabaseKey = process.env.SUPABASE_KEY || process.env.NUXT_PUBLIC_SUPABASE_KEY || ''
 const supabaseConfigured = Boolean(supabaseUrl && supabaseKey)
 
