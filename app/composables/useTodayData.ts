@@ -14,6 +14,8 @@ import {
  * Today's tasks for one child. Reads and writes go through Supabase with the signed-in session, so the database
  * decides what is allowed: she can add and tick tasks; the order, the screen-time day and deleting need parent mode.
  */
+let tidied = false
+
 export function useTodayData(childId: Ref<string | null>) {
   const client = useSupabaseClient<Database>()
 
@@ -46,13 +48,18 @@ export function useTodayData(childId: Ref<string | null>) {
   async function load() {
     failed.value = false
     today.value = todayString()
+    // Old finished tasks are deleted in the background. It never blocks the list.
+    if (!tidied) {
+      tidied = true
+      void client.rpc('tidy_tasks')
+    }
     const id = childId.value
     if (!id) return
     const midnight = new Date()
     midnight.setHours(0, 0, 0, 0)
     const [open, doneToday, plan, map] = await Promise.all([
       client.from('tasks').select('*').eq('child_id', id).eq('done', false).order('created_at'),
-      client.from('tasks').select('*').eq('child_id', id).eq('done', true).gte('done_at', midnight.toISOString()),
+      client.from('tasks').select('*').eq('child_id', id).eq('done', true).eq('archived', false).gte('done_at', midnight.toISOString()),
       client.from('daily_plans').select('screen_time_day, completed_at, completion_seen').eq('child_id', id).eq('plan_date', today.value).maybeSingle(),
       client.from('tasks').select('id', { count: 'exact', head: true }).eq('child_id', id).eq('kind', 'map').eq('done', true).gte('done_at', weekStartIso()).lt('done_at', midnight.toISOString()),
     ])
@@ -96,6 +103,15 @@ export function useTodayData(childId: Ref<string | null>) {
         dayDoneSeen.value = false
       }
     }
+    return true
+  }
+
+  /** "Clear finished": hides the finished tasks from her list. Unfinished ones stay and carry over to tomorrow. */
+  async function clearFinished(): Promise<boolean> {
+    if (!childId.value) return false
+    const { error } = await client.rpc('archive_done_tasks', { child_id: childId.value })
+    if (error) return false
+    tasks.value = tasks.value.filter((t) => !t.done)
     return true
   }
 
@@ -218,5 +234,5 @@ export function useTodayData(childId: Ref<string | null>) {
     { immediate: true },
   )
 
-  return { tasks, ordered, day, allDone, dayDoneAt, dayDoneSeen, dayStar, giveDayStar, markDaySeen, uncomplete, context, screenTimeDay, loaded, failed, load, complete, add, setScreenTimeDay, saveOrder, clearOrder, setNote, markSeen, remove }
+  return { tasks, ordered, day, allDone, dayDoneAt, dayDoneSeen, dayStar, giveDayStar, markDaySeen, uncomplete, clearFinished, context, screenTimeDay, loaded, failed, load, complete, add, setScreenTimeDay, saveOrder, clearOrder, setNote, markSeen, remove }
 }

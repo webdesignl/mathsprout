@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { useChildStore } from '../stores/child'
-import { kindLabel, startClock } from '../utils/todayPlan'
+import { carriedLabel, kindLabel, startClock } from '../utils/todayPlan'
 
 useHead({ title: 'Today · MathSprout' })
 
 const user = useSupabaseUser()
 const childStore = useChildStore()
 const childId = computed(() => childStore.selectedId)
-const { day, allDone, dayStar, context, load, loaded, failed, complete, uncomplete, add } = useTodayData(childId)
+const { day, allDone, dayDoneAt, dayStar, context, load, loaded, failed, complete, uncomplete, clearFinished, add } = useTodayData(childId)
+const anyDone = computed(() => day.value.some((t) => t.done))
+/** The day counts as finished when everything is ticked, or when it was finished and then cleared away. */
+const finished = computed(() => allDone.value || (Boolean(dayDoneAt.value) && day.value.every((t) => t.done)))
 
 // A parent may give the star while this page is open on another device; check again when she comes back to it.
 function refresh() {
@@ -22,6 +25,10 @@ const nextId = computed(() => day.value.find((t) => !t.done)?.id ?? null)
 const message = ref('')
 
 /** Ticking works like a shopping list: tick to cross out, tick again to bring it back. */
+async function tidy() {
+  message.value = (await clearFinished()) ? '' : 'Could not clear. Try again.'
+}
+
 async function toggle(task: { id: string; done: boolean }) {
   message.value = ''
   const ok = task.done ? await uncomplete(task.id) : await complete(task.id)
@@ -44,7 +51,7 @@ async function toggle(task: { id: string; done: boolean }) {
     <template v-else-if="loaded">
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div class="min-w-0 space-y-6">
-      <p v-if="allDone" role="status" class="rounded-2xl bg-emerald-100 p-4 text-2xl font-bold text-emerald-950">
+      <p v-if="finished" role="status" class="rounded-2xl bg-emerald-100 p-4 text-2xl font-bold text-emerald-950">
         <span aria-hidden="true">🎉</span> All done for today. Great work!
         <span v-if="dayStar" class="block text-xl font-semibold"><span aria-hidden="true">⭐</span> You earned a star for finishing the day.</span>
         <span v-else class="block text-xl font-semibold">Your parent will take a look and give you a star.</span>
@@ -55,7 +62,13 @@ async function toggle(task: { id: string; done: boolean }) {
         <p v-if="day.length === 0" class="rounded-2xl bg-white p-5 text-xl text-slate-900">
           Nothing on the list yet. Add your first task below.
         </p>
-        <ol v-else class="space-y-3">
+        <template v-else>
+        <p v-if="anyDone" class="text-right">
+          <button type="button" class="min-h-12 text-lg font-semibold text-emerald-900 underline underline-offset-4" @click="tidy">
+            Clear finished
+          </button>
+        </p>
+        <ol class="space-y-3">
           <li
             v-for="(task, i) in day"
             :key="task.id"
@@ -75,6 +88,7 @@ async function toggle(task: { id: string; done: boolean }) {
                 <span v-if="startClock(task, context.today)" class="rounded-full bg-amber-100 px-3 py-0.5 font-semibold text-amber-950">
                   <span aria-hidden="true">⏰</span> {{ startClock(task, context.today) }}
                 </span>
+                <span v-if="!task.done && carriedLabel(task.created_at, context.today)" class="rounded-full bg-sky-100 px-3 py-0.5 font-semibold text-sky-950">{{ carriedLabel(task.created_at, context.today) }}</span>
                 <span v-if="task.id === nextId" class="rounded-full bg-emerald-100 px-3 py-0.5 font-semibold text-emerald-950">Do this next</span>
                 <span v-if="!task.done && task.seen_by_parent === false" class="rounded-full bg-slate-100 px-3 py-0.5 text-slate-800">Sent to your parent</span>
                 <span>{{ kindLabel(task.kind) }}<template v-if="task.minutes"> · {{ task.minutes }} min</template> · {{ task.reason }}</span>
@@ -93,6 +107,7 @@ async function toggle(task: { id: string; done: boolean }) {
             >
           </li>
         </ol>
+        </template>
         <p v-if="message" role="alert" class="text-lg font-semibold text-red-800">{{ message }}</p>
       </section>
 

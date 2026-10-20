@@ -507,6 +507,7 @@ export type Database = {
       tasks: {
         Row: {
           added_by: string
+          archived: boolean
           child_id: string
           created_at: string
           done: boolean
@@ -525,6 +526,7 @@ export type Database = {
         }
         Insert: {
           added_by?: string
+          archived?: boolean
           child_id: string
           created_at?: string
           done?: boolean
@@ -543,6 +545,7 @@ export type Database = {
         }
         Update: {
           added_by?: string
+          archived?: boolean
           child_id?: string
           created_at?: string
           done?: boolean
@@ -616,6 +619,8 @@ export type Database = {
       give_day_star: { Args: { child_id: string; plan_date: string }; Returns: undefined }
       report_day_done: { Args: { child_id: string; plan_date: string }; Returns: boolean }
       uncomplete_task: { Args: { task_id: string }; Returns: undefined }
+      archive_done_tasks: { Args: { child_id: string }; Returns: number }
+      tidy_tasks: { Args: never; Returns: number }
       complete_task: { Args: { task_id: string }; Returns: undefined }
       current_session_id: { Args: never; Returns: string }
       give_star: { Args: { approved: boolean; idea_id: string }; Returns: undefined }
