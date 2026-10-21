@@ -33,6 +33,32 @@ watch(() => store.view, (view) => view === 'home' && loadProgress())
 const progress = computed(() => deepCheckProgress(lines.value))
 const solvedChallenges = computed(() => challengesSolved(lines.value))
 
+// Each topic starts folded, so she sees every topic heading at once and opens only the one she wants.
+// What is open is kept for the visit (not for good), so coming back from a quiz lands in the same place.
+const OPEN_KEY = 'mathsprout.deepCheckOpen'
+const open = reactive<Record<string, boolean>>({})
+onMounted(() => {
+  try {
+    Object.assign(open, JSON.parse(window.sessionStorage.getItem(OPEN_KEY) ?? '{}'))
+  } catch {
+    // Storage may be blocked; everything just starts folded.
+  }
+})
+function toggle(key: string) {
+  open[key] = !open[key]
+  try {
+    window.sessionStorage.setItem(OPEN_KEY, JSON.stringify(open))
+  } catch {
+    // Not remembered; that is fine.
+  }
+}
+function masteredIn(groupId: string) {
+  return rulesIn(groupId).filter((r) => (progress.value[r.id]?.stars ?? 0) === MASTERED_STARS).length
+}
+function solvedIn(groupId: string) {
+  return challengesIn(groupId).filter((c) => solvedChallenges.value.has(c.id)).length
+}
+
 function onChallenge(values: Record<string, string | number>, hintsUsed: number) {
   store.submitChallenge(values, hintsUsed)
 }
@@ -78,30 +104,45 @@ const scoreMessage = computed(() => {
         questions. There is no timer, and every answer teaches you something.
       </p>
 
-      <section v-for="group in RULE_GROUPS" :key="group.id" :aria-labelledby="`group-${group.id}`" class="space-y-4">
-        <div class="space-y-1">
-          <h2 :id="`group-${group.id}`" class="text-2xl font-bold text-emerald-900">{{ group.title }}</h2>
-          <p class="text-base text-slate-700">{{ group.summary }}</p>
+      <section v-for="group in RULE_GROUPS" :key="group.id" class="rounded-2xl bg-white ring-1 ring-slate-200">
+        <!-- The topic heading opens and folds its rules. The chapter quiz is right beside it. -->
+        <div class="flex items-center gap-2 p-3 sm:gap-3 sm:p-4">
+          <button
+            type="button"
+            class="flex min-h-12 min-w-0 flex-1 basis-36 items-center gap-2 rounded-xl px-1 text-left hover:bg-emerald-50"
+            :aria-expanded="Boolean(open[group.id])"
+            :aria-controls="`topic-${group.id}`"
+            @click="toggle(group.id)"
+          >
+            <svg class="size-6 shrink-0 text-emerald-800 transition-transform" :class="open[group.id] ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+            <span class="min-w-0">
+              <span class="block text-lg font-bold leading-snug text-emerald-900 sm:text-2xl">{{ group.title }}</span>
+              <span class="block text-sm text-slate-700 sm:text-base">
+                <template v-if="rulesIn(group.id).length === 0">Coming soon</template>
+                <template v-else>
+                  {{ rulesIn(group.id).length }} rules · {{ masteredIn(group.id) }} mastered<template v-if="challengesIn(group.id).length"> · {{ solvedIn(group.id) }} of {{ challengesIn(group.id).length }} challenges solved</template>
+                </template>
+              </span>
+            </span>
+          </button>
+          <button
+            v-if="rulesIn(group.id).length"
+            type="button"
+            class="inline-flex min-h-12 shrink-0 items-center rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 sm:px-5 sm:text-lg"
+            :aria-label="`Chapter quiz: ${group.title}`"
+            @click="store.startChapter(group.id)"
+          >
+            Chapter quiz
+          </button>
         </div>
 
-        <!-- A topic whose rules are not written yet -->
-        <p v-if="rulesIn(group.id).length === 0" class="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-base font-semibold text-slate-800">
-          Coming soon
-        </p>
+        <div v-if="open[group.id] && rulesIn(group.id).length" :id="`topic-${group.id}`" class="space-y-4 border-t border-slate-200 p-3 sm:p-4">
+          <p class="text-base text-slate-700">{{ group.summary }}</p>
 
-        <template v-else>
-          <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-emerald-700 p-4 text-white sm:p-5">
-            <div>
-              <h3 class="text-xl font-bold">Chapter quiz</h3>
-              <p class="text-base text-emerald-50">10 mixed questions from all {{ rulesIn(group.id).length }} rules here. A good check before a test.</p>
-            </div>
-            <button type="button" class="inline-flex min-h-12 items-center rounded-xl bg-white px-6 text-lg font-bold text-emerald-900 hover:bg-emerald-50" @click="store.startChapter(group.id)">
-              Start
-            </button>
-          </div>
-
-          <ul class="grid gap-4 sm:grid-cols-2">
-            <li v-for="rule in rulesIn(group.id)" :key="rule.id" class="flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+          <ul class="grid gap-3 sm:grid-cols-2">
+            <li v-for="rule in rulesIn(group.id)" :key="rule.id" class="flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
               <div>
                 <p class="text-base font-semibold text-emerald-800">{{ rule.id }}</p>
                 <h3 class="text-xl font-bold text-slate-900">{{ rule.title }}</h3>
@@ -125,12 +166,23 @@ const scoreMessage = computed(() => {
             </li>
           </ul>
 
-          <!-- Olympiad challenges for this topic -->
-          <div v-if="challengesIn(group.id).length" class="space-y-3">
-            <h3 class="text-xl font-bold text-emerald-900">Olympiad challenges</h3>
-            <p class="text-base text-slate-700">Word problems and puzzles with a hint. Take your time.</p>
-            <ul class="grid gap-3 sm:grid-cols-2">
-              <li v-for="c in challengesIn(group.id)" :key="c.id" class="flex flex-col gap-2 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+          <!-- Olympiad challenges for this topic: folded too -->
+          <div v-if="challengesIn(group.id).length" class="rounded-2xl ring-1 ring-slate-200">
+            <button
+              type="button"
+              class="flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 text-left hover:bg-emerald-50"
+              :aria-expanded="Boolean(open[`${group.id}-challenges`])"
+              :aria-controls="`challenges-${group.id}`"
+              @click="toggle(`${group.id}-challenges`)"
+            >
+              <svg class="size-5 shrink-0 text-emerald-800 transition-transform" :class="open[`${group.id}-challenges`] ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+              <span class="text-lg font-bold text-emerald-900">Olympiad challenges</span>
+              <span class="text-base text-slate-700">{{ solvedIn(group.id) }} of {{ challengesIn(group.id).length }} solved</span>
+            </button>
+            <ul v-if="open[`${group.id}-challenges`]" :id="`challenges-${group.id}`" class="grid gap-3 p-3 sm:grid-cols-2">
+              <li v-for="c in challengesIn(group.id)" :key="c.id" class="flex flex-col gap-2 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
                 <div class="flex items-start justify-between gap-2">
                   <h4 class="text-lg font-bold text-slate-900">{{ c.title }}</h4>
                   <span v-if="solvedChallenges.has(c.id)" class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-sm font-semibold text-emerald-950">Solved ✓</span>
@@ -141,7 +193,7 @@ const scoreMessage = computed(() => {
               </li>
             </ul>
           </div>
-        </template>
+        </div>
       </section>
     </template>
 
