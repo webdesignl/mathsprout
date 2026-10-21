@@ -2,11 +2,13 @@
 import { ITEM_TYPES, RULE_GROUPS } from '../data/deepCheck'
 import { useDeepCheckStore } from '../stores/deepCheck'
 import { useChildStore } from '../stores/child'
+import { useScratchStore } from '../stores/scratch'
 import { challengesIn, challengesSolved, deepCheckProgress, MASTERED_STARS, rulesIn, typeLabel, type AttemptLine, type Grade } from '../utils/deepCheck'
 
 useHead({ title: 'Deep Check · MathSprout' })
 
 const store = useDeepCheckStore()
+const scratch = useScratchStore()
 const childStore = useChildStore()
 const client = useSupabaseClient()
 const user = useSupabaseUser()
@@ -31,6 +33,13 @@ onMounted(() => {
 })
 watch(() => store.view, (view) => view === 'home' && loadProgress())
 const progress = computed(() => deepCheckProgress(lines.value))
+
+// Rough work, the same pad as in Practice: one drawing per question or challenge, kept while the tab stays open.
+const canDraw = computed(() => (store.view === 'quiz' && store.current !== null) || (store.view === 'challenge' && store.challenge !== undefined))
+const showPad = computed(() => scratch.open && canDraw.value)
+const padKey = computed(() => (store.view === 'quiz' ? `dc-${store.current?.id}` : `dc-${store.challenge?.id}`))
+// Back on the rules page, the old scribbles are cleared.
+watch(() => store.view, (view) => view === 'home' && scratch.reset())
 const solvedChallenges = computed(() => challengesSolved(lines.value))
 
 // Each topic starts folded, so she sees every topic heading at once and opens only the one she wants.
@@ -84,17 +93,32 @@ const scoreMessage = computed(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl space-y-6">
+  <div :class="['mx-auto', showPad ? 'max-w-7xl lg:grid lg:grid-cols-[minmax(0,1fr)_34rem] lg:items-start lg:gap-8' : 'max-w-4xl']">
+    <div :class="['min-w-0 space-y-6', showPad ? 'pb-[60vh] lg:pb-0' : '']">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-3xl font-bold text-emerald-900 sm:text-4xl">{{ heading }}</h1>
-      <button
-        v-if="store.view !== 'home'"
-        type="button"
-        class="inline-flex min-h-12 items-center rounded-xl bg-white px-4 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
-        @click="store.goHome()"
-      >
-        All rules
-      </button>
+      <div v-if="store.view !== 'home'" class="flex flex-wrap items-center gap-2">
+        <button
+          v-if="canDraw"
+          type="button"
+          aria-controls="rough-work"
+          :aria-expanded="showPad"
+          class="inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-4 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+          @click="scratch.toggle()"
+        >
+          <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+            <path d="M4 20l1-4L16 5l3 3L8 19l-4 1Z" stroke-linejoin="round" />
+          </svg>
+          Rough work
+        </button>
+        <button
+          type="button"
+          class="inline-flex min-h-12 items-center rounded-xl bg-white px-4 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+          @click="store.goHome()"
+        >
+          All rules
+        </button>
+      </div>
     </div>
 
     <!-- Home: choose a rule, or the chapter quiz -->
@@ -122,7 +146,7 @@ const scoreMessage = computed(() => {
               <span class="block text-sm text-slate-700 sm:text-base">
                 <template v-if="rulesIn(group.id).length === 0">Coming soon</template>
                 <template v-else>
-                  {{ rulesIn(group.id).length }} rules · {{ masteredIn(group.id) }} mastered<template v-if="challengesIn(group.id).length"> · {{ solvedIn(group.id) }} of {{ challengesIn(group.id).length }} challenges solved</template>
+                  {{ rulesIn(group.id).length }} rules · {{ masteredIn(group.id) }} mastered
                 </template>
               </span>
             </span>
@@ -136,6 +160,34 @@ const scoreMessage = computed(() => {
           >
             Chapter quiz
           </button>
+        </div>
+
+        <!-- Olympiad challenges: right under the topic heading, folded, so she does not scroll past the rules to find them -->
+        <div v-if="challengesIn(group.id).length" class="border-t border-slate-200">
+          <button
+            type="button"
+            class="flex min-h-12 w-full items-center gap-3 px-4 text-left hover:bg-emerald-50 sm:px-5"
+            :aria-expanded="Boolean(open[`${group.id}-challenges`])"
+            :aria-controls="`challenges-${group.id}`"
+            @click="toggle(`${group.id}-challenges`)"
+          >
+            <svg class="size-5 shrink-0 text-emerald-800 transition-transform" :class="open[`${group.id}-challenges`] ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+            <span class="text-lg font-bold text-emerald-900">Olympiad challenges</span>
+            <span class="text-sm text-slate-700 sm:text-base">{{ solvedIn(group.id) }} of {{ challengesIn(group.id).length }} solved</span>
+          </button>
+          <ul v-if="open[`${group.id}-challenges`]" :id="`challenges-${group.id}`" class="grid gap-3 p-3 pt-1 sm:grid-cols-2 sm:p-4 sm:pt-1">
+            <li v-for="c in challengesIn(group.id)" :key="c.id" class="flex flex-col gap-2 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+              <div class="flex items-start justify-between gap-2">
+                <h4 class="text-lg font-bold text-slate-900">{{ c.title }}</h4>
+                <span v-if="solvedChallenges.has(c.id)" class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-sm font-semibold text-emerald-950">Solved ✓</span>
+              </div>
+              <button type="button" class="mt-auto inline-flex min-h-12 w-fit items-center rounded-xl bg-white px-4 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100" @click="store.openChallenge(c.id)">
+                {{ solvedChallenges.has(c.id) ? 'Play again' : 'Try it' }}
+              </button>
+            </li>
+          </ul>
         </div>
 
         <div v-if="open[group.id] && rulesIn(group.id).length" :id="`topic-${group.id}`" class="space-y-4 border-t border-slate-200 p-3 sm:p-4">
@@ -166,33 +218,6 @@ const scoreMessage = computed(() => {
             </li>
           </ul>
 
-          <!-- Olympiad challenges for this topic: folded too -->
-          <div v-if="challengesIn(group.id).length" class="rounded-2xl ring-1 ring-slate-200">
-            <button
-              type="button"
-              class="flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 text-left hover:bg-emerald-50"
-              :aria-expanded="Boolean(open[`${group.id}-challenges`])"
-              :aria-controls="`challenges-${group.id}`"
-              @click="toggle(`${group.id}-challenges`)"
-            >
-              <svg class="size-5 shrink-0 text-emerald-800 transition-transform" :class="open[`${group.id}-challenges`] ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                <path d="M9 6l6 6-6 6" />
-              </svg>
-              <span class="text-lg font-bold text-emerald-900">Olympiad challenges</span>
-              <span class="text-base text-slate-700">{{ solvedIn(group.id) }} of {{ challengesIn(group.id).length }} solved</span>
-            </button>
-            <ul v-if="open[`${group.id}-challenges`]" :id="`challenges-${group.id}`" class="grid gap-3 p-3 sm:grid-cols-2">
-              <li v-for="c in challengesIn(group.id)" :key="c.id" class="flex flex-col gap-2 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
-                <div class="flex items-start justify-between gap-2">
-                  <h4 class="text-lg font-bold text-slate-900">{{ c.title }}</h4>
-                  <span v-if="solvedChallenges.has(c.id)" class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-sm font-semibold text-emerald-950">Solved ✓</span>
-                </div>
-                <button type="button" class="mt-auto inline-flex min-h-12 w-fit items-center rounded-xl bg-white px-4 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100" @click="store.openChallenge(c.id)">
-                  {{ solvedChallenges.has(c.id) ? 'Play again' : 'Try it' }}
-                </button>
-              </li>
-            </ul>
-          </div>
         </div>
       </section>
     </template>
@@ -288,5 +313,16 @@ const scoreMessage = computed(() => {
         </NuxtLink>
       </div>
     </section>
+    </div>
+
+    <!-- Rough work: beside the question on wide screens, a bottom sheet on narrow ones. -->
+    <aside
+      v-if="showPad"
+      id="rough-work"
+      aria-label="Rough work"
+      class="fixed inset-x-0 bottom-0 z-20 max-h-[60vh] overflow-y-auto rounded-t-2xl border-t-4 border-slate-700 bg-emerald-50 p-4 shadow-2xl lg:sticky lg:top-24 lg:max-h-none lg:self-start lg:overflow-visible lg:rounded-2xl lg:border-4 lg:shadow-md"
+    >
+      <PracticeScratchPad :page-key="padKey" @close="scratch.toggle()" />
+    </aside>
   </div>
 </template>
