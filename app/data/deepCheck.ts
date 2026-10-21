@@ -82,6 +82,8 @@ interface ItemBase {
   id: string
   ruleId: string
   prompt: string
+  /** One hint she can ask for before answering. A nudge in the form of a question; it never gives the answer. */
+  hint: string
   /** Shown after she answers, right or wrong: the idea in a sentence or two. */
   explanation: string
 }
@@ -487,12 +489,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R1-asn', ruleId: 'R1', type: 'asn',
     prompt: 'A fraction whose top number is smaller than its bottom number is in simplest form.',
+    hint: 'Try a few fractions where the top is smaller. Can any of them still be merged into fewer, bigger pieces?',
     answer: 'sometimes',
     explanation: '3/5 is in simplest form, but 4/8 is not, even though 4 is smaller than 8. What matters is whether the top and bottom share a factor, not which is bigger.',
   },
   {
     id: 'R1-spot', ruleId: 'R1', type: 'spotMistake',
     prompt: 'Dev says 6/9 is in simplest form because 6 is smaller than 9. What should Dev check instead?',
+    hint: 'Dev only compared the two numbers by size. What do the top and bottom need to share before a fraction can be merged?',
     options: [
       'Whether 6 and 9 share a factor other than 1',
       'Whether 9 is an even number',
@@ -505,6 +509,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R1-odd', ruleId: 'R1', type: 'oddOneOut',
     prompt: 'Three of these are NOT in simplest form. Which one does not belong?',
+    hint: 'Look for a number that goes into both the top and the bottom of each fraction. Which one cannot be merged?',
     options: ['2/4', '3/6', '4/8', '5/8'],
     answer: 3,
     explanation: '2/4, 3/6 and 4/8 can all be merged into 1/2. 5/8 has no shared factor, so it is already in simplest form.',
@@ -512,6 +517,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R1-rev', ruleId: 'R1', type: 'reverse',
     prompt: 'Write a fraction that equals 3/4 but is NOT in simplest form.',
+    hint: 'Make a fraction equal to 3/4 by doing the same thing to the top and the bottom. Then check that it can still be merged.',
     format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEqualsNotSimplest', target: '3/4' },
     explanation: 'Any fraction made by doubling or tripling both numbers works: 6/8, 9/12, 12/16. They all equal 3/4, but they can still be merged.',
@@ -519,6 +525,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R1-draw', ruleId: 'R1', type: 'draw',
     prompt: 'The bar shows 4/8. Merge the pieces until it shows the fraction in simplest form.',
+    hint: 'Which button changes the size of the pieces? Try making the pieces fewer and bigger, and stop when they cannot be merged any more.',
     start: { wholes: 0, pieces: 4, den: 8 },
     dens: [8, 4, 2],
     target: { den: 2, total: 1 },
@@ -529,12 +536,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R2-asn', ruleId: 'R2', type: 'asn',
     prompt: 'In a mixed number in simplest form, the fraction part is less than 1.',
+    hint: 'Imagine a fraction part that is 1 or more. Is there something else hiding inside it?',
     answer: 'always',
     explanation: 'If the fraction part were 1 or more, there would be another whole hiding inside it. Regroup it into the whole number.',
   },
   {
     id: 'R2-spot', ruleId: 'R2', type: 'spotMistake',
     prompt: 'Ria wrote her answer as 5 7/5. What should she fix?',
+    hint: 'Is the fraction part of her answer less than 1? What could you do with a part that is more than a whole?',
     options: [
       'Regroup: 7/5 is more than a whole, so the answer is 6 2/5',
       'Make the whole number smaller',
@@ -547,6 +556,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R2-odd', ruleId: 'R2', type: 'oddOneOut',
     prompt: 'These all equal the same amount. Only one is in simplest mixed-number form. Which one?',
+    hint: 'Check each one: is it a mixed number, is its fraction part less than 1, and can the fraction part be merged?',
     options: ['4 1/5', '3 6/5', '21/5', '4 2/10'],
     answer: 0,
     explanation: '3 6/5 has a fraction part bigger than 1. 21/5 is not a mixed number. 4 2/10 can be merged. 4 1/5 is the only simplest one.',
@@ -554,6 +564,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R2-rev', ruleId: 'R2', type: 'reverse',
     prompt: 'Write a mixed number that is NOT in simplest form but equals 2 1/3.',
+    hint: 'The amount must stay the same, but the way you write it must not be the simplest. What can you do with one whole?',
     format: 'Write a mixed number: a whole number, a space, then a fraction.',
     check: { kind: 'mixedEqualsNotSimplest', target: '2 1/3' },
     explanation: 'You can regroup a whole into thirds: 1 4/3 = 2 1/3. Or cut every piece smaller: 2 2/6 = 2 1/3. Both are equal but not simplest.',
@@ -561,6 +572,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R2-draw', ruleId: 'R2', type: 'draw',
     prompt: 'The bars show 3 6/5. Regroup the pieces so it shows the mixed number in simplest form.',
+    hint: 'The pieces are fifths. How many fifths make one whole bar? Is there a button for that?',
     start: { wholes: 3, pieces: 6, den: 5 },
     dens: [5],
     target: { den: 5, total: 21, proper: true },
@@ -571,12 +583,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R3-asn', ruleId: 'R3', type: 'asn',
     prompt: 'Two numbers that look different are worth different amounts.',
+    hint: 'Think of one pair of fractions that look different but are equal, and one pair that are really different. What does that tell you?',
     answer: 'sometimes',
     explanation: '1/2 and 2/3 are different amounts, but 1/2 and 2/4 look different and are equal. You have to check the value.',
   },
   {
     id: 'R3-spot', ruleId: 'R3', type: 'spotMistake',
     prompt: 'Mina says 2 6/8 and 11/4 cannot be equal because they look so different. What is wrong with her thinking?',
+    hint: 'Is looking different the same as being a different amount? Try writing one of them another way.',
     options: [
       'Different-looking numbers can name the same amount: 2 6/8 = 2 3/4 = 11/4',
       '11/4 is the smaller one',
@@ -589,6 +603,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R3-odd', ruleId: 'R3', type: 'oddOneOut',
     prompt: 'Three of these name the same amount. Which one does not belong?',
+    hint: 'Write each one as a mixed number or as an improper fraction. Three of them will come out the same.',
     options: ['11/4', '2 3/4', '1 7/4', '2 4/5'],
     answer: 3,
     explanation: '11/4, 2 3/4 and 1 7/4 are all 2 and 3 quarters. 2 4/5 is a little bigger.',
@@ -596,6 +611,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R3-rev', ruleId: 'R3', type: 'reverse',
     prompt: 'Write a different way to show 11/4. It must look different from 11/4.',
+    hint: 'Keep the amount the same, but change how it is written. You can regroup or cut the pieces smaller.',
     format: 'You can write a fraction, a mixed number or a whole number.',
     check: { kind: 'equalsButDifferent', target: '11/4' },
     explanation: 'Some ways: 2 3/4, 22/8, 1 7/4. They are all the same amount cut or grouped differently.',
@@ -603,6 +619,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R3-draw', ruleId: 'R3', type: 'draw',
     prompt: 'Show 11/4 on bars cut into 8ths. Add whole bars and pieces until the amount is the same.',
+    hint: 'Eighths are small. How many eighths make a quarter? Start with what 11/4 is as a mixed number.',
     start: { wholes: 0, pieces: 0, den: 8 },
     dens: [8],
     target: { den: 8, total: 22 },
@@ -613,12 +630,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R4-asn', ruleId: 'R4', type: 'asn',
     prompt: 'To add fractions with different bottom numbers, first rename them so the bottoms match.',
+    hint: 'Can you add pieces that are different sizes? What would you have to do to them first?',
     answer: 'always',
     explanation: 'You can only add pieces that are the same size. Renaming makes the pieces the same size.',
   },
   {
     id: 'R4-spot', ruleId: 'R4', type: 'spotMistake',
     prompt: 'Sam worked out 1/4 + 2/5 and wrote 3/9. What did Sam do wrong?',
+    hint: 'Are fourths and fifths the same size? What happens when you add the bottom numbers?',
     options: [
       'Added the tops and also added the bottoms; the bottoms must be renamed to match first',
       'Forgot to simplify the answer',
@@ -631,6 +650,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R4-odd', ruleId: 'R4', type: 'oddOneOut',
     prompt: 'Three of these can be a common bottom number for 1/2 and 1/3. Which one cannot?',
+    hint: 'A common bottom number is in the times table of both bottom numbers. Which one is not?',
     options: ['6', '12', '18', '10'],
     answer: 3,
     explanation: '6, 12 and 18 are all in both the 2 and the 3 times tables. 10 is not in the 3 times table.',
@@ -638,6 +658,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R4-rev', ruleId: 'R4', type: 'reverse',
     prompt: 'Write a fraction that equals 1/2 and has 6 on the bottom.',
+    hint: 'You are cutting the bar into 6 pieces. How many of those pieces make the same amount as one half?',
     format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEqualsWithDen', target: '1/2', den: 6 },
     explanation: '1/2 is half of the bar. In sixths, half of 6 pieces is 3 pieces: 3/6.',
@@ -645,6 +666,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R4-draw', ruleId: 'R4', type: 'draw',
     prompt: 'The bar shows 1/2. Re-cut it into sixths so you can add it to other sixths.',
+    hint: 'Cutting the pieces smaller does not change the amount. Which size of cut do you need?',
     start: { wholes: 0, pieces: 1, den: 2 },
     dens: [2, 3, 6],
     target: { den: 6, total: 3 },
@@ -655,12 +677,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R5-asn', ruleId: 'R5', type: 'asn',
     prompt: 'In 8 4/20 − 4 15/20, you can find the fraction part by doing 15 − 4.',
+    hint: 'Can you take 15 pieces away from 4 pieces? What could you do with one of the whole numbers?',
     answer: 'never',
     explanation: '4/20 is smaller than 15/20, so you cannot take 15 pieces from 4. Break one whole into 20 more pieces first.',
   },
   {
     id: 'R5-spot', ruleId: 'R5', type: 'spotMistake',
     prompt: 'Kai worked out 8 4/20 − 4 15/20 and got 4 11/20 by doing 15 − 4 for the fraction part. What should Kai do first?',
+    hint: 'The fraction part you take away is bigger than the one you have. What can you borrow?',
     options: [
       'Regroup: break one whole into 20/20, so 8 4/20 becomes 7 24/20',
       'Add 4/20 and 15/20',
@@ -673,6 +697,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R5-odd', ruleId: 'R5', type: 'oddOneOut',
     prompt: 'Three of these need regrouping before you subtract. Which one does not?',
+    hint: 'Compare the first fraction part with the second in each one. When is the first one too small?',
     options: ['5 3/8 − 1 5/8', '7 1/6 − 2 4/6', '6 5/9 − 2 4/9', '4 2/5 − 1 3/5'],
     answer: 2,
     explanation: 'Only 6 5/9 − 2 4/9 has a big enough fraction part: 5/9 is more than 4/9. In the others, the first fraction part is smaller.',
@@ -680,6 +705,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R5-rev', ruleId: 'R5', type: 'reverse',
     prompt: 'In 6 ?/8 − 2 5/8, which fraction on the ? would make you need to regroup? Type a fraction with 8 on the bottom.',
+    hint: 'You need to regroup when the first fraction part is smaller than the one you take away. Which fractions are smaller than that?',
     format: 'Write a fraction with a slash.',
     check: { kind: 'fractionSmallerThan', den: 8, than: 5 },
     explanation: 'You need to regroup when the first fraction part is smaller than 5/8. 1/8, 2/8, 3/8 and 4/8 all work.',
@@ -687,6 +713,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R5-draw', ruleId: 'R5', type: 'draw',
     prompt: 'The bars show 8 4/20. Break one whole into twentieths so you can subtract 4 15/20.',
+    hint: 'A whole bar can be broken into pieces. How many pieces does one whole have when the bar is cut into twentieths?',
     start: { wholes: 8, pieces: 4, den: 20 },
     dens: [20],
     target: { den: 20, total: 164, exact: { wholes: 7, pieces: 24 } },
@@ -697,12 +724,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R6-asn', ruleId: 'R6', type: 'asn',
     prompt: 'If you add your subtraction answer to the number you took away, you get the number you started with.',
+    hint: 'Subtracting and adding are opposites. If you do one and then the other, where do you end up?',
     answer: 'always',
     explanation: 'Subtracting and adding back undo each other. If they do not match, there is a mistake somewhere.',
   },
   {
     id: 'R6-spot', ruleId: 'R6', type: 'spotMistake',
     prompt: 'Lee worked out 9/10 − 3/10 = 7/10 and says it looks about right. How can Lee check?',
+    hint: 'How could Lee use adding to test the answer? What should the total be?',
     options: [
       'Add 7/10 and 3/10. It makes 10/10, not 9/10, so the answer is wrong',
       'Subtract again, the same way',
@@ -715,6 +744,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R6-odd', ruleId: 'R6', type: 'oddOneOut',
     prompt: 'Three of these are good ways to check 5/6 − 2/6 = 3/6. Which one is not?',
+    hint: 'A good check ends up back at the start, or finds the part that was taken away. Which one does neither?',
     options: ['3/6 + 2/6 = 5/6', '5/6 − 3/6 = 2/6', '5/6 + 2/6 = 7/6', 'Draw 5 sixths and cross out 2'],
     answer: 2,
     explanation: 'Adding 2/6 to the starting number goes the wrong way. A check must get back to the start or find the part taken away.',
@@ -722,6 +752,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R6-rev', ruleId: 'R6', type: 'reverse',
     prompt: '7/8 − 3/8 = 4/8. To check, you add 4/8 and a fraction to get 7/8. What is the fraction?',
+    hint: 'Adding back means the answer plus the part taken away makes the start. What is the part taken away?',
     format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '3/8' },
     explanation: 'The part you took away, 3/8, goes back: 4/8 + 3/8 = 7/8.',
@@ -729,6 +760,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R6-draw', ruleId: 'R6', type: 'draw',
     prompt: '3/4 − 1/4 = 2/4. The bar shows 2/4. Add the piece you took away to check you get 3/4.',
+    hint: 'You have the answer on the bar. What do you add to get back to the start?',
     start: { wholes: 0, pieces: 2, den: 4 },
     dens: [4],
     target: { den: 4, total: 3 },
@@ -739,12 +771,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R7-asn', ruleId: 'R7', type: 'asn',
     prompt: 'To get the greatest difference, subtract the smallest second number from the biggest first number.',
+    hint: 'To make a long gap, would you start from a big number or a small number? And take away a big one or a small one?',
     answer: 'always',
     explanation: 'The biggest number take away the smallest number leaves the longest gap.',
   },
   {
     id: 'R7-spot', ruleId: 'R7', type: 'spotMistake',
     prompt: 'Pia wants the greatest difference. The first list is 4 1/2, 6 1/4, 5. The second list is 1 1/2, 2 1/4, 3/4. She did 6 1/4 − 2 1/4. What is wrong?',
+    hint: 'Which number in the second list leaves the longest gap? Did Pia pick it?',
     options: [
       'She should use the smallest number from the second list, 3/4',
       'She should use the smallest number from the first list',
@@ -757,6 +791,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R7-odd', ruleId: 'R7', type: 'oddOneOut',
     prompt: 'The first list is 5 1/2, 7 3/4, 6 1/4. The second list is 1 1/4, 2 1/2, 3/4. Only one of these is the greatest difference. Which one?',
+    hint: 'Find the biggest first number and the smallest second number in the lists. Which choice uses both?',
     options: ['7 3/4 − 3/4', '7 3/4 − 2 1/2', '6 1/4 − 3/4', '5 1/2 − 3/4'],
     answer: 0,
     explanation: 'Biggest first number, 7 3/4, take away the smallest second number, 3/4, leaves 7.',
@@ -764,6 +799,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R7-rev', ruleId: 'R7', type: 'reverse',
     prompt: 'Write a number to put at the start so that [number] − 1/4 has a greater difference than 5 − 1/4.',
+    hint: 'A bigger first number means a longer gap. What numbers are bigger than the one in the question?',
     format: 'You can write a whole number, a fraction or a mixed number.',
     check: { kind: 'greaterThan', target: '5' },
     explanation: 'Any number bigger than 5 works, because a bigger first number leaves a longer gap.',
@@ -771,6 +807,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R7-draw', ruleId: 'R7', type: 'draw',
     prompt: 'Show the gap between 1/2 and 7/8: shade the pieces of eighths that fill the gap.',
+    hint: 'Change one half into eighths. How many eighths is that? Then count the pieces up to the other number.',
     start: { wholes: 0, pieces: 0, den: 8 },
     dens: [8],
     target: { den: 8, total: 3 },
@@ -781,12 +818,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R8-asn', ruleId: 'R8', type: 'asn',
     prompt: '5 ÷ 8 is the same amount as 5/8.',
+    hint: 'Sharing 5 things equally among 8 people: what fraction of one thing does each person get?',
     answer: 'always',
     explanation: 'Sharing 5 equally among 8 gives each share 5/8. A fraction bar means divide.',
   },
   {
     id: 'R8-spot', ruleId: 'R8', type: 'spotMistake',
     prompt: 'Noor shares 3 pies equally among 4 friends and says each friend gets 4/3 of a pie. What should Noor fix?',
+    hint: 'Which number is being shared, and which is the number of friends? Which one goes on top of the fraction?',
     options: [
       'The amount being shared goes on top: each friend gets 3/4 of a pie',
       'Each friend gets 3 whole pies',
@@ -799,6 +838,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R8-odd', ruleId: 'R8', type: 'oddOneOut',
     prompt: 'Three of these equal 2/3. Which one does not belong?',
+    hint: 'Work out each one as a fraction. Three of them give the same amount.',
     options: ['2 ÷ 3', '4/6', '3 ÷ 2', '6 ÷ 9'],
     answer: 2,
     explanation: '3 ÷ 2 is 3/2, not 2/3. The other three are all 2/3.',
@@ -806,6 +846,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R8-rev', ruleId: 'R8', type: 'reverse',
     prompt: 'Write a division of two whole numbers that equals 3/5. Use ÷ or the words “divided by”.',
+    hint: 'A fraction is a division. Which two numbers make the fraction in the question?',
     format: 'Use ÷ or the words “divided by”.',
     check: { kind: 'divisionEquals', target: '3/5' },
     explanation: '3 ÷ 5 = 3/5. A bigger pair also works if it is equal, like 6 ÷ 10.',
@@ -813,6 +854,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R8-draw', ruleId: 'R8', type: 'draw',
     prompt: '5 tarts are shared equally among 8 friends. Show one friend’s share: 5 pieces of a bar cut into eighths.',
+    hint: 'The bar is cut into 8 equal pieces. How many pieces does one friend get?',
     start: { wholes: 0, pieces: 0, den: 8 },
     dens: [8],
     target: { den: 8, total: 5 },
@@ -822,12 +864,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R9-asn', ruleId: 'R9', type: 'asn',
     prompt: 'To multiply 2 1/2 × 2 1/2, you can multiply the whole numbers together and the fractions together.',
+    hint: 'Try multiplying the parts of a mixed number separately, then try it with improper fractions. Do you get the same answer?',
     answer: 'never',
     explanation: '2 × 2 and 1/2 × 1/2 gives 4 1/4, but 5/2 × 5/2 = 25/4 = 6 1/4. Splitting the mixed numbers leaves out some of the pieces.',
   },
   {
     id: 'R9-spot', ruleId: 'R9', type: 'spotMistake',
     prompt: 'Tia worked out 2 1/2 × 2 1/2 and got 4 1/4 by doing 2 × 2 and 1/2 × 1/2. What should Tia do first?',
+    hint: 'What happens to the pieces where a whole number meets a fraction? What could Tia change first?',
     options: [
       'Change each mixed number to an improper fraction: 5/2 × 5/2 = 25/4 = 6 1/4',
       'Add the whole numbers together',
@@ -840,6 +884,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R9-odd', ruleId: 'R9', type: 'oddOneOut',
     prompt: 'Three of these equal 2 1/2. Which one does not belong?',
+    hint: 'Change each one into halves or into a mixed number. Which one is a different amount?',
     options: ['5/2', '10/4', '2 2/4', '2 1/3'],
     answer: 3,
     explanation: '5/2, 10/4 and 2 2/4 are all 2 and a half. 2 1/3 is a little smaller.',
@@ -847,6 +892,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R9-rev', ruleId: 'R9', type: 'reverse',
     prompt: 'Write 3 1/4 as an improper fraction.',
+    hint: 'How many quarters are in 3 wholes? Then add the extra quarter.',
     format: 'Write a fraction with a slash.',
     check: { kind: 'improperEquals', target: '3 1/4' },
     explanation: '3 wholes are 12 quarters, plus 1 more quarter is 13 quarters: 13/4.',
@@ -854,6 +900,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R9-draw', ruleId: 'R9', type: 'draw',
     prompt: 'The bars show 2 1/2. Break the whole bars into halves so all of it is counted in halves.',
+    hint: 'Each whole bar can be broken into halves. Which button does that?',
     start: { wholes: 2, pieces: 1, den: 2 },
     dens: [2],
     target: { den: 2, total: 5, exact: { wholes: 0, pieces: 5 } },
@@ -864,12 +911,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R10-asn', ruleId: 'R10', type: 'asn',
     prompt: 'When you multiply a number bigger than 0 by a fraction less than 1, the answer is smaller than the number you started with.',
+    hint: 'Think of taking half, or three quarters, of a number. Is the answer bigger or smaller?',
     answer: 'always',
     explanation: 'Multiplying by a fraction less than 1 takes a part of the number. A part is smaller than the whole.',
   },
   {
     id: 'R10-spot', ruleId: 'R10', type: 'spotMistake',
     prompt: 'Ben says 8 × 1/2 must be bigger than 8, because multiplying makes numbers bigger. What is wrong with his thinking?',
+    hint: 'What does it mean to take half of 8? Is it more than 8 or less?',
     options: [
       'Multiplying by 1/2 takes half of 8, so the answer is 4, which is smaller',
       '8 × 1/2 is 16',
@@ -882,6 +931,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R10-odd', ruleId: 'R10', type: 'oddOneOut',
     prompt: 'Start with 12. Three of these make an answer smaller than 12. Which one does not?',
+    hint: 'Which fractions are more than 1 and which are less than 1? What does each one do to 12?',
     options: ['12 × 1/2', '12 × 3/4', '12 × 5/4', '12 × 1/3'],
     answer: 2,
     explanation: '5/4 is more than 1, so 12 × 5/4 = 15 is bigger than 12. The other three fractions are less than 1.',
@@ -889,6 +939,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R10-rev', ruleId: 'R10', type: 'reverse',
     prompt: 'Write a fraction to multiply 20 by, so the answer is smaller than 20 but not 0.',
+    hint: 'You want a part of 20. Does a part of something make it bigger or smaller?',
     format: 'Write a fraction with a slash.',
     check: { kind: 'properFraction' },
     explanation: 'Any fraction between 0 and 1 works, like 1/2, 3/5 or 7/8. It takes a part of 20.',
@@ -896,6 +947,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R10-draw', ruleId: 'R10', type: 'draw',
     prompt: 'The bar shows 3/4. Cut it into eighths, then keep half of the shaded pieces to show 1/2 of 3/4.',
+    hint: 'First cut the 3/4 into smaller pieces, so you can take half of them.',
     start: { wholes: 0, pieces: 3, den: 4 },
     dens: [4, 8],
     target: { den: 8, total: 3 },
@@ -906,12 +958,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R11-asn', ruleId: 'R11', type: 'asn',
     prompt: 'When you divide a number bigger than 0 by a fraction less than 1, the answer is bigger than the number you started with.',
+    hint: 'How many small pieces fit into a big amount? Are there more pieces than whole things?',
     answer: 'always',
     explanation: 'Dividing by a small piece asks how many of those pieces fit in. 3 ÷ 1/2 = 6, because 6 halves fit in 3.',
   },
   {
     id: 'R11-spot', ruleId: 'R11', type: 'spotMistake',
     prompt: 'Mo says 3/4 ÷ 1/2 is the same as taking half of 3/4, so it is 3/8. What should Mo fix?',
+    hint: 'Dividing by a half asks how many halves fit. Is that the same as taking half of something?',
     options: [
       'Dividing by 1/2 asks how many halves fit in 3/4. That is 1 1/2, not 3/8',
       'Half of 3/4 is 1/4',
@@ -924,6 +978,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R11-odd', ruleId: 'R11', type: 'oddOneOut',
     prompt: 'Start with 6. Three of these make an answer bigger than 6. Which one does not?',
+    hint: 'Which of these fractions are less than 1 and which are more? What happens to 6 when you divide by each?',
     options: ['6 ÷ 1/2', '6 ÷ 2/3', '6 ÷ 3/2', '6 ÷ 1/3'],
     answer: 2,
     explanation: '3/2 is more than 1, so 6 ÷ 3/2 = 4 is smaller than 6. Dividing by a fraction less than 1 makes it bigger.',
@@ -931,6 +986,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R11-rev', ruleId: 'R11', type: 'reverse',
     prompt: '4 ÷ ☐ = 8. What fraction goes in the box?',
+    hint: 'How many of this fraction fit into 4? Think of how many halves, thirds or quarters make 8.',
     format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '1/2' },
     explanation: 'How many halves fit in 4? 8 of them. So 4 ÷ 1/2 = 8.',
@@ -938,6 +994,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R11-draw', ruleId: 'R11', type: 'draw',
     prompt: 'Cut each of 3 whole bars into halves. How many halves fit in 3? Break the bars so all of them are halves.',
+    hint: 'How many halves are in one whole bar? Then think about 3 bars.',
     start: { wholes: 3, pieces: 0, den: 1 },
     dens: [1, 2],
     target: { den: 2, total: 6, exact: { wholes: 0, pieces: 6 } },
@@ -948,12 +1005,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R12-asn', ruleId: 'R12', type: 'asn',
     prompt: 'You can divide by a fraction by multiplying by its reciprocal (the fraction flipped).',
+    hint: 'Dividing by 2/3 asks how many 2/3 pieces fit. What do you multiply by to get that?',
     answer: 'always',
     explanation: 'Dividing by 2/3 and multiplying by 3/2 give the same amount. That is why keep, change, flip works.',
   },
   {
     id: 'R12-spot', ruleId: 'R12', type: 'spotMistake',
     prompt: 'Lia worked out 3/4 ÷ 2/3 by dividing the tops (3 ÷ 2) and the bottoms (4 ÷ 3), and got a messy fraction with fractions inside it. What is an easier way?',
+    hint: 'Is there a way to turn the division into one multiplication? Which fraction needs to be flipped?',
     options: [
       'Keep 3/4, change ÷ to ×, flip 2/3 to 3/2: 3/4 × 3/2 = 9/8 = 1 1/8',
       'Add the tops and the bottoms',
@@ -966,6 +1025,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R12-odd', ruleId: 'R12', type: 'oddOneOut',
     prompt: 'Three of these equal 3/5 ÷ 2/7. Which one does not belong?',
+    hint: 'Turn each division into a multiplication, then work them all out. Which one is a different amount?',
     options: ['3/5 × 7/2', '21/10', '2 1/10', '3/5 × 2/7'],
     answer: 3,
     explanation: '3/5 ÷ 2/7 = 3/5 × 7/2 = 21/10 = 2 1/10. The last one did not flip the second fraction, so it is only 6/35.',
@@ -973,6 +1033,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R12-rev', ruleId: 'R12', type: 'reverse',
     prompt: 'Write the reciprocal of 2/5. That is, flip it.',
+    hint: 'A reciprocal swaps the top and the bottom. What do you get when you swap them here?',
     format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '5/2' },
     explanation: 'Flipping swaps the top and the bottom: 2/5 becomes 5/2.',
@@ -980,6 +1041,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R12-draw', ruleId: 'R12', type: 'draw',
     prompt: 'Flip 2/3 to get 3/2. Show 3/2 with bars cut into halves.',
+    hint: 'Flipping swaps the top and the bottom. What is 2/3 when it is swapped? Then use bars cut into the new bottom number.',
     start: { wholes: 0, pieces: 0, den: 2 },
     dens: [2],
     target: { den: 2, total: 3 },
@@ -989,12 +1051,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R13-asn', ruleId: 'R13', type: 'asn',
     prompt: 'When some tarts have already been sold, half of the tarts that are left is the same amount as half of the original batch.',
+    hint: 'Work it out with 24 tarts. What is half of the batch? What is half of what is left after that?',
     answer: 'never',
     explanation: 'With 24 tarts, half of the batch is 12. After selling 12, half of the 12 that are left is only 6. The whole has changed.',
   },
   {
     id: 'R13-spot', ruleId: 'R13', type: 'spotMistake',
     prompt: 'Leo baked 24 tarts. He sold 1/2 of them in the morning and 1/2 of the tarts that were left in the afternoon. Kim says he sold 1/2 + 1/2 = all 24, so none are left. What should Kim fix?',
+    hint: 'What is the whole in the afternoon: all 24 tarts, or only the tarts that are left?',
     options: [
       'The second 1/2 is of the 12 that were left, not of all 24: he sold 12 + 6 = 18, so 6 are left',
       'Add 1/2 and 1/2 to get 2 wholes',
@@ -1007,6 +1071,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R13-odd', ruleId: 'R13', type: 'oddOneOut',
     prompt: 'Leo has 24 tarts. He sells 1/2 of the batch, then 1/2 of what is left. Three of these are true. Which one is NOT true?',
+    hint: 'Work out each step: how many are left after the morning, and how many does he sell in the afternoon?',
     options: ['After the morning, 12 are left', 'In the afternoon he sells 6', 'In all he sells 18', 'In the afternoon he sells 12'],
     answer: 3,
     explanation: 'In the afternoon he sells half of the 12 that are left, which is 6. So he does not sell 12.',
@@ -1014,6 +1079,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R13-rev', ruleId: 'R13', type: 'reverse',
     prompt: 'Leo sold 1/2 of his tarts in the morning and 1/2 of the rest in the afternoon. 5 tarts were left at the end. How many tarts did he bake?',
+    hint: 'Work backwards. If 5 are left, how many did he have before the afternoon sale?',
     format: 'Type a number.',
     check: { kind: 'fractionEquals', target: '20' },
     explanation: 'Work backwards. 5 is half of what he had in the afternoon, so he had 10. 10 is half of the batch, so he baked 20.',
@@ -1021,6 +1087,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R13-draw', ruleId: 'R13', type: 'draw',
     prompt: 'The bar is the whole batch: 4 fourths. Take away 1/2 of the batch, then 1/2 of what is left. Show what is left.',
+    hint: 'Take away half of the whole bar first. Then take half of what is still there.',
     start: { wholes: 0, pieces: 4, den: 4 },
     dens: [4],
     target: { den: 4, total: 1 },
@@ -1031,12 +1098,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R14-asn', ruleId: 'R14', type: 'asn',
     prompt: '“1/2 of 3/4” means 1/2 × 3/4.',
+    hint: 'What does the word “of” mean when you write 1/2 of 3/4 as a sum?',
     answer: 'always',
     explanation: '“Of” means multiply. Taking a part of an amount is multiplying by that part.',
   },
   {
     id: 'R14-spot', ruleId: 'R14', type: 'spotMistake',
     prompt: 'Raj says 1/2 of 3/4 means 3/4 ÷ 1/2, which is 1 1/2. What is wrong with his thinking?',
+    hint: 'Half of something: is the answer bigger or smaller than the something? Does dividing by 1/2 do that?',
     options: [
       '“Of” means multiply: 1/2 of 3/4 = 1/2 × 3/4 = 3/8, which is smaller',
       'It should be 3/4 + 1/2',
@@ -1049,6 +1118,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R14-odd', ruleId: 'R14', type: 'oddOneOut',
     prompt: 'Three of these equal 1/2 of 3/4. Which one does not belong?',
+    hint: 'Work out half of 3/4, then see which choices give the same amount.',
     options: ['1/2 × 3/4', '3/8', '3/4 ÷ 2', '3/4 ÷ 1/2'],
     answer: 3,
     explanation: 'Half of 3/4 is 3/8, and 3/4 ÷ 2 is also 3/8. 3/4 ÷ 1/2 is 1 1/2, a different question.',
@@ -1056,6 +1126,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R14-rev', ruleId: 'R14', type: 'reverse',
     prompt: 'Write 1/3 of 3/5 as a single fraction.',
+    hint: 'What does the word “of” tell you to do with the two fractions?',
     format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '1/5' },
     explanation: '1/3 × 3/5 = 3/15 = 1/5.',
@@ -1063,6 +1134,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R14-draw', ruleId: 'R14', type: 'draw',
     prompt: 'The bar shows 1/2. Cut it into fourths, then keep half of the shaded pieces to show 1/2 of 1/2.',
+    hint: 'Cut the bar into smaller pieces so you can take half of the shaded part.',
     start: { wholes: 0, pieces: 1, den: 2 },
     dens: [2, 4],
     target: { den: 4, total: 1 },
@@ -1073,12 +1145,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R15-asn', ruleId: 'R15', type: 'asn',
     prompt: 'To multiply 2/3 × 3/4, you must first rename both fractions so the bottom numbers match.',
+    hint: 'Do you need pieces of the same size to multiply, or only to add?',
     answer: 'never',
     explanation: 'Renaming to a common bottom number is for adding and subtracting. To multiply, multiply the tops and multiply the bottoms.',
   },
   {
     id: 'R15-spot', ruleId: 'R15', type: 'spotMistake',
     prompt: 'Sia worked out 2/3 × 3/4 by renaming both fractions as twelfths (8/12 and 9/12) and then adding the tops to get 17/12. What should she do instead?',
+    hint: 'Sia added the tops. What should happen to the tops and to the bottoms when you multiply?',
     options: [
       'Multiply the tops and the bottoms straight across: 2 × 3 = 6 and 3 × 4 = 12, so 6/12 = 1/2',
       'Add the bottoms as well',
@@ -1091,6 +1165,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R15-odd', ruleId: 'R15', type: 'oddOneOut',
     prompt: 'Three of these equal 2/3 × 3/4. Which one does not belong?',
+    hint: 'Multiply the tops and the bottoms, then simplify. Which choice is a different amount?',
     options: ['6/12', '1/2', '3/6', '5/12'],
     answer: 3,
     explanation: '2/3 × 3/4 = 6/12, and 6/12, 1/2 and 3/6 all name the same amount. 5/12 is a little smaller.',
@@ -1098,6 +1173,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R15-rev', ruleId: 'R15', type: 'reverse',
     prompt: '5 × 2/3: write 5 as 5/1, then multiply straight across. What is the answer?',
+    hint: 'A whole number can be written as a fraction. What goes underneath it?',
     format: 'You can write a fraction or a mixed number.',
     check: { kind: 'fractionEquals', target: '10/3' },
     explanation: '5/1 × 2/3 = 10/3, which is 3 1/3.',
@@ -1105,6 +1181,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R15-draw', ruleId: 'R15', type: 'draw',
     prompt: 'Show 2/3 × 3/4 on a bar cut into twelfths. The tops multiply to 6, so shade 6 pieces.',
+    hint: 'The tops multiply and the bottoms multiply. What is the top, and how many pieces is the bar cut into?',
     start: { wholes: 0, pieces: 0, den: 12 },
     dens: [12],
     target: { den: 12, total: 6 },
@@ -1115,12 +1192,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R16-asn', ruleId: 'R16', type: 'asn',
     prompt: 'In 4/9 × 3/8, you can simplify the 4 on top with the 8 on the bottom before you multiply.',
+    hint: 'Look at the 4 on top and the 8 on the bottom. Do they share a number that goes into both?',
     answer: 'always',
     explanation: 'The 4 and the 8 share a factor of 4, and one is a top and one is a bottom. 4 becomes 1 and 8 becomes 2.',
   },
   {
     id: 'R16-spot', ruleId: 'R16', type: 'spotMistake',
     prompt: 'Tom worked out 2/5 × 2/3 by cancelling the two 2s (both are tops) and wrote 1/5 × 1/3 = 1/15. What is wrong?',
+    hint: 'Can two tops be simplified with each other? Which numbers can be simplified together?',
     options: [
       'Only a top and a bottom can be simplified together. Two tops cannot be cancelled: 2/5 × 2/3 = 4/15',
       'He should cancel the 5 and the 3',
@@ -1133,6 +1212,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R16-odd', ruleId: 'R16', type: 'oddOneOut',
     prompt: 'Before multiplying 6/10 × 5/9, three of these are good moves. Which one is NOT?',
+    hint: 'A top can only be simplified with a bottom. Which choice breaks that?',
     options: [
       'Simplify the top 6 and the bottom 9 by 3',
       'Simplify the top 5 and the bottom 10 by 5',
@@ -1145,6 +1225,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R16-rev', ruleId: 'R16', type: 'reverse',
     prompt: 'Simplify first, then multiply: 4/9 × 3/8. Type the answer.',
+    hint: 'Simplify a top with a bottom first, then multiply what is left.',
     format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '1/6' },
     explanation: '4/8 becomes 1/2 and 3/9 becomes 1/3. 1/3 × 1/2 = 1/6.',
@@ -1152,6 +1233,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R16-draw', ruleId: 'R16', type: 'draw',
     prompt: 'The answer to 4/9 × 3/8 is 1/6. Show 1/6 on a bar cut into sixths.',
+    hint: 'First work out 4/9 × 3/8 by simplifying a top with a bottom. What is the answer, and how many pieces is the bar cut into?',
     start: { wholes: 0, pieces: 0, den: 6 },
     dens: [6],
     target: { den: 6, total: 1 },
@@ -1162,12 +1244,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R17-asn', ruleId: 'R17', type: 'asn',
     prompt: 'Multiplying a number by 1/4 gives the same answer as dividing that number by 4.',
+    hint: 'Try it with a number you can picture, like 8. What is a quarter of 8, and what is 8 split into 4 parts?',
     answer: 'always',
     explanation: 'Both find one quarter of the number. 8 × 1/4 = 2 and 8 ÷ 4 = 2.',
   },
   {
     id: 'R17-spot', ruleId: 'R17', type: 'spotMistake',
     prompt: 'Jo says 8 × 1/4 and 8 ÷ 4 must give different answers, because one is multiplying and one is dividing. What is wrong?',
+    hint: 'What is a quarter of 8? What is 8 divided into 4 equal parts? Compare them.',
     options: [
       'Both find one quarter of 8, so both are 2',
       '8 × 1/4 = 32',
@@ -1180,6 +1264,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R17-odd', ruleId: 'R17', type: 'oddOneOut',
     prompt: 'Three of these equal 2/5 × 1/3. Which one does not belong?',
+    hint: 'Work out each one. Which one asks how many thirds fit, not for one third?',
     options: ['2/5 ÷ 3', '2/15', '4/30', '2/5 ÷ 1/3'],
     answer: 3,
     explanation: '2/5 × 1/3 = 2/15, and 2/5 ÷ 3 = 2/15 too. 2/5 ÷ 1/3 asks how many thirds fit in 2/5, which is 1 1/5.',
@@ -1187,6 +1272,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R17-rev', ruleId: 'R17', type: 'reverse',
     prompt: '2/5 ÷ 3 = 2/5 × ☐. What fraction goes in the box?',
+    hint: 'Dividing by 3 means splitting into 3 equal parts. What fraction is one of those parts?',
     format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '1/3' },
     explanation: 'Dividing by 3 is the same as multiplying by 1/3.',
@@ -1194,6 +1280,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R17-draw', ruleId: 'R17', type: 'draw',
     prompt: 'The bar shows 2/5. Cut it into fifteenths, then keep one third of the shaded pieces to show 2/5 ÷ 3.',
+    hint: 'Cut every piece into smaller pieces first. Then keep one third of the shaded pieces.',
     start: { wholes: 0, pieces: 2, den: 5 },
     dens: [5, 15],
     target: { den: 15, total: 2 },
@@ -1204,12 +1291,14 @@ export const ITEMS: Item[] = [
   {
     id: 'R18-asn', ruleId: 'R18', type: 'asn',
     prompt: 'Using four different digits in □ × □ □/□, the biggest digit in front gives the greatest product, as long as the two smallest digits can make a proper fraction in simplest form.',
+    hint: 'The digit in front multiplies both the whole part and the fraction part. Which digit should go there to add the most?',
     answer: 'always',
     explanation: 'The digit in front multiplies both the whole part and the fraction part, so the biggest digit there adds the most.',
   },
   {
     id: 'R18-spot', ruleId: 'R18', type: 'spotMistake',
     prompt: 'Dev used the digits 2, 3, 4 and 8 in □ × □ □/□ and wrote 4 × 8 2/3 = 34 2/3 as the greatest product. What should Dev change?',
+    hint: 'Which digit multiplies everything in the mixed number? Would a bigger one in front help?',
     options: [
       'Swap the 4 and the 8 so the biggest digit stands in front: 8 × 4 2/3 = 37 1/3',
       'Put the 8 on the bottom of the fraction',
@@ -1222,6 +1311,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R18-odd', ruleId: 'R18', type: 'oddOneOut',
     prompt: 'The digits 2, 3, 4 and 8 make these four products. Only one is the greatest. Which one?',
+    hint: 'Work out each product, or think about which digit is in front and which is the whole part.',
     options: ['4 × 8 2/3', '8 × 4 2/3', '2 × 8 3/4', '8 × 2 3/4'],
     answer: 1,
     explanation: '8 × 4 2/3 = 37 1/3. The others are 34 2/3, 17 1/2 and 22.',
@@ -1229,6 +1319,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R18-rev', ruleId: 'R18', type: 'reverse',
     prompt: 'Use the digits 1, 5, 6 and 9 once each in □ × □ □/□ to make the greatest product. The fraction must be proper and in simplest form. Type the product.',
+    hint: 'Put the biggest digit in front, the next biggest as the whole part, and use the two smallest for the fraction.',
     format: 'You can write a mixed number or a fraction.',
     check: { kind: 'fractionEquals', target: '279/5' },
     explanation: 'The biggest digit, 9, goes in front. 6 is the whole part. 1 and 5 make the fraction 1/5. 9 × 6 1/5 = 9 × 31/5 = 279/5 = 55 4/5.',
@@ -1236,6 +1327,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R18-draw', ruleId: 'R18', type: 'draw',
     prompt: 'For the greatest product, the two smallest digits, 2 and 3, make the fraction 2/3. Show 2/3 on a bar cut into thirds.',
+    hint: 'The smaller digit goes on top so the fraction is proper. Which digit is on top?',
     start: { wholes: 0, pieces: 0, den: 3 },
     dens: [3],
     target: { den: 3, total: 2 },

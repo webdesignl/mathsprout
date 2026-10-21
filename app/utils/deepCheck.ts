@@ -263,6 +263,8 @@ export interface AttemptLine {
   mode: string
   problem: string | null
   correct: boolean
+  /** False when a hint was used (or it was not right first time). Rows without it count as first try. */
+  first_try?: boolean
 }
 
 /** The text saved for one answered item, like "R2 asn". It carries no name or personal detail. */
@@ -291,6 +293,9 @@ export function deepCheckProgress(lines: AttemptLine[]): Record<string, RuleProg
     entry.tried += 1
     if (line.correct) {
       entry.right += 1
+    }
+    // A star needs a right answer with no hint.
+    if (line.correct && line.first_try !== false) {
       rightTypes.set(ruleId!, (rightTypes.get(ruleId!) ?? new Set()).add(type))
     }
   }

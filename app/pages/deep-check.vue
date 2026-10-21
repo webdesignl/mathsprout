@@ -3,7 +3,7 @@ import { ITEM_TYPES, RULE_GROUPS } from '../data/deepCheck'
 import { useDeepCheckStore } from '../stores/deepCheck'
 import { useChildStore } from '../stores/child'
 import { useScratchStore } from '../stores/scratch'
-import { challengesIn, challengesSolved, deepCheckProgress, MASTERED_STARS, rulesIn, typeLabel, type AttemptLine, type Grade } from '../utils/deepCheck'
+import { challengesIn, challengesSolved, deepCheckProgress, MASTERED_STARS, ruleOf, rulesIn, typeLabel, type AttemptLine, type Grade } from '../utils/deepCheck'
 
 useHead({ title: 'Deep Check · MathSprout' })
 
@@ -20,7 +20,7 @@ async function loadProgress() {
   if (!user.value || !childStore.selectedId) return
   const { data } = await client
     .from('attempts')
-    .select('mode, problem, correct')
+    .select('mode, problem, correct, first_try')
     .eq('child_id', childStore.selectedId)
     .eq('mode', 'deep_check')
     .order('created_at', { ascending: false })
@@ -71,6 +71,11 @@ function solvedIn(groupId: string) {
 function onChallenge(values: Record<string, string | number>, hintsUsed: number) {
   store.submitChallenge(values, hintsUsed)
 }
+
+/** The rule shown inside the quiz after a wrong answer, so she does not lose her place. */
+const ruleOpen = ref(false)
+watch(() => [store.current?.id, store.view], () => (ruleOpen.value = false))
+const ruleOfCurrent = computed(() => (store.current ? ruleOf(store.current.ruleId) : undefined))
 
 const question = ref<{ showProblem: (g: Grade) => void } | null>(null)
 function typed(text: string) {
@@ -262,9 +267,27 @@ const scoreMessage = computed(() => {
         />
       </div>
 
+      <!-- One hint, only before she answers -->
+      <div v-if="!store.feedback" class="space-y-2">
+        <button
+          v-if="!store.hintShown"
+          type="button"
+          class="inline-flex min-h-12 items-center rounded-xl bg-white px-5 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+          @click="store.showHint()"
+        >
+          Need a hint?
+        </button>
+        <p v-else role="status" class="rounded-2xl bg-amber-50 p-4 text-lg text-amber-950 ring-1 ring-amber-200">
+          <span class="font-semibold">Hint:</span> {{ store.current.hint }}
+        </p>
+      </div>
+
       <div v-if="store.feedback" role="status" class="space-y-3 rounded-2xl p-4 ring-2" :class="store.feedback.correct ? 'bg-emerald-50 ring-emerald-500' : 'bg-amber-50 ring-amber-400'">
         <p class="text-xl font-bold" :class="store.feedback.correct ? 'text-emerald-900' : 'text-amber-950'">
           {{ store.feedback.correct ? 'Yes! That’s right.' : 'Not quite. Here’s the idea.' }}
+        </p>
+        <p v-if="store.feedback.correct && store.feedback.usedHint" class="text-lg text-slate-900">
+          You used the hint, so this one does not earn a star yet. Try it again later without the hint.
         </p>
         <p v-if="store.feedback.message" class="text-lg text-slate-900">{{ store.feedback.message }}</p>
         <p class="text-lg text-slate-900">{{ store.feedback.explanation }}</p>
@@ -273,14 +296,19 @@ const scoreMessage = computed(() => {
             {{ store.isLast ? 'See my result' : 'Next question' }}
           </button>
           <button
-            v-if="!store.feedback.correct && store.current && store.scope !== 'chapter'"
+            v-if="!store.feedback.correct && ruleOfCurrent"
             type="button"
             class="inline-flex min-h-12 items-center rounded-xl bg-white px-5 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
-            @click="store.openLearn(store.current.ruleId)"
+            :aria-expanded="ruleOpen"
+            @click="ruleOpen = !ruleOpen"
           >
-            See the picture
+            {{ ruleOpen ? 'Hide the rule' : `Look at the rule: ${ruleOfCurrent.title}` }}
           </button>
         </div>
+      </div>
+
+      <div v-if="ruleOpen && ruleOfCurrent" class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 sm:p-5">
+        <DeepCheckLearnPanel :rule="ruleOfCurrent" compact @close="ruleOpen = false" />
       </div>
     </section>
 

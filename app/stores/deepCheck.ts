@@ -24,6 +24,8 @@ export type DeepCheckView = 'home' | 'learn' | 'quiz' | 'done' | 'challenge'
 
 export interface Feedback {
   correct: boolean
+  /** She used the hint before answering. */
+  usedHint: boolean
   /** A short extra note for a wrong answer (like "6/8 is not equal to 3/4"). */
   message: string
   explanation: string
@@ -43,6 +45,8 @@ export const useDeepCheckStore = defineStore('deepCheck', () => {
   const index = ref(0)
   const results = ref<{ id: string; correct: boolean }[]>([])
   const feedback = ref<Feedback | null>(null)
+  /** She asked for the one hint on this question. */
+  const hintShown = ref(false)
   /** The challenge being played, how it was graded last, and how many readable tries she has made. */
   const challengeId = ref<string>('')
   const challengeResult = ref<ChallengeGrade | null>(null)
@@ -63,6 +67,7 @@ export const useDeepCheckStore = defineStore('deepCheck', () => {
     items.value = []
     results.value = []
     feedback.value = null
+    hintShown.value = false
     index.value = 0
     challengeId.value = ''
     challengeResult.value = null
@@ -81,6 +86,7 @@ export const useDeepCheckStore = defineStore('deepCheck', () => {
     index.value = 0
     results.value = []
     feedback.value = null
+    hintShown.value = false
     view.value = 'quiz'
   }
 
@@ -106,6 +112,7 @@ export const useDeepCheckStore = defineStore('deepCheck', () => {
     results.value.push({ id: item.id, correct })
     feedback.value = {
       correct,
+      usedHint: hintShown.value,
       message: grade.status === 'wrong' ? (grade.message ?? '') : '',
       explanation: item.explanation,
     }
@@ -113,11 +120,18 @@ export const useDeepCheckStore = defineStore('deepCheck', () => {
       mode: 'deep_check',
       problem: attemptText(item),
       correct,
-      firstTry: correct,
-      hintsUsed: 0,
+      // A right answer with the hint is still right, but it is not "first try, no help", so it earns no star.
+      firstTry: correct && !hintShown.value,
+      hintsUsed: hintShown.value ? 1 : 0,
       errorType: null,
     })
     return grade
+  }
+
+  /** The one hint for this question. Asking again does nothing, and it can only be asked before she answers. */
+  function showHint() {
+    if (!current.value || feedback.value) return
+    hintShown.value = true
   }
 
   function answerAsn(answer: AsnAnswer): Grade {
@@ -181,6 +195,7 @@ export const useDeepCheckStore = defineStore('deepCheck', () => {
   function next() {
     if (!feedback.value) return
     feedback.value = null
+    hintShown.value = false
     if (isLast.value) {
       view.value = 'done'
     } else {
@@ -189,7 +204,7 @@ export const useDeepCheckStore = defineStore('deepCheck', () => {
   }
 
   return {
-    view, scope, groupId, group, challenge, challengeResult, challengeTries, items, index, results, feedback, current, total, score, isLast, answered, rule,
-    goHome, openLearn, openChallenge, submitChallenge, tryAgain, startRule, startChapter, answerAsn, answerChoice, answerReverse, answerDraw, next,
+    view, scope, groupId, group, hintShown, challenge, challengeResult, challengeTries, items, index, results, feedback, current, total, score, isLast, answered, rule,
+    goHome, openLearn, showHint, openChallenge, submitChallenge, tryAgain, startRule, startChapter, answerAsn, answerChoice, answerReverse, answerDraw, next,
   }
 })

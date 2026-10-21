@@ -941,3 +941,76 @@ describe('answer boxes do not give the answer away', () => {
     for (const c of CHALLENGES) for (const f of c.fields) expect('placeholder' in f, `${c.id} ${f.id}`).toBe(false)
   })
 })
+
+describe('one hint per question', () => {
+  it('every item has a hint that is a nudge, and none gives the answer away', () => {
+    for (const i of ITEMS) {
+      expect(i.hint.length, i.id).toBeGreaterThan(20)
+      const hint = i.hint.toLowerCase()
+      if (i.type === 'asn') expect(hint, i.id).not.toMatch(/\b(always|sometimes|never)\b/)
+      if (i.type === 'spotMistake' || i.type === 'oddOneOut') {
+        const right = i.options[i.answer]!.toLowerCase()
+        expect(hint, i.id).not.toContain(right)
+        // it should not simply repeat the correct choice's words either
+        expect(hint.includes(right.slice(0, 30)), i.id).toBe(false)
+      }
+      // For these questions the target IS the answer (for the others the target is in the question).
+      if (i.type === 'reverse' && i.check.kind === 'fractionEquals') {
+        expect(hint, i.id).not.toContain(i.check.target.toLowerCase())
+      }
+      if (i.type === 'draw') {
+        expect(hint, i.id).not.toContain(`${i.target.total}/${i.target.den}`)
+      }
+    }
+  })
+
+  function setup() {
+    setActivePinia(createPinia())
+    const rows: Array<Record<string, unknown>> = []
+    useSyncStore().configure({
+      save: async (row) => (rows.push(row as unknown as Record<string, unknown>), true),
+      familyId: async () => 'fam',
+      childId: () => 'kid',
+    })
+    return { store: useDeepCheckStore(), rows }
+  }
+  const flush = () => new Promise((r) => setTimeout(r, 0))
+
+  it('allows one hint before answering; a right answer with the hint is saved as not first try, with 1 hint used', async () => {
+    const { store, rows } = setup()
+    store.startRule('R1')
+    expect(store.hintShown).toBe(false)
+    store.showHint()
+    store.showHint()
+    expect(store.hintShown).toBe(true)
+    store.answerAsn('sometimes')
+    expect(store.feedback?.correct).toBe(true)
+    expect(store.feedback?.usedHint).toBe(true)
+    store.next()
+    expect(store.hintShown).toBe(false)
+    store.answerChoice(0) // right, no hint
+    await flush()
+    expect(rows.map((r) => [r.problem, r.correct, r.first_try, r.hints_used])).toEqual([
+      ['R1 asn', true, false, 1],
+      ['R1 spotMistake', true, true, 0],
+    ])
+  })
+
+  it('does not give a hint after she has answered', () => {
+    const { store } = setup()
+    store.startRule('R1')
+    store.answerAsn('always')
+    store.showHint()
+    expect(store.hintShown).toBe(false)
+  })
+
+  it('a right answer with a hint earns no star; without a hint it does', () => {
+    const lines = [
+      { mode: 'deep_check', problem: 'R1 asn', correct: true, first_try: false },
+      { mode: 'deep_check', problem: 'R1 spotMistake', correct: true, first_try: true },
+      { mode: 'deep_check', problem: 'R1 oddOneOut', correct: true },
+    ]
+    const progress = deepCheckProgress(lines)
+    expect(progress.R1).toEqual({ stars: 2, tried: 3, right: 3 })
+  })
+})

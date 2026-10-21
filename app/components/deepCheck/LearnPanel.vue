@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Rule } from '../../data/deepCheck'
 
-defineProps<{ rule: Rule }>()
-const emit = defineEmits<{ quiz: []; back: [] }>()
+defineProps<{ rule: Rule; /** Shown inside a quiz: no quiz or back buttons, just a close button. */ compact?: boolean }>()
+const emit = defineEmits<{ quiz: []; back: []; close: [] }>()
 </script>
 
 <template>
@@ -47,7 +47,12 @@ const emit = defineEmits<{ quiz: []; back: [] }>()
       <p class="text-lg text-slate-900">{{ frame.caption }}</p>
     </div>
 
-    <div class="flex flex-wrap gap-3">
+    <div v-if="compact" class="flex flex-wrap gap-3">
+      <button type="button" class="inline-flex min-h-12 items-center rounded-xl bg-white px-5 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100" @click="emit('close')">
+        Close the rule
+      </button>
+    </div>
+    <div v-else class="flex flex-wrap gap-3">
       <button type="button" class="inline-flex min-h-12 items-center rounded-xl bg-emerald-700 px-6 text-lg font-bold text-white hover:bg-emerald-800" @click="emit('quiz')">
         Start the fun quiz
       </button>

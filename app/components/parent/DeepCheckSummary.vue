@@ -12,7 +12,7 @@ async function load() {
   failed.value = false
   const { data, error } = await client
     .from('attempts')
-    .select('mode, problem, correct')
+    .select('mode, problem, correct, first_try')
     .eq('child_id', props.childId)
     .eq('mode', 'deep_check')
     .order('created_at', { ascending: false })
@@ -41,7 +41,7 @@ const lookAgain = computed(() => tried.value.filter((r) => progress.value[r.id]!
     <p v-else-if="tried.length === 0 && solved.size === 0" class="text-lg text-slate-700">No quizzes yet.</p>
     <template v-else>
       <p class="text-lg text-slate-900">
-        {{ mastered.length }} of {{ RULES.length }} rules mastered. A rule is mastered when all 5 question types have been answered right.
+        {{ mastered.length }} of {{ RULES.length }} rules mastered. A rule is mastered when all 5 question types have been answered right without a hint.
       </p>
       <ul class="space-y-1 text-lg text-slate-900">
         <li v-for="r in tried" :key="r.id" class="flex flex-wrap items-baseline gap-x-2">
