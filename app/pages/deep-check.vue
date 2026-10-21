@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ITEM_TYPES, RULES } from '../data/deepCheck'
+import { ITEM_TYPES, RULE_GROUPS } from '../data/deepCheck'
 import { useDeepCheckStore } from '../stores/deepCheck'
 import { useChildStore } from '../stores/child'
-import { deepCheckProgress, MASTERED_STARS, typeLabel, type AttemptLine, type Grade } from '../utils/deepCheck'
+import { challengesIn, challengesSolved, deepCheckProgress, MASTERED_STARS, rulesIn, typeLabel, type AttemptLine, type Grade } from '../utils/deepCheck'
 
 useHead({ title: 'Deep Check · MathSprout' })
 
@@ -31,6 +31,11 @@ onMounted(() => {
 })
 watch(() => store.view, (view) => view === 'home' && loadProgress())
 const progress = computed(() => deepCheckProgress(lines.value))
+const solvedChallenges = computed(() => challengesSolved(lines.value))
+
+function onChallenge(values: Record<string, string | number>, hintsUsed: number) {
+  store.submitChallenge(values, hintsUsed)
+}
 
 const question = ref<{ showProblem: (g: Grade) => void } | null>(null)
 function typed(text: string) {
@@ -39,7 +44,8 @@ function typed(text: string) {
 }
 
 const heading = computed(() => {
-  if (store.view === 'done' || store.view === 'quiz') return store.scope === 'chapter' ? 'Chapter quiz' : (store.rule?.title ?? 'Fun quiz')
+  if (store.view === 'challenge') return 'Olympiad challenge'
+  if (store.view === 'done' || store.view === 'quiz') return store.scope === 'chapter' ? (store.group?.title ?? 'Chapter quiz') : (store.rule?.title ?? 'Fun quiz')
   return 'Deep Check'
 })
 
@@ -72,44 +78,86 @@ const scoreMessage = computed(() => {
         questions. There is no timer, and every answer teaches you something.
       </p>
 
-      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-emerald-700 p-4 text-white sm:p-5">
-        <div>
-          <h2 class="text-2xl font-bold">Chapter quiz</h2>
-          <p class="text-base text-emerald-50">10 mixed questions from all 8 rules. A good check before a test.</p>
+      <section v-for="group in RULE_GROUPS" :key="group.id" :aria-labelledby="`group-${group.id}`" class="space-y-4">
+        <div class="space-y-1">
+          <h2 :id="`group-${group.id}`" class="text-2xl font-bold text-emerald-900">{{ group.title }}</h2>
+          <p class="text-base text-slate-700">{{ group.summary }}</p>
         </div>
-        <button type="button" class="inline-flex min-h-12 items-center rounded-xl bg-white px-6 text-lg font-bold text-emerald-900 hover:bg-emerald-50" @click="store.startChapter()">
-          Start
-        </button>
-      </div>
 
-      <ul class="grid gap-4 sm:grid-cols-2">
-        <li v-for="rule in RULES" :key="rule.id" class="flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-          <div>
-            <p class="text-base font-semibold text-emerald-800">{{ rule.id }}</p>
-            <h2 class="text-xl font-bold text-slate-900">{{ rule.title }}</h2>
-            <p class="mt-1 text-base text-slate-700">Fixes: {{ rule.misconception }}</p>
-          </div>
-          <p
-            class="text-lg font-semibold text-amber-900"
-            :aria-label="`${progress[rule.id]?.stars ?? 0} of ${MASTERED_STARS} stars`"
-          >
-            <span aria-hidden="true">{{ '★'.repeat(progress[rule.id]?.stars ?? 0) }}{{ '☆'.repeat(MASTERED_STARS - (progress[rule.id]?.stars ?? 0)) }}</span>
-            <span v-if="(progress[rule.id]?.stars ?? 0) === MASTERED_STARS" class="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-sm text-amber-950">Mastered</span>
-          </p>
-          <div class="mt-auto flex flex-wrap gap-2">
-            <button type="button" class="inline-flex min-h-12 items-center rounded-xl bg-white px-4 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100" @click="store.openLearn(rule.id)">
-              Learn
-            </button>
-            <button type="button" class="inline-flex min-h-12 items-center rounded-xl bg-emerald-700 px-4 text-lg font-bold text-white hover:bg-emerald-800" @click="store.startRule(rule.id)">
-              Quiz me
+        <!-- A topic whose rules are not written yet -->
+        <p v-if="rulesIn(group.id).length === 0" class="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-base font-semibold text-slate-800">
+          Coming soon
+        </p>
+
+        <template v-else>
+          <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-emerald-700 p-4 text-white sm:p-5">
+            <div>
+              <h3 class="text-xl font-bold">Chapter quiz</h3>
+              <p class="text-base text-emerald-50">10 mixed questions from all {{ rulesIn(group.id).length }} rules here. A good check before a test.</p>
+            </div>
+            <button type="button" class="inline-flex min-h-12 items-center rounded-xl bg-white px-6 text-lg font-bold text-emerald-900 hover:bg-emerald-50" @click="store.startChapter(group.id)">
+              Start
             </button>
           </div>
-        </li>
-      </ul>
+
+          <ul class="grid gap-4 sm:grid-cols-2">
+            <li v-for="rule in rulesIn(group.id)" :key="rule.id" class="flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+              <div>
+                <p class="text-base font-semibold text-emerald-800">{{ rule.id }}</p>
+                <h3 class="text-xl font-bold text-slate-900">{{ rule.title }}</h3>
+                <p class="mt-1 text-base text-slate-700">Fixes: {{ rule.misconception }}</p>
+              </div>
+              <p
+                class="text-lg font-semibold text-amber-900"
+                :aria-label="`${progress[rule.id]?.stars ?? 0} of ${MASTERED_STARS} stars`"
+              >
+                <span aria-hidden="true">{{ '★'.repeat(progress[rule.id]?.stars ?? 0) }}{{ '☆'.repeat(MASTERED_STARS - (progress[rule.id]?.stars ?? 0)) }}</span>
+                <span v-if="(progress[rule.id]?.stars ?? 0) === MASTERED_STARS" class="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-sm text-amber-950">Mastered</span>
+              </p>
+              <div class="mt-auto flex flex-wrap gap-2">
+                <button type="button" class="inline-flex min-h-12 items-center rounded-xl bg-white px-4 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100" @click="store.openLearn(rule.id)">
+                  Learn
+                </button>
+                <button type="button" class="inline-flex min-h-12 items-center rounded-xl bg-emerald-700 px-4 text-lg font-bold text-white hover:bg-emerald-800" @click="store.startRule(rule.id)">
+                  Quiz me
+                </button>
+              </div>
+            </li>
+          </ul>
+
+          <!-- Olympiad challenges for this topic -->
+          <div v-if="challengesIn(group.id).length" class="space-y-3">
+            <h3 class="text-xl font-bold text-emerald-900">Olympiad challenges</h3>
+            <p class="text-base text-slate-700">Word problems and puzzles with a hint. Take your time.</p>
+            <ul class="grid gap-3 sm:grid-cols-2">
+              <li v-for="c in challengesIn(group.id)" :key="c.id" class="flex flex-col gap-2 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+                <div class="flex items-start justify-between gap-2">
+                  <h4 class="text-lg font-bold text-slate-900">{{ c.title }}</h4>
+                  <span v-if="solvedChallenges.has(c.id)" class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-sm font-semibold text-emerald-950">Solved ✓</span>
+                </div>
+                <button type="button" class="mt-auto inline-flex min-h-12 w-fit items-center rounded-xl bg-white px-4 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100" @click="store.openChallenge(c.id)">
+                  {{ solvedChallenges.has(c.id) ? 'Play again' : 'Try it' }}
+                </button>
+              </li>
+            </ul>
+          </div>
+        </template>
+      </section>
     </template>
 
     <!-- Learn mode -->
     <DeepCheckLearnPanel v-else-if="store.view === 'learn' && store.rule" :rule="store.rule" @quiz="store.startRule(store.rule.id)" @back="store.goHome()" />
+
+    <!-- An Olympiad challenge -->
+    <DeepCheckChallengePlay
+      v-else-if="store.view === 'challenge' && store.challenge"
+      :key="store.challenge.id"
+      :challenge="store.challenge"
+      :result="store.challengeResult"
+      @submit="onChallenge"
+      @again="store.tryAgain()"
+      @back="store.goHome()"
+    />
 
     <!-- A quiz -->
     <section v-else-if="store.view === 'quiz' && store.current" class="space-y-4" aria-labelledby="question-title">
@@ -174,7 +222,7 @@ const scoreMessage = computed(() => {
         </li>
       </ul>
       <div class="flex flex-wrap gap-3">
-        <button v-if="store.scope === 'chapter'" type="button" class="inline-flex min-h-12 items-center rounded-xl bg-emerald-700 px-6 text-lg font-bold text-white hover:bg-emerald-800" @click="store.startChapter()">
+        <button v-if="store.scope === 'chapter'" type="button" class="inline-flex min-h-12 items-center rounded-xl bg-emerald-700 px-6 text-lg font-bold text-white hover:bg-emerald-800" @click="store.startChapter(store.groupId)">
           Another chapter quiz
         </button>
         <button v-else type="button" class="inline-flex min-h-12 items-center rounded-xl bg-emerald-700 px-6 text-lg font-bold text-white hover:bg-emerald-800" @click="store.startRule(store.scope)">

@@ -20,7 +20,30 @@ const emit = defineEmits<{ quiz: []; back: [] }>()
 
     <div v-for="(frame, i) in rule.frames" :key="i" class="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
       <DeepCheckBarModel v-if="frame.kind === 'bars'" :rows="frame.rows" />
-      <DeepCheckNumberLine v-else :max="frame.max" :marks="frame.marks" :gap="frame.gap" />
+      <DeepCheckNumberLine v-else-if="frame.kind === 'line'" :max="frame.max" :marks="frame.marks" :gap="frame.gap" />
+      <DeepCheckAreaModel
+        v-else-if="frame.kind === 'area'"
+        :cols="frame.cols"
+        :rows="frame.rows"
+        :a="frame.a"
+        :b="frame.b"
+        :a-label="frame.aLabel"
+        :b-label="frame.bLabel"
+        :both-label="frame.bothLabel"
+      />
+      <DeepCheckJumpLine v-else-if="frame.kind === 'jumps'" :parts="frame.parts" :target="frame.target" :top="frame.top" :arcs="frame.arcs" />
+      <div v-else-if="frame.kind === 'steps'" class="space-y-2">
+        <p class="text-xl font-bold text-slate-900">{{ frame.title }}</p>
+        <p
+          v-for="(line, i) in frame.lines"
+          :key="i"
+          class="rounded-lg p-3 text-lg font-semibold"
+          :class="line.tone === 'wrong' ? 'bg-rose-50 text-rose-950' : line.tone === 'right' ? 'bg-emerald-50 text-emerald-950' : 'bg-slate-50 text-slate-900'"
+        >
+          <span aria-hidden="true">{{ line.tone === 'wrong' ? '✗ ' : line.tone === 'right' ? '✓ ' : '' }}</span>{{ line.text }}
+        </p>
+      </div>
+      <DeepCheckReciprocalFlow v-else :steps="frame.steps" :result="frame.result" :balance="frame.balance" />
       <p class="text-lg text-slate-900">{{ frame.caption }}</p>
     </div>
 

@@ -20,11 +20,21 @@ export interface BarRow {
   wholes?: number
   extra: number
   label: string
+  /** Show the cut lines inside the whole bars as dotted lines (a bar being cut into smaller pieces). */
+  dotted?: boolean
 }
 
 export type Frame =
   | { kind: 'bars'; rows: BarRow[]; caption: string }
   | { kind: 'line'; max: number; marks: { at: number; label: string }[]; gap?: { from: number; to: number; label: string }; caption: string }
+  /** An area model: a rectangle of cols × rows boxes. `a` columns are shaded one way and `b` rows another; the overlap is the product. */
+  | { kind: 'area'; cols: number; rows: number; a: number; b: number; aLabel: string; bLabel: string; bothLabel: string; caption: string }
+  /** A double number line: the amount on top, and jumps of one size on the bottom. Positions are counted in `parts` per 1. */
+  | { kind: 'jumps'; parts: number; target: number; top: string; arcs: { from: number; to: number; label: string }[]; caption: string }
+  /** Worked lines, like "Wrong: ..." and "Right: ...". */
+  | { kind: 'steps'; title: string; lines: { tone: 'wrong' | 'right' | 'plain'; text: string }[]; caption: string }
+  /** Keep, change, flip, with a balance showing why it works. */
+  | { kind: 'flow'; steps: { word: string; text: string }[]; result: string; balance: { left: string; right: string }; caption: string }
 
 export interface Rule {
   id: string
@@ -63,6 +73,10 @@ export type ReverseCheck =
   | { kind: 'fractionSmallerThan'; den: number; than: number }
   | { kind: 'greaterThan'; target: string }
   | { kind: 'divisionEquals'; target: string }
+  /** Equal to the target and written as an improper fraction (top not smaller than the bottom). */
+  | { kind: 'improperEquals'; target: string }
+  /** Any proper fraction: more than 0 and less than 1. */
+  | { kind: 'properFraction' }
 
 interface ItemBase {
   id: string
@@ -214,6 +228,276 @@ export const RULES: Rule[] = [
         caption: 'Cut each of the 5 tarts into 8 parts and give each friend one part from every tart. Or: 5 pieces out of 8 in one bar.',
       },
     ],
+  },
+  {
+    id: 'R9',
+    title: 'The Setup Rule: improper fractions',
+    statement: 'Always change mixed numbers into improper fractions before you multiply or divide. A whole number gets a 1 underneath, like 5 = 5/1.',
+    misconception: '“Multiply the wholes together and the fractions together: 2 1/2 × 2 1/2 = 4 1/4.”',
+    frames: [
+      {
+        kind: 'bars',
+        rows: [{ den: 2, wholes: 2, extra: 1, label: '2 1/2 is 3 candy bars: two full and one half', dotted: true }],
+        caption: 'Cut every bar in half (the dotted lines). Now you can count 5 half-bars, so 2 1/2 = 5/2. The wholes cannot be left on their own.',
+      },
+      {
+        kind: 'bars',
+        rows: [{ den: 2, extra: 7, label: '3 1/2 metres is 7 halves: 7/2' }],
+        caption: 'An improper fraction is just counting pieces. 7/2 is seven things, and each thing is a half.',
+      },
+      {
+        kind: 'steps',
+        title: '2 1/2 × 2 1/2',
+        lines: [
+          { tone: 'wrong', text: 'Wrong: 2 × 2 = 4 and 1/2 × 1/2 = 1/4, so 4 1/4' },
+          { tone: 'right', text: 'Right: 5/2 × 5/2 = 25/4 = 6 1/4' },
+        ],
+        caption: 'Splitting a mixed number into parts leaves out the pieces where the whole and the fraction multiply each other.',
+      },
+    ],
+  },
+  {
+    id: 'R10',
+    title: 'The Multiplication Meaning Rule',
+    statement: 'Multiplying by a proper fraction means taking a part of something, so the answer is smaller.',
+    misconception: '“Multiplication always makes a number bigger.”',
+    frames: [
+      {
+        kind: 'area',
+        cols: 4,
+        rows: 2,
+        a: 3,
+        b: 1,
+        aLabel: 'Blue: 3/4 of the rectangle',
+        bLabel: 'Yellow: 1/2 of the rectangle',
+        bothLabel: 'Green: both, 3 of 8 boxes',
+        caption: 'Take 1/2 of 3/4. The part with both colors is 3 of the 8 boxes: 3/4 × 1/2 = 3/8. A part of a part is smaller.',
+      },
+      {
+        kind: 'area',
+        cols: 4,
+        rows: 5,
+        a: 3,
+        b: 2,
+        aLabel: 'Blue: 3/4 (3 of 4 columns)',
+        bLabel: 'Yellow: 2/5 (2 of 5 rows)',
+        bothLabel: 'Green: both, 6 of 20 boxes',
+        caption: 'Slicing two ways makes 4 × 5 = 20 new, smaller boxes. The tops multiply (3 × 2 = 6) and the bottoms multiply (4 × 5 = 20): 3/4 × 2/5 = 6/20 = 3/10.',
+      },
+    ],
+  },
+  {
+    id: 'R11',
+    title: 'The Division Meaning Rule',
+    statement: 'Dividing by a proper fraction asks how many times a small piece fits into a bigger amount, so the answer is bigger.',
+    misconception: '“Division always makes things smaller”, or thinking 3/4 ÷ 1/2 means taking half of 3/4.',
+    frames: [
+      {
+        kind: 'jumps',
+        parts: 4,
+        target: 3,
+        top: '3/4',
+        arcs: [
+          { from: 0, to: 2, label: '1 jump of 1/2' },
+          { from: 2, to: 3, label: 'half a jump' },
+        ],
+        caption: 'How many jumps of 1/2 fit into 3/4? One full jump, and then half a jump to land on 3/4. So 3/4 ÷ 1/2 = 1 1/2.',
+      },
+      {
+        kind: 'steps',
+        title: 'A snail climbs 2/3 of a foot every hour. How long to climb 6 feet?',
+        lines: [
+          { tone: 'plain', text: '6 feet is 18 thirds, because every foot is 3 thirds.' },
+          { tone: 'plain', text: 'Each jump is 2 thirds.' },
+          { tone: 'right', text: '18 ÷ 2 = 9 jumps: more jumps than feet, because each jump is smaller than 1 foot.' },
+        ],
+        caption: 'Dividing by a number less than 1 always gives a bigger answer than the number you started with.',
+      },
+    ],
+  },
+  {
+    id: 'R12',
+    title: 'The Keep-Change-Flip Rule',
+    statement: 'To divide fractions, multiply the first fraction by the reciprocal (the flipped version) of the second fraction.',
+    misconception: '“Divide the tops and divide the bottoms straight across”, which makes messy fractions inside fractions.',
+    frames: [
+      {
+        kind: 'flow',
+        steps: [
+          { word: 'Keep', text: 'Keep the first fraction: 3/4' },
+          { word: 'Change', text: 'Change ÷ into ×' },
+          { word: 'Flip', text: 'Flip the second fraction: 2/3 becomes 3/2' },
+        ],
+        result: '3/4 ÷ 2/3 = 3/4 × 3/2 = 9/8 = 1 1/8',
+        balance: { left: 'Total ÷ size of a group', right: 'Total × groups in one whole' },
+        caption: 'Dividing by a size and multiplying by how many of them fit in 1 give the same amount, so the two sides of the scale balance.',
+      },
+    ],
+  },
+  {
+    id: 'R13',
+    title: 'What is the whole right now?',
+    statement: 'A fraction is always a fraction of something. When the amount changes, the whole changes too. Ask: what is the whole right now?',
+    misconception: '“Every fraction in the story is a fraction of the very first amount.”',
+    frames: [
+      {
+        kind: 'bars',
+        rows: [
+          { den: 2, extra: 1, label: 'Morning: sells 1/2 of the batch. 1/2 of the batch is left.' },
+          { den: 4, extra: 1, label: 'Afternoon: sells 1/2 of what is left. 1/4 of the batch is left.' },
+        ],
+        caption: 'The second 1/2 is half of the half that is left, not half of the whole batch.',
+      },
+      {
+        kind: 'steps',
+        title: '24 tarts: sell 1/2, then 1/2 of the rest',
+        lines: [
+          { tone: 'wrong', text: 'Wrong: 1/2 + 1/2 = all of them, so none are left.' },
+          { tone: 'right', text: 'Right: 12 are left. Half of those 12 is 6 sold, so 6 are left. 6 is 1/4 of 24.' },
+        ],
+        caption: 'Before each step, ask: what is the whole right now?',
+      },
+    ],
+  },
+  {
+    id: 'R14',
+    title: '“Of” means multiply',
+    statement: '“Of” means multiply. 1/2 of 3/4 is 1/2 × 3/4 = 3/8. It is not a division.',
+    misconception: '“1/2 of 3/4 means divide 3/4 by 1/2.”',
+    frames: [
+      {
+        kind: 'bars',
+        rows: [
+          { den: 4, extra: 3, label: '3/4' },
+          { den: 8, extra: 3, label: 'Half of 3/4 = 3/8' },
+        ],
+        caption: 'Cut every quarter in half. 3/4 is 6 eighths, and half of them is 3 eighths: 3/8.',
+      },
+      {
+        kind: 'steps',
+        title: '1/2 of 3/4',
+        lines: [
+          { tone: 'wrong', text: 'Wrong: 3/4 ÷ 1/2 = 1 1/2. That is bigger, but half of something is smaller.' },
+          { tone: 'right', text: 'Right: 1/2 of 3/4 = 1/2 × 3/4 = 3/8. A part of a part is smaller.' },
+        ],
+        caption: 'If the question says “of”, multiply.',
+      },
+    ],
+  },
+  {
+    id: 'R15',
+    title: 'Multiply straight across',
+    statement: 'To multiply fractions, multiply the tops together and the bottoms together. You do not need a common bottom number. A whole number is a fraction over 1.',
+    misconception: '“You have to rename to a common bottom number before you multiply.”',
+    frames: [
+      {
+        kind: 'area',
+        cols: 4,
+        rows: 3,
+        a: 3,
+        b: 2,
+        aLabel: 'Blue: 3/4 (3 of 4 columns)',
+        bLabel: 'Yellow: 2/3 (2 of 3 rows)',
+        bothLabel: 'Green: both, 6 of 12 boxes',
+        caption: 'The tops multiply: 2 × 3 = 6. The bottoms multiply: 3 × 4 = 12. So 2/3 × 3/4 = 6/12 = 1/2.',
+      },
+    ],
+  },
+  {
+    id: 'R16',
+    title: 'Simplify before you multiply',
+    statement: 'Before you multiply, simplify a top with a bottom that share a factor. Only a top with a bottom, never two tops or two bottoms.',
+    misconception: '“Cancel any two numbers that match, even two tops.”',
+    frames: [
+      {
+        kind: 'steps',
+        title: '4/9 × 3/8',
+        lines: [
+          { tone: 'plain', text: 'The top 4 and the bottom 8 share 4: 4 becomes 1 and 8 becomes 2.' },
+          { tone: 'plain', text: 'The top 3 and the bottom 9 share 3: 3 becomes 1 and 9 becomes 3.' },
+          { tone: 'right', text: 'Now it is 1/3 × 1/2 = 1/6, with small numbers all the way.' },
+          { tone: 'wrong', text: 'Never cancel two tops, like 2/5 × 2/3. That is 4/15, not 1/15.' },
+        ],
+        caption: 'Simplifying first keeps the numbers small and the answer already in simplest form.',
+      },
+    ],
+  },
+  {
+    id: 'R17',
+    title: 'Times 1/n is divided by n',
+    statement: 'Multiplying by 1/3 is the same as dividing by 3. Both take one equal part out of 3.',
+    misconception: '“Multiplying and dividing always do opposite things, so × 1/3 cannot be ÷ 3.”',
+    frames: [
+      {
+        kind: 'bars',
+        rows: [
+          { den: 5, extra: 2, label: '2/5' },
+          { den: 15, extra: 2, label: '2/5 × 1/3 = 2/15' },
+        ],
+        caption: 'Cut every fifth into 3 equal pieces: 2 fifths become 2 fifteenths. One third of 2/5 is the same as 2/5 ÷ 3.',
+      },
+    ],
+  },
+  {
+    id: 'R18',
+    title: 'Digit cards: products',
+    statement: 'With four digit cards in □ × □ □/□ (the fraction must be proper and in simplest form): for the greatest product, put the biggest digit in front, the next biggest as the whole part, and the two smallest digits make the fraction with the smaller on top. For the smallest product, put the smallest digit in front and keep the whole part and the fraction small. Then test the choices that are allowed.',
+    misconception: '“Just try every arrangement until one looks big.”',
+    frames: [
+      {
+        kind: 'steps',
+        title: 'Digits 2, 3, 4 and 8 in □ × □ □/□',
+        lines: [
+          { tone: 'plain', text: 'Greatest: 8 in front, 4 as the whole part, and 2/3 (smaller on top).' },
+          { tone: 'right', text: '8 × 4 2/3 = 8 × 14/3 = 112/3 = 37 1/3' },
+          { tone: 'plain', text: 'Smallest: 2 in front. 4/8 is not in simplest form, so the fraction is 3/8 and the whole part is 4.' },
+          { tone: 'right', text: '2 × 4 3/8 = 2 × 35/8 = 70/8 = 8 3/4' },
+        ],
+        caption: 'The biggest digit in front multiplies the whole part and the fraction part, so it adds the most.',
+      },
+    ],
+  },
+  {
+    id: 'R19',
+    title: 'Digit cards: quotients',
+    statement: 'In □ ÷ □ □/□: a big front number divided by a small divisor gives the greatest quotient, and a small front number divided by a big divisor gives the smallest. Use this plan, then test the arrangements that are allowed. It does not always work for every set of digits.',
+    misconception: '“The biggest digit in front is always best.”',
+    frames: [
+      {
+        kind: 'steps',
+        title: 'Digits 2, 3, 4 and 8 in □ ÷ □ □/□',
+        lines: [
+          { tone: 'plain', text: 'Greatest: 8 in front, divided by the smallest divisor, 2 3/4.' },
+          { tone: 'right', text: '8 ÷ 2 3/4 = 8 ÷ 11/4 = 8 × 4/11 = 32/11 = 2 10/11' },
+          { tone: 'plain', text: 'Smallest: 2 in front, divided by the biggest divisor, 8 3/4.' },
+          { tone: 'right', text: '2 ÷ 8 3/4 = 2 ÷ 35/4 = 2 × 4/35 = 8/35' },
+        ],
+        caption: 'Change the divisor to an improper fraction first, then keep, change, flip.',
+      },
+    ],
+  },
+]
+
+/** The topics the rules sit under. A group with no rules yet shows "coming soon". */
+export interface RuleGroup {
+  id: string
+  title: string
+  summary: string
+  ruleIds: string[]
+}
+
+export const RULE_GROUPS: RuleGroup[] = [
+  {
+    id: 'addsub',
+    title: 'Fraction addition and subtraction',
+    summary: 'Simplest form, mixed numbers, equal forms, renaming, regrouping and checking.',
+    ruleIds: ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8'],
+  },
+  {
+    id: 'muldiv',
+    title: 'Fraction multiplication and division',
+    summary: 'Setting up mixed numbers, what multiplying and dividing by fractions mean, the shortcuts, and number puzzles.',
+    ruleIds: ['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19'],
   },
 ]
 
@@ -552,5 +836,632 @@ export const ITEMS: Item[] = [
     dens: [8],
     target: { den: 8, total: 5 },
     explanation: '5 ÷ 8 = 5/8. One friend’s share is 5 of the 8 equal pieces.',
+  },
+  // ---------------- R9: the setup rule ----------------
+  {
+    id: 'R9-asn', ruleId: 'R9', type: 'asn',
+    prompt: 'To multiply 2 1/2 × 2 1/2, you can multiply the whole numbers together and the fractions together.',
+    answer: 'never',
+    explanation: '2 × 2 and 1/2 × 1/2 gives 4 1/4, but 5/2 × 5/2 = 25/4 = 6 1/4. Splitting the mixed numbers leaves out some of the pieces.',
+  },
+  {
+    id: 'R9-spot', ruleId: 'R9', type: 'spotMistake',
+    prompt: 'Tia worked out 2 1/2 × 2 1/2 and got 4 1/4 by doing 2 × 2 and 1/2 × 1/2. What should Tia do first?',
+    options: [
+      'Change each mixed number to an improper fraction: 5/2 × 5/2 = 25/4 = 6 1/4',
+      'Add the whole numbers together',
+      'Subtract the fractions',
+      'Nothing, 4 1/4 is right',
+    ],
+    answer: 0,
+    explanation: '2 1/2 is 5 halves. 5/2 × 5/2 = 25/4, which is 6 1/4.',
+  },
+  {
+    id: 'R9-odd', ruleId: 'R9', type: 'oddOneOut',
+    prompt: 'Three of these equal 2 1/2. Which one does not belong?',
+    options: ['5/2', '10/4', '2 2/4', '2 1/3'],
+    answer: 3,
+    explanation: '5/2, 10/4 and 2 2/4 are all 2 and a half. 2 1/3 is a little smaller.',
+  },
+  {
+    id: 'R9-rev', ruleId: 'R9', type: 'reverse',
+    prompt: 'Write 3 1/4 as an improper fraction.',
+    placeholder: 'Type it like 13/4',
+    check: { kind: 'improperEquals', target: '3 1/4' },
+    explanation: '3 wholes are 12 quarters, plus 1 more quarter is 13 quarters: 13/4.',
+  },
+  {
+    id: 'R9-draw', ruleId: 'R9', type: 'draw',
+    prompt: 'The bars show 2 1/2. Break the whole bars into halves so all of it is counted in halves.',
+    start: { wholes: 2, pieces: 1, den: 2 },
+    dens: [2],
+    target: { den: 2, total: 5, exact: { wholes: 0, pieces: 5 } },
+    explanation: 'Each whole bar breaks into 2 halves. 2 bars and 1 half is 5 halves, so 2 1/2 = 5/2.',
+  },
+
+  // ---------------- R10: multiplication meaning ----------------
+  {
+    id: 'R10-asn', ruleId: 'R10', type: 'asn',
+    prompt: 'When you multiply a number bigger than 0 by a fraction less than 1, the answer is smaller than the number you started with.',
+    answer: 'always',
+    explanation: 'Multiplying by a fraction less than 1 takes a part of the number. A part is smaller than the whole.',
+  },
+  {
+    id: 'R10-spot', ruleId: 'R10', type: 'spotMistake',
+    prompt: 'Ben says 8 × 1/2 must be bigger than 8, because multiplying makes numbers bigger. What is wrong with his thinking?',
+    options: [
+      'Multiplying by 1/2 takes half of 8, so the answer is 4, which is smaller',
+      '8 × 1/2 is 16',
+      'He should have divided',
+      'Nothing, he is right',
+    ],
+    answer: 0,
+    explanation: '8 × 1/2 means half of 8, which is 4. Multiplying makes a number bigger only when you multiply by more than 1.',
+  },
+  {
+    id: 'R10-odd', ruleId: 'R10', type: 'oddOneOut',
+    prompt: 'Start with 12. Three of these make an answer smaller than 12. Which one does not?',
+    options: ['12 × 1/2', '12 × 3/4', '12 × 5/4', '12 × 1/3'],
+    answer: 2,
+    explanation: '5/4 is more than 1, so 12 × 5/4 = 15 is bigger than 12. The other three fractions are less than 1.',
+  },
+  {
+    id: 'R10-rev', ruleId: 'R10', type: 'reverse',
+    prompt: 'Write a fraction to multiply 20 by, so the answer is smaller than 20 but not 0.',
+    placeholder: 'Type it like 3/5',
+    check: { kind: 'properFraction' },
+    explanation: 'Any fraction between 0 and 1 works, like 1/2, 3/5 or 7/8. It takes a part of 20.',
+  },
+  {
+    id: 'R10-draw', ruleId: 'R10', type: 'draw',
+    prompt: 'The bar shows 3/4. Cut it into eighths, then keep half of the shaded pieces to show 1/2 of 3/4.',
+    start: { wholes: 0, pieces: 3, den: 4 },
+    dens: [4, 8],
+    target: { den: 8, total: 3 },
+    explanation: '3/4 is 6/8. Half of 6 pieces is 3 pieces, so 1/2 × 3/4 = 3/8.',
+  },
+
+  // ---------------- R11: division meaning ----------------
+  {
+    id: 'R11-asn', ruleId: 'R11', type: 'asn',
+    prompt: 'When you divide a number bigger than 0 by a fraction less than 1, the answer is bigger than the number you started with.',
+    answer: 'always',
+    explanation: 'Dividing by a small piece asks how many of those pieces fit in. 3 ÷ 1/2 = 6, because 6 halves fit in 3.',
+  },
+  {
+    id: 'R11-spot', ruleId: 'R11', type: 'spotMistake',
+    prompt: 'Mo says 3/4 ÷ 1/2 is the same as taking half of 3/4, so it is 3/8. What should Mo fix?',
+    options: [
+      'Dividing by 1/2 asks how many halves fit in 3/4. That is 1 1/2, not 3/8',
+      'Half of 3/4 is 1/4',
+      'He should add instead',
+      'Nothing, 3/8 is right',
+    ],
+    answer: 0,
+    explanation: 'Taking half of 3/4 is multiplying: 3/4 × 1/2 = 3/8. Dividing by 1/2 counts jumps of 1/2 in 3/4: one jump and half a jump, 1 1/2.',
+  },
+  {
+    id: 'R11-odd', ruleId: 'R11', type: 'oddOneOut',
+    prompt: 'Start with 6. Three of these make an answer bigger than 6. Which one does not?',
+    options: ['6 ÷ 1/2', '6 ÷ 2/3', '6 ÷ 3/2', '6 ÷ 1/3'],
+    answer: 2,
+    explanation: '3/2 is more than 1, so 6 ÷ 3/2 = 4 is smaller than 6. Dividing by a fraction less than 1 makes it bigger.',
+  },
+  {
+    id: 'R11-rev', ruleId: 'R11', type: 'reverse',
+    prompt: '4 ÷ ☐ = 8. What fraction goes in the box?',
+    placeholder: 'Type it like 1/2',
+    check: { kind: 'fractionEquals', target: '1/2' },
+    explanation: 'How many halves fit in 4? 8 of them. So 4 ÷ 1/2 = 8.',
+  },
+  {
+    id: 'R11-draw', ruleId: 'R11', type: 'draw',
+    prompt: 'Cut each of 3 whole bars into halves. How many halves fit in 3? Break the bars so all of them are halves.',
+    start: { wholes: 3, pieces: 0, den: 1 },
+    dens: [1, 2],
+    target: { den: 2, total: 6, exact: { wholes: 0, pieces: 6 } },
+    explanation: '3 bars cut into halves give 6 halves. So 3 ÷ 1/2 = 6.',
+  },
+
+  // ---------------- R12: keep, change, flip ----------------
+  {
+    id: 'R12-asn', ruleId: 'R12', type: 'asn',
+    prompt: 'You can divide by a fraction by multiplying by its reciprocal (the fraction flipped).',
+    answer: 'always',
+    explanation: 'Dividing by 2/3 and multiplying by 3/2 give the same amount. That is why keep, change, flip works.',
+  },
+  {
+    id: 'R12-spot', ruleId: 'R12', type: 'spotMistake',
+    prompt: 'Lia worked out 3/4 ÷ 2/3 by dividing the tops (3 ÷ 2) and the bottoms (4 ÷ 3), and got a messy fraction with fractions inside it. What is an easier way?',
+    options: [
+      'Keep 3/4, change ÷ to ×, flip 2/3 to 3/2: 3/4 × 3/2 = 9/8 = 1 1/8',
+      'Add the tops and the bottoms',
+      'Flip the first fraction instead',
+      'Multiply straight across without flipping',
+    ],
+    answer: 0,
+    explanation: 'Keep, change, flip turns the division into one multiplication: 3/4 × 3/2 = 9/8, which is 1 1/8.',
+  },
+  {
+    id: 'R12-odd', ruleId: 'R12', type: 'oddOneOut',
+    prompt: 'Three of these equal 3/5 ÷ 2/7. Which one does not belong?',
+    options: ['3/5 × 7/2', '21/10', '2 1/10', '3/5 × 2/7'],
+    answer: 3,
+    explanation: '3/5 ÷ 2/7 = 3/5 × 7/2 = 21/10 = 2 1/10. The last one did not flip the second fraction, so it is only 6/35.',
+  },
+  {
+    id: 'R12-rev', ruleId: 'R12', type: 'reverse',
+    prompt: 'Write the reciprocal of 2/5. That is, flip it.',
+    placeholder: 'Type it like 3/7',
+    check: { kind: 'fractionEquals', target: '5/2' },
+    explanation: 'Flipping swaps the top and the bottom: 2/5 becomes 5/2.',
+  },
+  {
+    id: 'R12-draw', ruleId: 'R12', type: 'draw',
+    prompt: 'Flip 2/3 to get 3/2. Show 3/2 with bars cut into halves.',
+    start: { wholes: 0, pieces: 0, den: 2 },
+    dens: [2],
+    target: { den: 2, total: 3 },
+    explanation: '3/2 is 3 halves, which is 1 1/2. It is the flipped version of 2/3.',
+  },
+  // ---------------- R13: what is the whole right now? ----------------
+  {
+    id: 'R13-asn', ruleId: 'R13', type: 'asn',
+    prompt: 'When some tarts have already been sold, half of the tarts that are left is the same amount as half of the original batch.',
+    answer: 'never',
+    explanation: 'With 24 tarts, half of the batch is 12. After selling 12, half of the 12 that are left is only 6. The whole has changed.',
+  },
+  {
+    id: 'R13-spot', ruleId: 'R13', type: 'spotMistake',
+    prompt: 'Leo baked 24 tarts. He sold 1/2 of them in the morning and 1/2 of the tarts that were left in the afternoon. Kim says he sold 1/2 + 1/2 = all 24, so none are left. What should Kim fix?',
+    options: [
+      'The second 1/2 is of the 12 that were left, not of all 24: he sold 12 + 6 = 18, so 6 are left',
+      'Add 1/2 and 1/2 to get 2 wholes',
+      'He sold 1/2 of 24 twice, so all 24 are sold',
+      'Nothing, none are left',
+    ],
+    answer: 0,
+    explanation: 'In the afternoon the whole is the 12 tarts that are left. Half of 12 is 6, so 12 + 6 = 18 were sold and 6 are left.',
+  },
+  {
+    id: 'R13-odd', ruleId: 'R13', type: 'oddOneOut',
+    prompt: 'Leo has 24 tarts. He sells 1/2 of the batch, then 1/2 of what is left. Three of these are true. Which one is NOT true?',
+    options: ['After the morning, 12 are left', 'In the afternoon he sells 6', 'In all he sells 18', 'In the afternoon he sells 12'],
+    answer: 3,
+    explanation: 'In the afternoon he sells half of the 12 that are left, which is 6. So he does not sell 12.',
+  },
+  {
+    id: 'R13-rev', ruleId: 'R13', type: 'reverse',
+    prompt: 'Leo sold 1/2 of his tarts in the morning and 1/2 of the rest in the afternoon. 5 tarts were left at the end. How many tarts did he bake?',
+    placeholder: 'Type a number',
+    check: { kind: 'fractionEquals', target: '20' },
+    explanation: 'Work backwards. 5 is half of what he had in the afternoon, so he had 10. 10 is half of the batch, so he baked 20.',
+  },
+  {
+    id: 'R13-draw', ruleId: 'R13', type: 'draw',
+    prompt: 'The bar is the whole batch: 4 fourths. Take away 1/2 of the batch, then 1/2 of what is left. Show what is left.',
+    start: { wholes: 0, pieces: 4, den: 4 },
+    dens: [4],
+    target: { den: 4, total: 1 },
+    explanation: 'Half of 4 fourths is 2 fourths, so 2 fourths are left. Half of those is 1 fourth, so 1 fourth of the batch is left.',
+  },
+
+  // ---------------- R14: "of" means multiply ----------------
+  {
+    id: 'R14-asn', ruleId: 'R14', type: 'asn',
+    prompt: '“1/2 of 3/4” means 1/2 × 3/4.',
+    answer: 'always',
+    explanation: '“Of” means multiply. Taking a part of an amount is multiplying by that part.',
+  },
+  {
+    id: 'R14-spot', ruleId: 'R14', type: 'spotMistake',
+    prompt: 'Raj says 1/2 of 3/4 means 3/4 ÷ 1/2, which is 1 1/2. What is wrong with his thinking?',
+    options: [
+      '“Of” means multiply: 1/2 of 3/4 = 1/2 × 3/4 = 3/8, which is smaller',
+      'It should be 3/4 + 1/2',
+      '1 1/2 is right',
+      'It should be 3/4 − 1/2',
+    ],
+    answer: 0,
+    explanation: 'Half of something is smaller than the something. 3/8 is smaller than 3/4. Dividing by 1/2 would make it bigger.',
+  },
+  {
+    id: 'R14-odd', ruleId: 'R14', type: 'oddOneOut',
+    prompt: 'Three of these equal 1/2 of 3/4. Which one does not belong?',
+    options: ['1/2 × 3/4', '3/8', '3/4 ÷ 2', '3/4 ÷ 1/2'],
+    answer: 3,
+    explanation: 'Half of 3/4 is 3/8, and 3/4 ÷ 2 is also 3/8. 3/4 ÷ 1/2 is 1 1/2, a different question.',
+  },
+  {
+    id: 'R14-rev', ruleId: 'R14', type: 'reverse',
+    prompt: 'Write 1/3 of 3/5 as a single fraction.',
+    placeholder: 'Type it like 1/5',
+    check: { kind: 'fractionEquals', target: '1/5' },
+    explanation: '1/3 × 3/5 = 3/15 = 1/5.',
+  },
+  {
+    id: 'R14-draw', ruleId: 'R14', type: 'draw',
+    prompt: 'The bar shows 1/2. Cut it into fourths, then keep half of the shaded pieces to show 1/2 of 1/2.',
+    start: { wholes: 0, pieces: 1, den: 2 },
+    dens: [2, 4],
+    target: { den: 4, total: 1 },
+    explanation: '1/2 is 2 fourths. Half of 2 pieces is 1 piece. 1/2 of 1/2 = 1/4.',
+  },
+
+  // ---------------- R15: multiply straight across ----------------
+  {
+    id: 'R15-asn', ruleId: 'R15', type: 'asn',
+    prompt: 'To multiply 2/3 × 3/4, you must first rename both fractions so the bottom numbers match.',
+    answer: 'never',
+    explanation: 'Renaming to a common bottom number is for adding and subtracting. To multiply, multiply the tops and multiply the bottoms.',
+  },
+  {
+    id: 'R15-spot', ruleId: 'R15', type: 'spotMistake',
+    prompt: 'Sia worked out 2/3 × 3/4 by renaming both fractions as twelfths (8/12 and 9/12) and then adding the tops to get 17/12. What should she do instead?',
+    options: [
+      'Multiply the tops and the bottoms straight across: 2 × 3 = 6 and 3 × 4 = 12, so 6/12 = 1/2',
+      'Add the bottoms as well',
+      'Subtract the tops',
+      'Nothing, 17/12 is right',
+    ],
+    answer: 0,
+    explanation: 'Multiplying slices the pieces again, so the bottoms multiply too. 2/3 × 3/4 = 6/12, which is 1/2.',
+  },
+  {
+    id: 'R15-odd', ruleId: 'R15', type: 'oddOneOut',
+    prompt: 'Three of these equal 2/3 × 3/4. Which one does not belong?',
+    options: ['6/12', '1/2', '3/6', '5/12'],
+    answer: 3,
+    explanation: '2/3 × 3/4 = 6/12, and 6/12, 1/2 and 3/6 all name the same amount. 5/12 is a little smaller.',
+  },
+  {
+    id: 'R15-rev', ruleId: 'R15', type: 'reverse',
+    prompt: '5 × 2/3: write 5 as 5/1, then multiply straight across. What is the answer?',
+    placeholder: 'Type it like 10/3',
+    check: { kind: 'fractionEquals', target: '10/3' },
+    explanation: '5/1 × 2/3 = 10/3, which is 3 1/3.',
+  },
+  {
+    id: 'R15-draw', ruleId: 'R15', type: 'draw',
+    prompt: 'Show 2/3 × 3/4 on a bar cut into twelfths. The tops multiply to 6, so shade 6 pieces.',
+    start: { wholes: 0, pieces: 0, den: 12 },
+    dens: [12],
+    target: { den: 12, total: 6 },
+    explanation: '6 of the 12 pieces is 6/12, which is 1/2.',
+  },
+
+  // ---------------- R16: simplify before you multiply ----------------
+  {
+    id: 'R16-asn', ruleId: 'R16', type: 'asn',
+    prompt: 'In 4/9 × 3/8, you can simplify the 4 on top with the 8 on the bottom before you multiply.',
+    answer: 'always',
+    explanation: 'The 4 and the 8 share a factor of 4, and one is a top and one is a bottom. 4 becomes 1 and 8 becomes 2.',
+  },
+  {
+    id: 'R16-spot', ruleId: 'R16', type: 'spotMistake',
+    prompt: 'Tom worked out 2/5 × 2/3 by cancelling the two 2s (both are tops) and wrote 1/5 × 1/3 = 1/15. What is wrong?',
+    options: [
+      'Only a top and a bottom can be simplified together. Two tops cannot be cancelled: 2/5 × 2/3 = 4/15',
+      'He should cancel the 5 and the 3',
+      '1/15 is right',
+      'He should add the tops',
+    ],
+    answer: 0,
+    explanation: 'The tops multiply, 2 × 2 = 4, and the bottoms multiply, 5 × 3 = 15. So the answer is 4/15.',
+  },
+  {
+    id: 'R16-odd', ruleId: 'R16', type: 'oddOneOut',
+    prompt: 'Before multiplying 6/10 × 5/9, three of these are good moves. Which one is NOT?',
+    options: [
+      'Simplify the top 6 and the bottom 9 by 3',
+      'Simplify the top 5 and the bottom 10 by 5',
+      'Simplify the top 6 and the bottom 10 by 2',
+      'Cancel the two tops, 6 and 5',
+    ],
+    answer: 3,
+    explanation: 'Simplifying works between a top and a bottom that share a factor. Two tops do not simplify with each other.',
+  },
+  {
+    id: 'R16-rev', ruleId: 'R16', type: 'reverse',
+    prompt: 'Simplify first, then multiply: 4/9 × 3/8. Type the answer.',
+    placeholder: 'Type it like 1/6',
+    check: { kind: 'fractionEquals', target: '1/6' },
+    explanation: '4/8 becomes 1/2 and 3/9 becomes 1/3. 1/3 × 1/2 = 1/6.',
+  },
+  {
+    id: 'R16-draw', ruleId: 'R16', type: 'draw',
+    prompt: 'The answer to 4/9 × 3/8 is 1/6. Show 1/6 on a bar cut into sixths.',
+    start: { wholes: 0, pieces: 0, den: 6 },
+    dens: [6],
+    target: { den: 6, total: 1 },
+    explanation: '1 piece out of 6 equal pieces is 1/6.',
+  },
+
+  // ---------------- R17: times 1/n is divided by n ----------------
+  {
+    id: 'R17-asn', ruleId: 'R17', type: 'asn',
+    prompt: 'Multiplying a number by 1/4 gives the same answer as dividing that number by 4.',
+    answer: 'always',
+    explanation: 'Both find one quarter of the number. 8 × 1/4 = 2 and 8 ÷ 4 = 2.',
+  },
+  {
+    id: 'R17-spot', ruleId: 'R17', type: 'spotMistake',
+    prompt: 'Jo says 8 × 1/4 and 8 ÷ 4 must give different answers, because one is multiplying and one is dividing. What is wrong?',
+    options: [
+      'Both find one quarter of 8, so both are 2',
+      '8 × 1/4 = 32',
+      '8 ÷ 4 = 32',
+      'Nothing, Jo is right',
+    ],
+    answer: 0,
+    explanation: 'Taking 1/4 of 8 and splitting 8 into 4 equal parts give the same amount: 2.',
+  },
+  {
+    id: 'R17-odd', ruleId: 'R17', type: 'oddOneOut',
+    prompt: 'Three of these equal 2/5 × 1/3. Which one does not belong?',
+    options: ['2/5 ÷ 3', '2/15', '4/30', '2/5 ÷ 1/3'],
+    answer: 3,
+    explanation: '2/5 × 1/3 = 2/15, and 2/5 ÷ 3 = 2/15 too. 2/5 ÷ 1/3 asks how many thirds fit in 2/5, which is 1 1/5.',
+  },
+  {
+    id: 'R17-rev', ruleId: 'R17', type: 'reverse',
+    prompt: '2/5 ÷ 3 = 2/5 × ☐. What fraction goes in the box?',
+    placeholder: 'Type it like 1/3',
+    check: { kind: 'fractionEquals', target: '1/3' },
+    explanation: 'Dividing by 3 is the same as multiplying by 1/3.',
+  },
+  {
+    id: 'R17-draw', ruleId: 'R17', type: 'draw',
+    prompt: 'The bar shows 2/5. Cut it into fifteenths, then keep one third of the shaded pieces to show 2/5 ÷ 3.',
+    start: { wholes: 0, pieces: 2, den: 5 },
+    dens: [5, 15],
+    target: { den: 15, total: 2 },
+    explanation: '2/5 is 6/15. One third of 6 pieces is 2 pieces, so 2/5 ÷ 3 = 2/15.',
+  },
+
+  // ---------------- R18: digit cards, products ----------------
+  {
+    id: 'R18-asn', ruleId: 'R18', type: 'asn',
+    prompt: 'Using four different digits in □ × □ □/□, the biggest digit in front gives the greatest product, as long as the two smallest digits can make a proper fraction in simplest form.',
+    answer: 'always',
+    explanation: 'The digit in front multiplies both the whole part and the fraction part, so the biggest digit there adds the most.',
+  },
+  {
+    id: 'R18-spot', ruleId: 'R18', type: 'spotMistake',
+    prompt: 'Dev used the digits 2, 3, 4 and 8 in □ × □ □/□ and wrote 4 × 8 2/3 = 34 2/3 as the greatest product. What should Dev change?',
+    options: [
+      'Swap the 4 and the 8 so the biggest digit stands in front: 8 × 4 2/3 = 37 1/3',
+      'Put the 8 on the bottom of the fraction',
+      'Make the fraction 3/8',
+      'Nothing, 34 2/3 is the greatest',
+    ],
+    answer: 0,
+    explanation: 'With 8 in front, the 8 multiplies the whole part 4 and also the fraction 2/3. 8 × 4 2/3 = 37 1/3, which is greater than 34 2/3.',
+  },
+  {
+    id: 'R18-odd', ruleId: 'R18', type: 'oddOneOut',
+    prompt: 'The digits 2, 3, 4 and 8 make these four products. Only one is the greatest. Which one?',
+    options: ['4 × 8 2/3', '8 × 4 2/3', '2 × 8 3/4', '8 × 2 3/4'],
+    answer: 1,
+    explanation: '8 × 4 2/3 = 37 1/3. The others are 34 2/3, 17 1/2 and 22.',
+  },
+  {
+    id: 'R18-rev', ruleId: 'R18', type: 'reverse',
+    prompt: 'Use the digits 2, 3, 4 and 8 once each in □ × □ □/□ to make the smallest product. The fraction must be proper and in simplest form. Type the product.',
+    placeholder: 'Type it like 8 3/4',
+    check: { kind: 'fractionEquals', target: '35/4' },
+    explanation: 'Put the smallest digit, 2, in front. 4/8 is not in simplest form, so the fraction is 3/8 with 4 as the whole part: 2 × 4 3/8 = 8 3/4.',
+  },
+  {
+    id: 'R18-draw', ruleId: 'R18', type: 'draw',
+    prompt: 'For the greatest product, the two smallest digits, 2 and 3, make the fraction 2/3. Show 2/3 on a bar cut into thirds.',
+    start: { wholes: 0, pieces: 0, den: 3 },
+    dens: [3],
+    target: { den: 3, total: 2 },
+    explanation: 'The smaller digit goes on top so the fraction is proper: 2/3.',
+  },
+
+  // ---------------- R19: digit cards, quotients ----------------
+  {
+    id: 'R19-asn', ruleId: 'R19', type: 'asn',
+    prompt: 'Using four different digits in □ ÷ □ □/□, the greatest quotient always has the biggest digit in front.',
+    answer: 'sometimes',
+    explanation: 'With 2, 3, 4 and 8 it does: 8 ÷ 2 3/4. But with 1, 2, 4 and 5, putting 4 in front gives 4 ÷ 1 2/5 = 2 6/7, which beats 5 ÷ 2 1/4 = 2 2/9. Test the arrangements that are allowed.',
+  },
+  {
+    id: 'R19-spot', ruleId: 'R19', type: 'spotMistake',
+    prompt: 'Ava used the digits 2, 3, 4 and 8 in □ ÷ □ □/□ and wrote 8 ÷ 2 3/4 = 2 10/11 as the smallest quotient. What should she change?',
+    options: [
+      'Put the smallest digit in front and make the divisor as big as she can: 2 ÷ 8 3/4 = 8/35',
+      'Put the 8 on the bottom of the fraction',
+      'Use 3 in front',
+      'Nothing, it is the smallest',
+    ],
+    answer: 0,
+    explanation: '8 ÷ 2 3/4 is the greatest quotient. For the smallest, divide a small number by a big divisor: 2 ÷ 8 3/4 = 2 × 4/35 = 8/35.',
+  },
+  {
+    id: 'R19-odd', ruleId: 'R19', type: 'oddOneOut',
+    prompt: 'The digits 2, 3, 4 and 8 make these four quotients. Only one is the greatest. Which one?',
+    options: ['8 ÷ 2 3/4', '2 ÷ 8 3/4', '4 ÷ 2 3/8', '8 ÷ 4 2/3'],
+    answer: 0,
+    explanation: '8 ÷ 2 3/4 = 2 10/11. The others are 8/35, 1 13/19 and 1 5/7.',
+  },
+  {
+    id: 'R19-rev', ruleId: 'R19', type: 'reverse',
+    prompt: 'Use the digits 2, 3, 4 and 8 once each in □ ÷ □ □/□ to make the smallest quotient. The fraction must be proper and in simplest form. Type the quotient.',
+    placeholder: 'Type it like 8/35',
+    check: { kind: 'fractionEquals', target: '8/35' },
+    explanation: '2 ÷ 8 3/4 = 2 ÷ 35/4 = 2 × 4/35 = 8/35.',
+  },
+  {
+    id: 'R19-draw', ruleId: 'R19', type: 'draw',
+    prompt: 'The smallest quotient has the divisor 8 3/4. Break the whole bars into fourths so 8 3/4 is shown as an improper fraction.',
+    start: { wholes: 8, pieces: 3, den: 4 },
+    dens: [4],
+    target: { den: 4, total: 35, exact: { wholes: 0, pieces: 35 } },
+    explanation: '8 wholes are 32 fourths, and 3 more fourths make 35 fourths: 35/4. Now you can flip it.',
+  },
+]
+
+// ---------------------------------------------------------------------------
+// Olympiad challenges: word problems and puzzles with a hint. Code checks every answer.
+// ---------------------------------------------------------------------------
+
+export type ChallengeField =
+  | {
+      id: string
+      label: string
+      kind: 'number'
+      /** The right value, like "3/10" or "37 1/3". Any equal form is accepted, unless `simplest` is true. */
+      answer: string
+      placeholder: string
+      /** The answer must be a fraction in simplest form. */
+      simplest?: boolean
+    }
+  | { id: string; label: string; kind: 'choice'; options: string[]; answer: number }
+
+export interface Challenge {
+  id: string
+  title: string
+  groupId: string
+  /** The rules this challenge uses. */
+  ruleIds: string[]
+  story: string
+  /** Hints, shown one at a time when she asks. A hint never gives the answer. */
+  hints: string[]
+  /** A picture shown with the first hint. */
+  picture?: Frame
+  fields: ChallengeField[]
+  /** The working, shown after she solves it or asks to see it. */
+  explanation: string
+}
+
+export const CHALLENGES: Challenge[] = [
+  {
+    id: 'C1',
+    title: 'The Shaded Grid Mystery',
+    groupId: 'muldiv',
+    ruleIds: ['R10', 'R14', 'R15'],
+    story:
+      'A square piece of paper is divided into 4 equal vertical columns, and 3 of the columns are shaded red. The paper is then folded horizontally into 5 equal rows, and 2 of the rows are shaded blue. The places where red and blue overlap turn purple. What fraction of the whole paper is purple?',
+    hints: ['Think about what fraction of a fraction you are taking. You are finding 2/5 of 3/4.'],
+    picture: {
+      kind: 'area',
+      cols: 4,
+      rows: 5,
+      a: 3,
+      b: 2,
+      aLabel: 'Blue: 3 of the 4 columns',
+      bLabel: 'Yellow: 2 of the 5 rows',
+      bothLabel: 'Green: where they overlap',
+      caption: 'The overlap is the purple part. Count its boxes out of all the boxes.',
+    },
+    fields: [{ id: 'purple', label: 'Fraction of the paper that is purple', kind: 'number', answer: '3/10', placeholder: 'Type it like 3/10' }],
+    explanation: '2/5 of 3/4 is 3/4 × 2/5 = 6/20, which is 3/10. 6 of the 20 small boxes are purple.',
+  },
+  {
+    id: 'C2',
+    title: 'The Golden Ribbon',
+    groupId: 'muldiv',
+    ruleIds: ['R9', 'R11', 'R12'],
+    story:
+      'A crafter has a gold ribbon that is 3 1/2 metres long. She cuts it into pieces to make holiday bows. Each bow needs exactly 1/4 of a metre of ribbon. How many complete bows can she make, and how much ribbon is left over?',
+    hints: ['This is a division problem. It asks how many 1/4 pieces fit into 3 1/2. Change the mixed number into an improper fraction first.'],
+    fields: [
+      { id: 'bows', label: 'Complete bows', kind: 'number', answer: '14', placeholder: 'Type a number' },
+      { id: 'left', label: 'Ribbon left over (metres)', kind: 'number', answer: '0', placeholder: 'Type a number' },
+    ],
+    explanation: '3 1/2 = 7/2. 7/2 ÷ 1/4 = 7/2 × 4/1 = 28/2 = 14. There are exactly 14 bows and nothing is left over.',
+  },
+  {
+    id: 'C3',
+    title: 'The Snail’s Great Wall Climb',
+    groupId: 'muldiv',
+    ruleIds: ['R11', 'R12'],
+    story: 'A snail climbs up a wall. Every hour it climbs 2/3 of a foot. The wall is 6 feet tall. How many hours does it take the snail to reach the exact top?',
+    hints: ['You are dividing a whole number by a proper fraction. Write the whole number as a fraction over 1 before you flip and multiply.'],
+    fields: [{ id: 'hours', label: 'Hours', kind: 'number', answer: '9', placeholder: 'Type a number' }],
+    explanation: '6 ÷ 2/3 = 6/1 × 3/2 = 18/2 = 9 hours. Dividing by a number less than 1 gives a bigger answer than 6.',
+  },
+  {
+    id: 'C4',
+    title: 'The Half-Empty Bakery Case',
+    groupId: 'muldiv',
+    ruleIds: ['R13'],
+    story:
+      'Chef Leo baked a batch of chocolate tarts. In the morning he sold 1/2 of the whole batch. In the afternoon he sold 1/2 of the tarts that were left. By evening only 6 tarts were left. How many tarts did Chef Leo bake?',
+    hints: ['Work backwards from the end. If 6 tarts is 1/2 of what he had in the afternoon, how many did he have then?'],
+    fields: [{ id: 'tarts', label: 'Tarts baked', kind: 'number', answer: '24', placeholder: 'Type a number' }],
+    explanation: '6 is half of what he had in the afternoon, so he had 12. 12 is half of the batch, so he baked 12 × 2 = 24.',
+  },
+  {
+    id: 'C5',
+    title: 'The Alligator Length',
+    groupId: 'muldiv',
+    ruleIds: ['R9', 'R15'],
+    story:
+      'A baby alligator is 2 1/4 feet long. An adult alligator is 3 1/2 times as long as the baby. Jason says the adult alligator is 6 1/8 feet long. Is Jason correct? If not, how long is the adult alligator?',
+    hints: ['Jason multiplied 2 × 3 and 1/4 × 1/2 separately. Change both mixed numbers into improper fractions first.'],
+    fields: [
+      { id: 'correct', label: 'Is Jason correct?', kind: 'choice', options: ['Yes', 'No'], answer: 1 },
+      { id: 'length', label: 'The real length of the adult alligator (feet)', kind: 'number', answer: '7 7/8', placeholder: 'Type it like 7 7/8' },
+    ],
+    explanation: '2 1/4 = 9/4 and 3 1/2 = 7/2. 9/4 × 7/2 = 63/8 = 7 7/8 feet. Jason left out the parts where a whole number meets a fraction.',
+  },
+  {
+    id: 'C6',
+    title: 'The Fraction Detective',
+    groupId: 'muldiv',
+    ruleIds: ['R14', 'R17'],
+    story:
+      'A secret fraction is written on a piece of paper. Clue 1: when you multiply it by 1/3 you get 2/15. Clue 2: when you divide it by a mystery whole number you get the same answer, which looks like 4/30 before it is simplified. What is the secret fraction, and what is the whole number?',
+    hints: [
+      'Multiplying by 1/3 takes one third of the secret fraction. So the secret fraction is 3 times as much as 2/15.',
+      'Dividing by a whole number cuts every piece into that many smaller pieces. How many pieces did each fifth need to be cut into to make fifteenths?',
+    ],
+    fields: [
+      { id: 'secret', label: 'The secret fraction (simplest form)', kind: 'number', answer: '2/5', placeholder: 'Type it like 2/5', simplest: true },
+      { id: 'whole', label: 'The mystery whole number', kind: 'number', answer: '3', placeholder: 'Type a number' },
+    ],
+    explanation: '2/15 × 3 = 6/15 = 2/5, so the secret fraction is 2/5. 2/5 × 1/3 = 2/15. Dividing 2/5 by 3 also gives 2/15, so the whole number is 3.',
+  },
+  {
+    id: 'C7',
+    title: 'The Mystery Fractions',
+    groupId: 'muldiv',
+    ruleIds: ['R9', 'R15', 'R16'],
+    story:
+      'Find Fraction A and Fraction B, then multiply them. Clue 1: Fraction A is a proper fraction in simplest form. Its bottom number is the prime number that is more than 3 and less than 7. Its top number is the only even prime number. Clue 2: Fraction B is an improper fraction in simplest form. Dividing its top by its bottom gives 2 with 1 left over. Its bottom number is the smallest perfect square more than 1. Clue 3: A × B is a proper fraction.',
+    hints: [
+      'The only prime between 3 and 7 is 5. The only even prime is 2. The smallest perfect square more than 1 is 4.',
+      'For B, the top is the bottom times the quotient, plus the remainder: 4 × 2 + 1.',
+    ],
+    fields: [
+      { id: 'a', label: 'Fraction A', kind: 'number', answer: '2/5', placeholder: 'Type it like 2/5', simplest: true },
+      { id: 'b', label: 'Fraction B', kind: 'number', answer: '9/4', placeholder: 'Type it like 9/4', simplest: true },
+      { id: 'product', label: 'A × B', kind: 'number', answer: '9/10', placeholder: 'Type it like 9/10', simplest: true },
+    ],
+    explanation: 'A = 2/5 and B = 9/4, because 4 × 2 + 1 = 9. A × B = 2/5 × 9/4 = 18/20 = 9/10, which is a proper fraction.',
+  },
+  {
+    id: 'C8',
+    title: 'The Digit Cards',
+    groupId: 'muldiv',
+    ruleIds: ['R9', 'R18', 'R19'],
+    story:
+      'Use the digit cards 2, 3, 4 and 8 once each to fill □ × □ □/□ (a whole number times a mixed number) and then □ ÷ □ □/□. The fraction part must be a proper fraction in simplest form. Find the greatest product, the smallest product, the greatest quotient and the smallest quotient.',
+    hints: [
+      'For the greatest product, the biggest digit stands in front on its own, the next biggest is the whole part, and the two smallest digits make the fraction with the smaller on top.',
+      'For the smallest product, put 2 in front. 4/8 is not in simplest form. For a quotient, a big number divided by a small divisor is the greatest, and a small number divided by a big divisor is the smallest. Change the mixed number to an improper fraction first.',
+    ],
+    fields: [
+      { id: 'gp', label: 'Greatest product', kind: 'number', answer: '37 1/3', placeholder: 'Type it like 37 1/3' },
+      { id: 'sp', label: 'Smallest product', kind: 'number', answer: '8 3/4', placeholder: 'Type it like 8 3/4' },
+      { id: 'gq', label: 'Greatest quotient', kind: 'number', answer: '2 10/11', placeholder: 'Type it like 2 10/11' },
+      { id: 'sq', label: 'Smallest quotient', kind: 'number', answer: '8/35', placeholder: 'Type it like 8/35' },
+    ],
+    explanation:
+      'Greatest product: 8 × 4 2/3 = 112/3 = 37 1/3. Smallest product: 2 × 4 3/8 = 70/8 = 8 3/4. Greatest quotient: 8 ÷ 2 3/4 = 32/11 = 2 10/11. Smallest quotient: 2 ÷ 8 3/4 = 8/35.',
   },
 ]

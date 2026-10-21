@@ -1,9 +1,12 @@
 import {
+  CHALLENGES,
   ITEMS,
   ITEM_TYPES,
   RULES,
+  RULE_GROUPS,
   type AsnAnswer,
   type BarRow,
+  type Challenge,
   type BarStart,
   type BarTarget,
   type Item,
@@ -49,6 +52,7 @@ export function gradeChoice(item: Extract<Item, { type: 'spotMistake' | 'oddOneO
 const clean = (text: string) => text.trim().replace(/\s+/g, ' ')
 const FRACTION_ONLY = /^\d+\/\d+$/
 const MIXED_WITH_WHOLE = /^\d+ \d+\/\d+$/
+const WHOLE_ONLY = /^\d+$/
 
 /** A fraction, mixed number or whole number from text, or null. Zero bottoms are rejected by the parser. */
 function readNumber(text: string) {
@@ -108,6 +112,21 @@ export function gradeReverse(check: ReverseCheck, input: string): Grade {
       const n = readNumber(text)
       if (!n) return { status: 'invalid', message: 'Type a number like 6 or 5 1/2.' }
       return compare(n, readNumber(check.target)!) > 0 ? { status: 'correct' } : { status: 'wrong', message: `It must be bigger than ${check.target}.` }
+    }
+    case 'improperEquals': {
+      if (!FRACTION_ONLY.test(text)) return { status: 'invalid', message: 'Type an improper fraction like 13/4 (the top is bigger than the bottom).' }
+      const f = readNumber(text)
+      if (!f) return { status: 'invalid', message: 'The bottom number cannot be 0.' }
+      if (!equals(f, readNumber(check.target)!)) return { status: 'wrong', message: `${text} is not equal to ${check.target}.` }
+      return f.numerator >= f.denominator ? { status: 'correct' } : { status: 'wrong', message: 'That is not an improper fraction. The top must not be smaller than the bottom.' }
+    }
+    case 'properFraction': {
+      if (!FRACTION_ONLY.test(text)) return { status: 'invalid', message: 'Type a fraction like 3/5.' }
+      const f = readNumber(text)
+      if (!f) return { status: 'invalid', message: 'The bottom number cannot be 0.' }
+      return f.numerator > 0 && f.numerator < f.denominator
+        ? { status: 'correct' }
+        : { status: 'wrong', message: 'The fraction must be more than 0 and less than 1, like 3/5.' }
     }
     case 'divisionEquals': {
       const m = /^(\d+) ?(?:÷|:|divided by) ?(\d+)$/i.exec(text)
@@ -212,15 +231,28 @@ function shuffled<T>(list: T[], rng: Random): T[] {
   return copy
 }
 
-/** The chapter quiz: one question from every rule, then more from random rules, none twice. */
-export function buildChapterQuiz(rng: Random = Math.random, size: number = CHAPTER_QUIZ_SIZE): Item[] {
+export function groupOf(groupId: string) {
+  return RULE_GROUPS.find((g) => g.id === groupId)
+}
+
+/** The rules in a group, in order. */
+export function rulesIn(groupId: string): Rule[] {
+  return (groupOf(groupId)?.ruleIds ?? []).map((id) => ruleOf(id)).filter((r): r is Rule => Boolean(r))
+}
+
+/** The quiz for a group: one question from every rule in it, then more from random rules, none twice. */
+export function buildChapterQuiz(groupId: string = 'addsub', rng: Random = Math.random, size: number = CHAPTER_QUIZ_SIZE): Item[] {
+  const ruleIds = groupOf(groupId)?.ruleIds ?? []
+  const pool = ITEMS.filter((i) => ruleIds.includes(i.ruleId))
+  if (pool.length === 0) return []
   const picked: Item[] = []
-  for (const rule of RULES) {
-    const options = ITEMS.filter((i) => i.ruleId === rule.id)
-    picked.push(options[Math.min(Math.floor(rng() * options.length), options.length - 1)]!)
+  for (const id of ruleIds) {
+    const options = pool.filter((i) => i.ruleId === id)
+    if (options.length) picked.push(options[Math.min(Math.floor(rng() * options.length), options.length - 1)]!)
   }
-  const rest = shuffled(ITEMS.filter((i) => !picked.includes(i)), rng)
-  return shuffled([...picked, ...rest].slice(0, Math.max(size, RULES.length)), rng).slice(0, size)
+  const rest = shuffled(pool.filter((i) => !picked.includes(i)), rng)
+  const count = Math.min(Math.max(size, picked.length), pool.length)
+  return shuffled([...picked, ...rest].slice(0, count), rng).slice(0, size)
 }
 
 // ---------------------------------------------------------------------------
@@ -289,4 +321,77 @@ export function barsFor(row: BarRow): DrawnBar[] {
     left -= row.den
   } while (left > 0)
   return bars
+}
+
+// ---------------------------------------------------------------------------
+// Olympiad challenges
+// ---------------------------------------------------------------------------
+
+export function challengeOf(id: string): Challenge | undefined {
+  return CHALLENGES.find((c) => c.id === id)
+}
+
+export function challengesIn(groupId: string): Challenge[] {
+  return CHALLENGES.filter((c) => c.groupId === groupId)
+}
+
+export type FieldGrade = { status: 'correct' } | { status: 'wrong'; message?: string } | { status: 'invalid'; message: string }
+
+export interface ChallengeGrade {
+  fields: Record<string, FieldGrade>
+  /** Every field was read; the answer can be counted. */
+  readable: boolean
+  correct: boolean
+}
+
+/** Checks each field of a challenge. A field that cannot be read is not counted as wrong; she can fix it. */
+export function gradeChallenge(challenge: Challenge, values: Record<string, string | number | null | undefined>): ChallengeGrade {
+  const fields: Record<string, FieldGrade> = {}
+  for (const field of challenge.fields) {
+    const raw = values[field.id]
+    if (field.kind === 'choice') {
+      fields[field.id] =
+        typeof raw !== 'number' ? { status: 'invalid', message: 'Pick one.' } : raw === field.answer ? { status: 'correct' } : { status: 'wrong' }
+      continue
+    }
+    const text = clean(String(raw ?? ''))
+    if (!text) {
+      fields[field.id] = { status: 'invalid', message: 'Type your answer.' }
+      continue
+    }
+    const value = readNumber(text)
+    if (!value) {
+      fields[field.id] = { status: 'invalid', message: 'Type a number or a fraction, like 3/10 or 7 7/8.' }
+      continue
+    }
+    if (!equals(value, readNumber(field.answer)!)) {
+      fields[field.id] = { status: 'wrong' }
+    } else if (field.simplest && !(FRACTION_ONLY.test(text) && isSimplestFraction(value)) && !WHOLE_ONLY.test(text)) {
+      fields[field.id] = { status: 'wrong', message: 'The value is right. Write it in simplest form.' }
+    } else {
+      fields[field.id] = { status: 'correct' }
+    }
+  }
+  const all = Object.values(fields)
+  return {
+    fields,
+    readable: all.every((f) => f.status !== 'invalid'),
+    correct: all.every((f) => f.status === 'correct'),
+  }
+}
+
+/** The text saved for an answered challenge, like "C2 challenge". */
+export function challengeAttemptText(challenge: Pick<Challenge, 'id'>): string {
+  return `${challenge.id} challenge`
+}
+
+/** The challenges she has solved at least once. */
+export function challengesSolved(lines: AttemptLine[]): Set<string> {
+  const solved = new Set<string>()
+  for (const line of lines) {
+    if (line.mode !== 'deep_check' || !line.correct || !line.problem) continue
+    const [id, kind] = line.problem.split(' ')
+    if (id && kind === 'challenge' && challengeOf(id)) solved.add(id)
+  }
+  return solved
 }

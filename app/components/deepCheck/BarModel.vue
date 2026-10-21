@@ -18,8 +18,11 @@ defineProps<{ rows: BarRow[] }>()
           <span
             v-for="p in bar.den"
             :key="p"
-            class="h-full flex-1 border-l border-slate-500 first:border-l-0"
-            :class="p <= bar.shaded ? (bar.kind === 'whole' ? 'bg-emerald-400' : 'bg-amber-300') : 'bg-white'"
+            class="h-full flex-1 first:border-l-0"
+            :class="[
+              row.dotted && bar.kind === 'whole' ? 'border-l-2 border-dashed border-slate-900' : 'border-l border-slate-500',
+              p <= bar.shaded ? (bar.kind === 'whole' ? 'bg-emerald-400' : 'bg-amber-300') : 'bg-white',
+            ]"
           />
         </div>
       </div>
