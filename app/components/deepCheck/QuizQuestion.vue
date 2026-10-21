@@ -80,11 +80,12 @@ function optionClass(chosen: boolean, isAnswer: boolean) {
     <form v-else-if="item.type === 'reverse'" class="space-y-3" @submit.prevent="sendReverse">
       <label class="block space-y-1 text-lg font-semibold text-slate-900">
         Your answer
+        <span :id="`format-${item.id}`" class="block text-base font-normal text-slate-700">{{ item.format }}</span>
         <input
           v-model="text"
           :disabled="locked"
           autocomplete="off"
-          :placeholder="item.placeholder"
+          :aria-describedby="`format-${item.id}`"
           class="block min-h-12 w-full max-w-sm rounded-xl border-2 border-slate-600 bg-white px-4 text-xl text-slate-900"
         >
       </label>

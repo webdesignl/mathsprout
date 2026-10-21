@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RULES } from '../../data/deepCheck'
-import { MASTERED_STARS, deepCheckProgress, type AttemptLine } from '../../utils/deepCheck'
+import { CHALLENGES } from '../../data/deepCheck'
+import { MASTERED_STARS, challengesSolved, deepCheckProgress, type AttemptLine } from '../../utils/deepCheck'
 
 const props = defineProps<{ childId: string }>()
 const client = useSupabaseClient()
@@ -11,7 +12,7 @@ async function load() {
   failed.value = false
   const { data, error } = await client
     .from('attempts')
-    .select('mode, problem, correct')
+    .select('mode, problem, correct, first_try')
     .eq('child_id', props.childId)
     .eq('mode', 'deep_check')
     .order('created_at', { ascending: false })
@@ -26,6 +27,7 @@ onMounted(load)
 watch(() => props.childId, load)
 
 const progress = computed(() => deepCheckProgress(lines.value))
+const solved = computed(() => challengesSolved(lines.value))
 const tried = computed(() => RULES.filter((r) => progress.value[r.id]!.tried > 0))
 const mastered = computed(() => RULES.filter((r) => progress.value[r.id]!.stars === MASTERED_STARS))
 /** A rule she has tried a few times but has not shown in most question types yet. */
@@ -36,10 +38,10 @@ const lookAgain = computed(() => tried.value.filter((r) => progress.value[r.id]!
   <section :aria-label="`Understanding quizzes`" class="space-y-2">
     <h4 class="text-lg font-semibold text-emerald-900">Understanding (Deep Check)</h4>
     <p v-if="failed" role="alert" class="text-lg text-red-800">Could not load the quizzes.</p>
-    <p v-else-if="tried.length === 0" class="text-lg text-slate-700">No quizzes yet.</p>
+    <p v-else-if="tried.length === 0 && solved.size === 0" class="text-lg text-slate-700">No quizzes yet.</p>
     <template v-else>
       <p class="text-lg text-slate-900">
-        {{ mastered.length }} of {{ RULES.length }} rules mastered. A rule is mastered when all 5 question types have been answered right.
+        {{ mastered.length }} of {{ RULES.length }} rules mastered. A rule is mastered when all 5 question types have been answered right without a hint.
       </p>
       <ul class="space-y-1 text-lg text-slate-900">
         <li v-for="r in tried" :key="r.id" class="flex flex-wrap items-baseline gap-x-2">
@@ -50,6 +52,9 @@ const lookAgain = computed(() => tried.value.filter((r) => progress.value[r.id]!
           <span class="text-slate-700">{{ progress[r.id]!.right }} right of {{ progress[r.id]!.tried }}</span>
         </li>
       </ul>
+      <p class="text-lg text-slate-900">
+        <span class="font-semibold">Olympiad challenges solved:</span> {{ solved.size }} of {{ CHALLENGES.length }}
+      </p>
       <p v-if="lookAgain.length" class="text-lg text-slate-900">
         <span class="font-semibold">Worth another look:</span> {{ lookAgain.map((r) => r.title).join(', ') }}
       </p>
