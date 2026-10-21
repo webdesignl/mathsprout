@@ -440,39 +440,20 @@ export const RULES: Rule[] = [
   },
   {
     id: 'R18',
-    title: 'Digit cards: products',
-    statement: 'With four digit cards in □ × □ □/□ (the fraction must be proper and in simplest form): for the greatest product, put the biggest digit in front, the next biggest as the whole part, and the two smallest digits make the fraction with the smaller on top. For the smallest product, put the smallest digit in front and keep the whole part and the fraction small. Then test the choices that are allowed.',
+    title: 'Digit cards: the greatest product',
+    statement: 'To make the greatest product from four digit cards in □ × □ □/□, put the biggest digit in front, the next biggest as the whole part, and use the two smallest digits for the fraction with the smaller on top. The fraction must be proper and in simplest form.',
     misconception: '“Just try every arrangement until one looks big.”',
     frames: [
       {
         kind: 'steps',
         title: 'Digits 2, 3, 4 and 8 in □ × □ □/□',
         lines: [
-          { tone: 'plain', text: 'Greatest: 8 in front, 4 as the whole part, and 2/3 (smaller on top).' },
+          { tone: 'plain', text: '1. The biggest digit, 8, goes in front, on its own.' },
+          { tone: 'plain', text: '2. The next biggest, 4, is the whole part of the mixed number.' },
+          { tone: 'plain', text: '3. The two smallest digits, 2 and 3, make the fraction. The smaller goes on top, so it is 2/3.' },
           { tone: 'right', text: '8 × 4 2/3 = 8 × 14/3 = 112/3 = 37 1/3' },
-          { tone: 'plain', text: 'Smallest: 2 in front. 4/8 is not in simplest form, so the fraction is 3/8 and the whole part is 4.' },
-          { tone: 'right', text: '2 × 4 3/8 = 2 × 35/8 = 70/8 = 8 3/4' },
         ],
-        caption: 'The biggest digit in front multiplies the whole part and the fraction part, so it adds the most.',
-      },
-    ],
-  },
-  {
-    id: 'R19',
-    title: 'Digit cards: quotients',
-    statement: 'In □ ÷ □ □/□: a big front number divided by a small divisor gives the greatest quotient, and a small front number divided by a big divisor gives the smallest. Use this plan, then test the arrangements that are allowed. It does not always work for every set of digits.',
-    misconception: '“The biggest digit in front is always best.”',
-    frames: [
-      {
-        kind: 'steps',
-        title: 'Digits 2, 3, 4 and 8 in □ ÷ □ □/□',
-        lines: [
-          { tone: 'plain', text: 'Greatest: 8 in front, divided by the smallest divisor, 2 3/4.' },
-          { tone: 'right', text: '8 ÷ 2 3/4 = 8 ÷ 11/4 = 8 × 4/11 = 32/11 = 2 10/11' },
-          { tone: 'plain', text: 'Smallest: 2 in front, divided by the biggest divisor, 8 3/4.' },
-          { tone: 'right', text: '2 ÷ 8 3/4 = 2 ÷ 35/4 = 2 × 4/35 = 8/35' },
-        ],
-        caption: 'Change the divisor to an improper fraction first, then keep, change, flip.',
+        caption: 'The digit in front multiplies both the whole part and the fraction part, so the biggest digit there adds the most.',
       },
     ],
   },
@@ -496,8 +477,8 @@ export const RULE_GROUPS: RuleGroup[] = [
   {
     id: 'muldiv',
     title: 'Fraction multiplication and division',
-    summary: 'Setting up mixed numbers, what multiplying and dividing by fractions mean, the shortcuts, and number puzzles.',
-    ruleIds: ['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19'],
+    summary: 'Setting up mixed numbers, what multiplying and dividing by fractions mean, the shortcuts, and the greatest-product plan.',
+    ruleIds: ['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18'],
   },
 ]
 
@@ -1247,10 +1228,10 @@ export const ITEMS: Item[] = [
   },
   {
     id: 'R18-rev', ruleId: 'R18', type: 'reverse',
-    prompt: 'Use the digits 2, 3, 4 and 8 once each in □ × □ □/□ to make the smallest product. The fraction must be proper and in simplest form. Type the product.',
-    placeholder: 'Type it like 8 3/4',
-    check: { kind: 'fractionEquals', target: '35/4' },
-    explanation: 'Put the smallest digit, 2, in front. 4/8 is not in simplest form, so the fraction is 3/8 with 4 as the whole part: 2 × 4 3/8 = 8 3/4.',
+    prompt: 'Use the digits 1, 5, 6 and 9 once each in □ × □ □/□ to make the greatest product. The fraction must be proper and in simplest form. Type the product.',
+    placeholder: 'Type it like 55 4/5',
+    check: { kind: 'fractionEquals', target: '279/5' },
+    explanation: 'The biggest digit, 9, goes in front. 6 is the whole part. 1 and 5 make the fraction 1/5. 9 × 6 1/5 = 9 × 31/5 = 279/5 = 55 4/5.',
   },
   {
     id: 'R18-draw', ruleId: 'R18', type: 'draw',
@@ -1259,48 +1240,6 @@ export const ITEMS: Item[] = [
     dens: [3],
     target: { den: 3, total: 2 },
     explanation: 'The smaller digit goes on top so the fraction is proper: 2/3.',
-  },
-
-  // ---------------- R19: digit cards, quotients ----------------
-  {
-    id: 'R19-asn', ruleId: 'R19', type: 'asn',
-    prompt: 'Using four different digits in □ ÷ □ □/□, the greatest quotient always has the biggest digit in front.',
-    answer: 'sometimes',
-    explanation: 'With 2, 3, 4 and 8 it does: 8 ÷ 2 3/4. But with 1, 2, 4 and 5, putting 4 in front gives 4 ÷ 1 2/5 = 2 6/7, which beats 5 ÷ 2 1/4 = 2 2/9. Test the arrangements that are allowed.',
-  },
-  {
-    id: 'R19-spot', ruleId: 'R19', type: 'spotMistake',
-    prompt: 'Ava used the digits 2, 3, 4 and 8 in □ ÷ □ □/□ and wrote 8 ÷ 2 3/4 = 2 10/11 as the smallest quotient. What should she change?',
-    options: [
-      'Put the smallest digit in front and make the divisor as big as she can: 2 ÷ 8 3/4 = 8/35',
-      'Put the 8 on the bottom of the fraction',
-      'Use 3 in front',
-      'Nothing, it is the smallest',
-    ],
-    answer: 0,
-    explanation: '8 ÷ 2 3/4 is the greatest quotient. For the smallest, divide a small number by a big divisor: 2 ÷ 8 3/4 = 2 × 4/35 = 8/35.',
-  },
-  {
-    id: 'R19-odd', ruleId: 'R19', type: 'oddOneOut',
-    prompt: 'The digits 2, 3, 4 and 8 make these four quotients. Only one is the greatest. Which one?',
-    options: ['8 ÷ 2 3/4', '2 ÷ 8 3/4', '4 ÷ 2 3/8', '8 ÷ 4 2/3'],
-    answer: 0,
-    explanation: '8 ÷ 2 3/4 = 2 10/11. The others are 8/35, 1 13/19 and 1 5/7.',
-  },
-  {
-    id: 'R19-rev', ruleId: 'R19', type: 'reverse',
-    prompt: 'Use the digits 2, 3, 4 and 8 once each in □ ÷ □ □/□ to make the smallest quotient. The fraction must be proper and in simplest form. Type the quotient.',
-    placeholder: 'Type it like 8/35',
-    check: { kind: 'fractionEquals', target: '8/35' },
-    explanation: '2 ÷ 8 3/4 = 2 ÷ 35/4 = 2 × 4/35 = 8/35.',
-  },
-  {
-    id: 'R19-draw', ruleId: 'R19', type: 'draw',
-    prompt: 'The smallest quotient has the divisor 8 3/4. Break the whole bars into fourths so 8 3/4 is shown as an improper fraction.',
-    start: { wholes: 8, pieces: 3, den: 4 },
-    dens: [4],
-    target: { den: 4, total: 35, exact: { wholes: 0, pieces: 35 } },
-    explanation: '8 wholes are 32 fourths, and 3 more fourths make 35 fourths: 35/4. Now you can flip it.',
   },
 ]
 
@@ -1448,12 +1387,12 @@ export const CHALLENGES: Challenge[] = [
     id: 'C8',
     title: 'The Digit Cards',
     groupId: 'muldiv',
-    ruleIds: ['R9', 'R18', 'R19'],
+    ruleIds: ['R9', 'R18'],
     story:
       'Use the digit cards 2, 3, 4 and 8 once each to fill □ × □ □/□ (a whole number times a mixed number) and then □ ÷ □ □/□. The fraction part must be a proper fraction in simplest form. Find the greatest product, the smallest product, the greatest quotient and the smallest quotient.',
     hints: [
-      'For the greatest product, the biggest digit stands in front on its own, the next biggest is the whole part, and the two smallest digits make the fraction with the smaller on top.',
-      'For the smallest product, put 2 in front. 4/8 is not in simplest form. For a quotient, a big number divided by a small divisor is the greatest, and a small number divided by a big divisor is the smallest. Change the mixed number to an improper fraction first.',
+      'For the greatest product, use the plan: the biggest digit stands in front on its own, the next biggest is the whole part, and the two smallest digits make the fraction with the smaller on top.',
+      'For the other three, there is no single plan. List the arrangements that are allowed (the fraction must be proper and in simplest form, so 4/8 is not allowed), work out each one, and compare. Change the mixed number to an improper fraction first.',
     ],
     fields: [
       { id: 'gp', label: 'Greatest product', kind: 'number', answer: '37 1/3', placeholder: 'Type it like 37 1/3' },

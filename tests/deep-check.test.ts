@@ -26,8 +26,8 @@ const num = (text: string) => toFraction(parseMixed(text)!)
 const item = <T extends Item['type']>(id: string) => ITEMS.find((i) => i.id === id) as Extract<Item, { type: T }>
 
 describe('deep check content', () => {
-  it('has 19 rules with exactly one item of each of the 5 types', () => {
-    expect(RULES).toHaveLength(19)
+  it('has 18 rules with exactly one item of each of the 5 types', () => {
+    expect(RULES).toHaveLength(18)
     for (const rule of RULES) {
       const items = itemsFor(rule.id)
       expect(items.map((i) => i.type), rule.id).toEqual(ITEM_TYPES.map((t) => t.type))
@@ -35,8 +35,8 @@ describe('deep check content', () => {
       expect(rule.misconception.length).toBeGreaterThan(10)
       expect(rule.frames.length).toBeGreaterThan(0)
     }
-    expect(ITEMS).toHaveLength(95)
-    expect(new Set(ITEMS.map((i) => i.id)).size).toBe(95)
+    expect(ITEMS).toHaveLength(90)
+    expect(new Set(ITEMS.map((i) => i.id)).size).toBe(90)
   })
 
   it('keeps multiple-choice answers in range, with no repeated options and an explanation', () => {
@@ -113,7 +113,7 @@ describe('deep check content', () => {
       }
     }
     // Starts that must keep the same value as the target (merging, regrouping, renaming)
-    for (const id of ['R1-draw', 'R2-draw', 'R4-draw', 'R5-draw', 'R9-draw', 'R11-draw', 'R19-draw']) {
+    for (const id of ['R1-draw', 'R2-draw', 'R4-draw', 'R5-draw', 'R9-draw', 'R11-draw']) {
       const d = item<'draw'>(id)
       const startValue = { numerator: d.start.wholes * d.start.den + d.start.pieces, denominator: d.start.den }
       expect(equals(startValue, { numerator: d.target.total, denominator: d.target.den }), id).toBe(true)
@@ -272,7 +272,7 @@ describe('quizzes and progress', () => {
     const progress = deepCheckProgress(lines)
     expect(progress.R2).toEqual({ stars: 2, tried: 4, right: 3 })
     expect(progress.R1).toEqual({ stars: 0, tried: 0, right: 0 })
-    expect(Object.keys(progress)).toHaveLength(19)
+    expect(Object.keys(progress)).toHaveLength(18)
   })
 })
 
@@ -361,7 +361,7 @@ describe('rule groups', () => {
       'Fraction multiplication and division',
     ])
     expect(rulesIn('addsub').map((r) => r.id)).toEqual(['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8'])
-    expect(rulesIn('muldiv').map((r) => r.id)).toEqual(['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19'])
+    expect(rulesIn('muldiv').map((r) => r.id)).toEqual(['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18'])
     expect(groupOf('nope')).toBeUndefined()
     // every rule belongs to exactly one group
     const all = RULE_GROUPS.flatMap((g) => g.ruleIds)
@@ -380,7 +380,7 @@ describe('rule groups', () => {
     const quiz = buildChapterQuiz('muldiv', () => 0.4)
     expect(quiz).toHaveLength(10)
     expect(new Set(quiz.map((i) => i.id)).size).toBe(10)
-    // one question from each rule, then the rest; with 11 rules, 10 of them show up
+    // one question from each of the 10 rules
     expect(new Set(quiz.map((i) => i.ruleId)).size).toBe(10)
     expect(quiz.every((i) => rulesIn('muldiv').some((r) => r.id === i.ruleId))).toBe(true)
   })
@@ -479,7 +479,7 @@ describe('multiplication and division items (checked with the fraction engine)',
   })
 })
 
-describe('rules 13 to 19 (checked with the fraction engine)', () => {
+describe('rules 13 to 18 (checked with the fraction engine)', () => {
   const frac = (t: string) => parse(t)!
   const expr = (text: string) => {
     // "8 × 4 2/3", "8 ÷ 2 3/4", "1/2 × 3/4", "2/5 ÷ 3", or a plain number
@@ -556,7 +556,7 @@ describe('rules 13 to 19 (checked with the fraction engine)', () => {
     expect(equals(expr('2/5 ÷ 1/3'), frac('1 1/5'))).toBe(true)
   })
 
-  it('R18: greatest and smallest product with the digits 2, 3, 4, 8 (the table)', () => {
+  it('digit cards 2, 3, 4, 8: the table of greatest and smallest products (the first is the rule, the others are for the challenge)', () => {
     const digits = [2, 3, 4, 8]
     const greatest = best(digits, product, 'max')
     const smallest = best(digits, product, 'min')
@@ -569,7 +569,11 @@ describe('rules 13 to 19 (checked with the fraction engine)', () => {
     expect(values.every((v) => compare(values[odd.answer]!, v) >= 0)).toBe(true)
     expect(odd.options[odd.answer]).toBe('8 × 4 2/3')
     expect(equals(expr('4 × 8 2/3'), frac('34 2/3'))).toBe(true)
-    expect(equals(smallest.v, grade35(item<'reverse'>('R18-rev')))).toBe(true)
+    // the reverse item: the greatest product with 1, 5, 6 and 9
+    const rev = best([1, 5, 6, 9], product, 'max')
+    expect(rev.t).toEqual({ a: 9, b: 6, c: 1, d: 5 })
+    expect(equals(rev.v, grade35(item<'reverse'>('R18-rev')))).toBe(true)
+    expect(equals(rev.v, frac('55 4/5'))).toBe(true)
   })
 
   it('R18: biggest digit in front, then the next biggest as the whole, always wins when the two smallest make a fraction', () => {
@@ -585,7 +589,7 @@ describe('rules 13 to 19 (checked with the fraction engine)', () => {
     expect(checked).toBeGreaterThan(50)
   })
 
-  it('R19: greatest and smallest quotient with 2, 3, 4, 8 (the table), and the case where the biggest digit is not in front', () => {
+  it('digit cards 2, 3, 4, 8: the quotients in the challenge, and why there is no single rule for them', () => {
     const digits = [2, 3, 4, 8]
     const greatest = best(digits, quotient, 'max')
     const smallest = best(digits, quotient, 'min')
@@ -593,17 +597,157 @@ describe('rules 13 to 19 (checked with the fraction engine)', () => {
     expect(equals(greatest.v, frac('2 10/11'))).toBe(true)
     expect(smallest.t).toEqual({ a: 2, b: 8, c: 3, d: 4 })
     expect(equals(smallest.v, frac('8/35'))).toBe(true)
-    const odd = item<'oddOneOut'>('R19-odd')
-    const values = odd.options.map((o) => expr(o))
-    expect(values.every((v) => compare(values[odd.answer]!, v) >= 0)).toBe(true)
-    // "sometimes": with 1, 2, 4, 5 the greatest quotient does NOT have the biggest digit in front
+    // With 1, 2, 4 and 5 the greatest quotient does NOT have the biggest digit in front, so "biggest in front" is not a rule.
     const other = best([1, 2, 4, 5], quotient, 'max')
     expect(other.t.a).toBe(4)
     expect(equals(other.v, frac('2 6/7'))).toBe(true)
     expect(equals(expr('5 ÷ 2 1/4'), frac('2 2/9'))).toBe(true)
-    expect(equals(expr('4 ÷ 2 3/8'), frac('1 13/19'))).toBe(true)
-    expect(equals(expr('8 ÷ 4 2/3'), frac('1 5/7'))).toBe(true)
-    expect(item<'asn'>('R19-asn').answer).toBe('sometimes')
+  })
+
+  const grade = (id: string, text: string) => gradeReverse(item<'reverse'>(id).check, text).status
+  it('grades the new "reverse it" answers', () => {
+    expect(grade('R9-rev', '13/4')).toBe('correct')
+    expect(grade('R9-rev', '26/8')).toBe('correct')
+    expect(grade('R9-rev', '3 1/4')).toBe('invalid')
+    expect(grade('R9-rev', '12/4')).toBe('wrong')
+    expect(grade('R10-rev', '3/5')).toBe('correct')
+    expect(grade('R10-rev', '5/3')).toBe('wrong')
+    expect(grade('R10-rev', '0/5')).toBe('wrong')
+    expect(grade('R10-rev', '5/5')).toBe('wrong')
+    expect(grade('R10-rev', 'half')).toBe('invalid')
+    expect(grade('R11-rev', '1/2')).toBe('correct')
+    expect(grade('R11-rev', '2/4')).toBe('correct')
+    expect(grade('R11-rev', '2')).toBe('wrong')
+    expect(grade('R12-rev', '5/2')).toBe('correct')
+    expect(grade('R12-rev', '10/4')).toBe('correct')
+    expect(grade('R12-rev', '2/5')).toBe('wrong')
+  })
+
+  it('plays the new "draw it" items', () => {
+    const run = (id: string, actions: Parameters<typeof stepBars>[1][]) => {
+      const d = item<'draw'>(id)
+      let state: BarState = { ...d.start }
+      for (const a of actions) state = stepBars(state, a, d.dens).state
+      return gradeBars(d.target, state).status
+    }
+    expect(run('R9-draw', [])).toBe('wrong')
+    expect(run('R9-draw', [{ type: 'breakWhole' }, { type: 'breakWhole' }])).toBe('correct')
+    expect(run('R10-draw', [{ type: 'den', den: 8 }, { type: 'removePiece' }, { type: 'removePiece' }, { type: 'removePiece' }])).toBe('correct')
+    expect(run('R10-draw', [{ type: 'den', den: 8 }])).toBe('wrong')
+    expect(run('R11-draw', [{ type: 'den', den: 2 }, { type: 'breakWhole' }, { type: 'breakWhole' }, { type: 'breakWhole' }])).toBe('correct')
+    expect(run('R11-draw', [{ type: 'den', den: 2 }])).toBe('wrong')
+    expect(run('R12-draw', [{ type: 'addPiece' }, { type: 'addPiece' }, { type: 'addPiece' }])).toBe('correct')
+  })
+})
+
+describe('rules 13 to 18 (checked with the fraction engine)', () => {
+  const frac = (t: string) => parse(t)!
+  const expr = (text: string) => {
+    // "8 × 4 2/3", "8 ÷ 2 3/4", "1/2 × 3/4", "2/5 ÷ 3", or a plain number
+    const m = /^(.+?) ([×÷]) (.+)$/.exec(text)
+    if (!m) return frac(text)
+    const a = frac(m[1]!)
+    const b = frac(m[3]!)
+    if (m[2] === '×') return multiply(a, b)
+    const r = divide(a, b)
+    if (!r.ok) throw new Error('divide by zero')
+    return r.value
+  }
+
+  /** Every way to put four different digits into □ ÷/× □ □/□ with a proper fraction in simplest form. */
+  function arrangements(digits: number[]) {
+    const out: { a: number; b: number; c: number; d: number }[] = []
+    for (const a of digits) for (const b of digits) for (const c of digits) for (const d of digits) {
+      if (new Set([a, b, c, d]).size !== 4 || c >= d || !isSimplestFraction({ numerator: c, denominator: d })) continue
+      out.push({ a, b, c, d })
+    }
+    return out
+  }
+  const product = (t: { a: number; b: number; c: number; d: number }) => multiply(frac(String(t.a)), frac(`${t.b} ${t.c}/${t.d}`))
+  const quotient = (t: { a: number; b: number; c: number; d: number }) => {
+    const r = divide(frac(String(t.a)), frac(`${t.b} ${t.c}/${t.d}`))
+    if (!r.ok) throw new Error('divide by zero')
+    return r.value
+  }
+  const best = (digits: number[], f: typeof product, want: 'max' | 'min') => {
+    const all = arrangements(digits).map((t) => ({ t, v: f(t) }))
+    return all.reduce((x, y) => ((want === 'max' ? compare(y.v, x.v) > 0 : compare(y.v, x.v) < 0) ? y : x))
+  }
+
+  it('R13: the whole changes (24 tarts, half, then half of the rest)', () => {
+    expect(equals(multiply(frac('1/2'), frac('24')), frac('12'))).toBe(true)
+    expect(equals(multiply(frac('1/2'), frac('12')), frac('6'))).toBe(true)
+    expect(equals(frac('6'), multiply(frac('1/4'), frac('24')))).toBe(true)
+    // working backwards from 5 left
+    expect(equals(multiply(frac('5'), frac('2')), frac('10'))).toBe(true)
+    expect(equals(multiply(frac('10'), frac('2')), frac('20'))).toBe(true)
+    const odd = item<'oddOneOut'>('R13-odd')
+    expect(odd.options[odd.answer]).toBe('In the afternoon he sells 12')
+  })
+
+  it('R14: "of" is multiply', () => {
+    const odd = item<'oddOneOut'>('R14-odd')
+    const half = multiply(frac('1/2'), frac('3/4'))
+    expect(odd.options.map((o) => equals(expr(o), half))).toEqual([true, true, true, false])
+    expect(equals(multiply(frac('1/3'), frac('3/5')), frac('1/5'))).toBe(true)
+    expect(equals(multiply(frac('1/2'), frac('1/2')), frac('1/4'))).toBe(true)
+  })
+
+  it('R15: straight across', () => {
+    const odd = item<'oddOneOut'>('R15-odd')
+    const target = multiply(frac('2/3'), frac('3/4'))
+    expect(odd.options.map((o) => equals(frac(o), target))).toEqual([true, true, true, false])
+    expect(equals(multiply(frac('5'), frac('2/3')), frac('10/3'))).toBe(true)
+    expect(equals(frac('6/12'), frac('1/2'))).toBe(true)
+  })
+
+  it('R16: simplify first', () => {
+    expect(equals(multiply(frac('4/9'), frac('3/8')), frac('1/6'))).toBe(true)
+    expect(equals(multiply(frac('2/5'), frac('2/3')), frac('4/15'))).toBe(true)
+    expect(equals(multiply(frac('2/5'), frac('2/3')), frac('1/15'))).toBe(false)
+    // 6/10 x 5/9: the three good moves share the factors the options say; the two tops share none
+    expect([gcdOf(6, 9), gcdOf(5, 10), gcdOf(6, 10), gcdOf(6, 5)]).toEqual([3, 5, 2, 1])
+  })
+
+  it('R17: times 1/n is divided by n', () => {
+    const odd = item<'oddOneOut'>('R17-odd')
+    const target = multiply(frac('2/5'), frac('1/3'))
+    expect(odd.options.map((o) => equals(expr(o), target))).toEqual([true, true, true, false])
+    expect(equals(multiply(frac('8'), frac('1/4')), frac('2'))).toBe(true)
+    expect(equals(expr('2/5 ÷ 1/3'), frac('1 1/5'))).toBe(true)
+  })
+
+  it('digit cards 2, 3, 4, 8: the table of greatest and smallest products (the first is the rule, the others are for the challenge)', () => {
+    const digits = [2, 3, 4, 8]
+    const greatest = best(digits, product, 'max')
+    const smallest = best(digits, product, 'min')
+    expect(greatest.t).toEqual({ a: 8, b: 4, c: 2, d: 3 })
+    expect(equals(greatest.v, frac('37 1/3'))).toBe(true)
+    expect(smallest.t).toEqual({ a: 2, b: 4, c: 3, d: 8 })
+    expect(equals(smallest.v, frac('8 3/4'))).toBe(true)
+    const odd = item<'oddOneOut'>('R18-odd')
+    const values = odd.options.map((o) => expr(o))
+    expect(values.every((v) => compare(values[odd.answer]!, v) >= 0)).toBe(true)
+    expect(odd.options[odd.answer]).toBe('8 × 4 2/3')
+    expect(equals(expr('4 × 8 2/3'), frac('34 2/3'))).toBe(true)
+    // the reverse item: the greatest product with 1, 5, 6 and 9
+    const rev = best([1, 5, 6, 9], product, 'max')
+    expect(rev.t).toEqual({ a: 9, b: 6, c: 1, d: 5 })
+    expect(equals(rev.v, grade35(item<'reverse'>('R18-rev')))).toBe(true)
+    expect(equals(rev.v, frac('55 4/5'))).toBe(true)
+  })
+
+  it('R18: biggest digit in front, then the next biggest as the whole, always wins when the two smallest make a fraction', () => {
+    let checked = 0
+    for (let a = 1; a <= 9; a++) for (let b = a + 1; b <= 9; b++) for (let c = b + 1; c <= 9; c++) for (let d = c + 1; d <= 9; d++) {
+      const digits = [a, b, c, d]
+      // the two smallest, a and b, make the fraction a/b when it is in simplest form
+      if (!isSimplestFraction({ numerator: a, denominator: b })) continue
+      const rule = { a: d, b: c, c: a, d: b }
+      expect(compare(product(rule), best(digits, product, 'max').v), digits.join()).toBe(0)
+      checked++
+    }
+    expect(checked).toBeGreaterThan(50)
   })
 
   const grade = (id: string, text: string) => gradeReverse(item<'reverse'>(id).check, text).status
@@ -620,11 +764,9 @@ describe('rules 13 to 19 (checked with the fraction engine)', () => {
     expect(grade('R16-rev', '12/72')).toBe('correct')
     expect(grade('R17-rev', '1/3')).toBe('correct')
     expect(grade('R17-rev', '3')).toBe('wrong')
-    expect(grade('R18-rev', '8 3/4')).toBe('correct')
-    expect(grade('R18-rev', '35/4')).toBe('correct')
-    expect(grade('R18-rev', '37 1/3')).toBe('wrong')
-    expect(grade('R19-rev', '8/35')).toBe('correct')
-    expect(grade('R19-rev', '2 10/11')).toBe('wrong')
+    expect(grade('R18-rev', '55 4/5')).toBe('correct')
+    expect(grade('R18-rev', '279/5')).toBe('correct')
+    expect(grade('R18-rev', '8 3/4')).toBe('wrong')
   })
 
   it('plays the new "draw it" items', () => {
@@ -641,8 +783,6 @@ describe('rules 13 to 19 (checked with the fraction engine)', () => {
     expect(run('R16-draw', [{ type: 'addPiece' }])).toBe('correct')
     expect(run('R17-draw', [{ type: 'den', den: 15 }, ...Array(4).fill({ type: 'removePiece' })])).toBe('correct')
     expect(run('R18-draw', [{ type: 'addPiece' }, { type: 'addPiece' }])).toBe('correct')
-    expect(run('R19-draw', Array(8).fill({ type: 'breakWhole' }))).toBe('correct')
-    expect(run('R19-draw', Array(7).fill({ type: 'breakWhole' }))).toBe('wrong')
   })
 })
 
