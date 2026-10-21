@@ -922,3 +922,22 @@ describe('Olympiad challenges', () => {
     expect(Object.values(progress).every((p) => p.tried === 0)).toBe(true)
   })
 })
+
+describe('answer boxes do not give the answer away', () => {
+  it('every note under an answer box is words only: no example number that could be the answer', () => {
+    const notes: string[] = []
+    for (const i of ITEMS) if (i.type === 'reverse') notes.push(i.format)
+    for (const c of CHALLENGES) for (const f of c.fields) if (f.kind === 'number') notes.push(f.format)
+    expect(notes.length).toBeGreaterThan(30)
+    for (const note of notes) {
+      expect(note.length).toBeGreaterThan(5)
+      expect(note, note).not.toMatch(/\d/)
+      expect(note, note).not.toMatch(/like|example/i)
+    }
+  })
+
+  it('no reverse item or challenge field carries a placeholder (the grey example text that vanishes when she types)', () => {
+    for (const i of ITEMS) expect('placeholder' in i, i.id).toBe(false)
+    for (const c of CHALLENGES) for (const f of c.fields) expect('placeholder' in f, `${c.id} ${f.id}`).toBe(false)
+  })
+})

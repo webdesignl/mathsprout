@@ -92,7 +92,7 @@ export type Item =
   | (ItemBase & { type: 'asn'; answer: AsnAnswer })
   | (ItemBase & { type: 'spotMistake'; options: string[]; answer: number })
   | (ItemBase & { type: 'oddOneOut'; options: string[]; answer: number })
-  | (ItemBase & { type: 'reverse'; check: ReverseCheck; placeholder: string })
+  | (ItemBase & { type: 'reverse'; check: ReverseCheck; format: string })
   | (ItemBase & { type: 'draw'; start: BarStart; dens: number[]; target: BarTarget })
 
 export const RULES: Rule[] = [
@@ -512,7 +512,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R1-rev', ruleId: 'R1', type: 'reverse',
     prompt: 'Write a fraction that equals 3/4 but is NOT in simplest form.',
-    placeholder: 'For example 6/8',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEqualsNotSimplest', target: '3/4' },
     explanation: 'Any fraction made by doubling or tripling both numbers works: 6/8, 9/12, 12/16. They all equal 3/4, but they can still be merged.',
   },
@@ -554,7 +554,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R2-rev', ruleId: 'R2', type: 'reverse',
     prompt: 'Write a mixed number that is NOT in simplest form but equals 2 1/3.',
-    placeholder: 'For example 1 4/3',
+    format: 'Write a mixed number: a whole number, a space, then a fraction.',
     check: { kind: 'mixedEqualsNotSimplest', target: '2 1/3' },
     explanation: 'You can regroup a whole into thirds: 1 4/3 = 2 1/3. Or cut every piece smaller: 2 2/6 = 2 1/3. Both are equal but not simplest.',
   },
@@ -596,7 +596,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R3-rev', ruleId: 'R3', type: 'reverse',
     prompt: 'Write a different way to show 11/4. It must look different from 11/4.',
-    placeholder: 'For example 2 3/4',
+    format: 'You can write a fraction, a mixed number or a whole number.',
     check: { kind: 'equalsButDifferent', target: '11/4' },
     explanation: 'Some ways: 2 3/4, 22/8, 1 7/4. They are all the same amount cut or grouped differently.',
   },
@@ -638,7 +638,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R4-rev', ruleId: 'R4', type: 'reverse',
     prompt: 'Write a fraction that equals 1/2 and has 6 on the bottom.',
-    placeholder: 'Type it like 3/6',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEqualsWithDen', target: '1/2', den: 6 },
     explanation: '1/2 is half of the bar. In sixths, half of 6 pieces is 3 pieces: 3/6.',
   },
@@ -680,7 +680,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R5-rev', ruleId: 'R5', type: 'reverse',
     prompt: 'In 6 ?/8 − 2 5/8, which fraction on the ? would make you need to regroup? Type a fraction with 8 on the bottom.',
-    placeholder: 'Type it like 3/8',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'fractionSmallerThan', den: 8, than: 5 },
     explanation: 'You need to regroup when the first fraction part is smaller than 5/8. 1/8, 2/8, 3/8 and 4/8 all work.',
   },
@@ -722,7 +722,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R6-rev', ruleId: 'R6', type: 'reverse',
     prompt: '7/8 − 3/8 = 4/8. To check, you add 4/8 and a fraction to get 7/8. What is the fraction?',
-    placeholder: 'Type it like 3/8',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '3/8' },
     explanation: 'The part you took away, 3/8, goes back: 4/8 + 3/8 = 7/8.',
   },
@@ -764,7 +764,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R7-rev', ruleId: 'R7', type: 'reverse',
     prompt: 'Write a number to put at the start so that [number] − 1/4 has a greater difference than 5 − 1/4.',
-    placeholder: 'Type a number, like 6 1/2',
+    format: 'You can write a whole number, a fraction or a mixed number.',
     check: { kind: 'greaterThan', target: '5' },
     explanation: 'Any number bigger than 5 works, because a bigger first number leaves a longer gap.',
   },
@@ -806,7 +806,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R8-rev', ruleId: 'R8', type: 'reverse',
     prompt: 'Write a division of two whole numbers that equals 3/5. Use ÷ or the words “divided by”.',
-    placeholder: 'For example 3 ÷ 5',
+    format: 'Use ÷ or the words “divided by”.',
     check: { kind: 'divisionEquals', target: '3/5' },
     explanation: '3 ÷ 5 = 3/5. A bigger pair also works if it is equal, like 6 ÷ 10.',
   },
@@ -847,7 +847,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R9-rev', ruleId: 'R9', type: 'reverse',
     prompt: 'Write 3 1/4 as an improper fraction.',
-    placeholder: 'Type it like 13/4',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'improperEquals', target: '3 1/4' },
     explanation: '3 wholes are 12 quarters, plus 1 more quarter is 13 quarters: 13/4.',
   },
@@ -889,7 +889,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R10-rev', ruleId: 'R10', type: 'reverse',
     prompt: 'Write a fraction to multiply 20 by, so the answer is smaller than 20 but not 0.',
-    placeholder: 'Type it like 3/5',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'properFraction' },
     explanation: 'Any fraction between 0 and 1 works, like 1/2, 3/5 or 7/8. It takes a part of 20.',
   },
@@ -931,7 +931,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R11-rev', ruleId: 'R11', type: 'reverse',
     prompt: '4 ÷ ☐ = 8. What fraction goes in the box?',
-    placeholder: 'Type it like 1/2',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '1/2' },
     explanation: 'How many halves fit in 4? 8 of them. So 4 ÷ 1/2 = 8.',
   },
@@ -973,7 +973,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R12-rev', ruleId: 'R12', type: 'reverse',
     prompt: 'Write the reciprocal of 2/5. That is, flip it.',
-    placeholder: 'Type it like 3/7',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '5/2' },
     explanation: 'Flipping swaps the top and the bottom: 2/5 becomes 5/2.',
   },
@@ -1014,7 +1014,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R13-rev', ruleId: 'R13', type: 'reverse',
     prompt: 'Leo sold 1/2 of his tarts in the morning and 1/2 of the rest in the afternoon. 5 tarts were left at the end. How many tarts did he bake?',
-    placeholder: 'Type a number',
+    format: 'Type a number.',
     check: { kind: 'fractionEquals', target: '20' },
     explanation: 'Work backwards. 5 is half of what he had in the afternoon, so he had 10. 10 is half of the batch, so he baked 20.',
   },
@@ -1056,7 +1056,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R14-rev', ruleId: 'R14', type: 'reverse',
     prompt: 'Write 1/3 of 3/5 as a single fraction.',
-    placeholder: 'Type it like 1/5',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '1/5' },
     explanation: '1/3 × 3/5 = 3/15 = 1/5.',
   },
@@ -1098,7 +1098,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R15-rev', ruleId: 'R15', type: 'reverse',
     prompt: '5 × 2/3: write 5 as 5/1, then multiply straight across. What is the answer?',
-    placeholder: 'Type it like 10/3',
+    format: 'You can write a fraction or a mixed number.',
     check: { kind: 'fractionEquals', target: '10/3' },
     explanation: '5/1 × 2/3 = 10/3, which is 3 1/3.',
   },
@@ -1145,7 +1145,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R16-rev', ruleId: 'R16', type: 'reverse',
     prompt: 'Simplify first, then multiply: 4/9 × 3/8. Type the answer.',
-    placeholder: 'Type it like 1/6',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '1/6' },
     explanation: '4/8 becomes 1/2 and 3/9 becomes 1/3. 1/3 × 1/2 = 1/6.',
   },
@@ -1187,7 +1187,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R17-rev', ruleId: 'R17', type: 'reverse',
     prompt: '2/5 ÷ 3 = 2/5 × ☐. What fraction goes in the box?',
-    placeholder: 'Type it like 1/3',
+    format: 'Write a fraction with a slash.',
     check: { kind: 'fractionEquals', target: '1/3' },
     explanation: 'Dividing by 3 is the same as multiplying by 1/3.',
   },
@@ -1229,7 +1229,7 @@ export const ITEMS: Item[] = [
   {
     id: 'R18-rev', ruleId: 'R18', type: 'reverse',
     prompt: 'Use the digits 1, 5, 6 and 9 once each in □ × □ □/□ to make the greatest product. The fraction must be proper and in simplest form. Type the product.',
-    placeholder: 'Type it like 55 4/5',
+    format: 'You can write a mixed number or a fraction.',
     check: { kind: 'fractionEquals', target: '279/5' },
     explanation: 'The biggest digit, 9, goes in front. 6 is the whole part. 1 and 5 make the fraction 1/5. 9 × 6 1/5 = 9 × 31/5 = 279/5 = 55 4/5.',
   },
@@ -1254,7 +1254,8 @@ export type ChallengeField =
       kind: 'number'
       /** The right value, like "3/10" or "37 1/3". Any equal form is accepted, unless `simplest` is true. */
       answer: string
-      placeholder: string
+      /** How to write the answer, in words only. It never holds an example number, which could give the answer away. */
+      format: string
       /** The answer must be a fraction in simplest form. */
       simplest?: boolean
     }
@@ -1296,7 +1297,7 @@ export const CHALLENGES: Challenge[] = [
       bothLabel: 'Green: where they overlap',
       caption: 'The overlap is the purple part. Count its boxes out of all the boxes.',
     },
-    fields: [{ id: 'purple', label: 'Fraction of the paper that is purple', kind: 'number', answer: '3/10', placeholder: 'Type it like 3/10' }],
+    fields: [{ id: 'purple', label: 'Fraction of the paper that is purple', kind: 'number', answer: '3/10', format: 'Write a fraction.' }],
     explanation: '2/5 of 3/4 is 3/4 × 2/5 = 6/20, which is 3/10. 6 of the 20 small boxes are purple.',
   },
   {
@@ -1308,8 +1309,8 @@ export const CHALLENGES: Challenge[] = [
       'A crafter has a gold ribbon that is 3 1/2 metres long. She cuts it into pieces to make holiday bows. Each bow needs exactly 1/4 of a metre of ribbon. How many complete bows can she make, and how much ribbon is left over?',
     hints: ['This is a division problem. It asks how many 1/4 pieces fit into 3 1/2. Change the mixed number into an improper fraction first.'],
     fields: [
-      { id: 'bows', label: 'Complete bows', kind: 'number', answer: '14', placeholder: 'Type a number' },
-      { id: 'left', label: 'Ribbon left over (metres)', kind: 'number', answer: '0', placeholder: 'Type a number' },
+      { id: 'bows', label: 'Complete bows', kind: 'number', answer: '14', format: 'Type a number.' },
+      { id: 'left', label: 'Ribbon left over (metres)', kind: 'number', answer: '0', format: 'Type a number.' },
     ],
     explanation: '3 1/2 = 7/2. 7/2 ÷ 1/4 = 7/2 × 4/1 = 28/2 = 14. There are exactly 14 bows and nothing is left over.',
   },
@@ -1320,7 +1321,7 @@ export const CHALLENGES: Challenge[] = [
     ruleIds: ['R11', 'R12'],
     story: 'A snail climbs up a wall. Every hour it climbs 2/3 of a foot. The wall is 6 feet tall. How many hours does it take the snail to reach the exact top?',
     hints: ['You are dividing a whole number by a proper fraction. Write the whole number as a fraction over 1 before you flip and multiply.'],
-    fields: [{ id: 'hours', label: 'Hours', kind: 'number', answer: '9', placeholder: 'Type a number' }],
+    fields: [{ id: 'hours', label: 'Hours', kind: 'number', answer: '9', format: 'Type a number.' }],
     explanation: '6 ÷ 2/3 = 6/1 × 3/2 = 18/2 = 9 hours. Dividing by a number less than 1 gives a bigger answer than 6.',
   },
   {
@@ -1331,7 +1332,7 @@ export const CHALLENGES: Challenge[] = [
     story:
       'Chef Leo baked a batch of chocolate tarts. In the morning he sold 1/2 of the whole batch. In the afternoon he sold 1/2 of the tarts that were left. By evening only 6 tarts were left. How many tarts did Chef Leo bake?',
     hints: ['Work backwards from the end. If 6 tarts is 1/2 of what he had in the afternoon, how many did he have then?'],
-    fields: [{ id: 'tarts', label: 'Tarts baked', kind: 'number', answer: '24', placeholder: 'Type a number' }],
+    fields: [{ id: 'tarts', label: 'Tarts baked', kind: 'number', answer: '24', format: 'Type a number.' }],
     explanation: '6 is half of what he had in the afternoon, so he had 12. 12 is half of the batch, so he baked 12 × 2 = 24.',
   },
   {
@@ -1344,7 +1345,7 @@ export const CHALLENGES: Challenge[] = [
     hints: ['Jason multiplied 2 × 3 and 1/4 × 1/2 separately. Change both mixed numbers into improper fractions first.'],
     fields: [
       { id: 'correct', label: 'Is Jason correct?', kind: 'choice', options: ['Yes', 'No'], answer: 1 },
-      { id: 'length', label: 'The real length of the adult alligator (feet)', kind: 'number', answer: '7 7/8', placeholder: 'Type it like 7 7/8' },
+      { id: 'length', label: 'The real length of the adult alligator (feet)', kind: 'number', answer: '7 7/8', format: 'You can write a mixed number or a fraction.' },
     ],
     explanation: '2 1/4 = 9/4 and 3 1/2 = 7/2. 9/4 × 7/2 = 63/8 = 7 7/8 feet. Jason left out the parts where a whole number meets a fraction.',
   },
@@ -1360,8 +1361,8 @@ export const CHALLENGES: Challenge[] = [
       'Dividing by a whole number cuts every piece into that many smaller pieces. How many pieces did each fifth need to be cut into to make fifteenths?',
     ],
     fields: [
-      { id: 'secret', label: 'The secret fraction (simplest form)', kind: 'number', answer: '2/5', placeholder: 'Type it like 2/5', simplest: true },
-      { id: 'whole', label: 'The mystery whole number', kind: 'number', answer: '3', placeholder: 'Type a number' },
+      { id: 'secret', label: 'The secret fraction (simplest form)', kind: 'number', answer: '2/5', format: 'Write a fraction in simplest form.', simplest: true },
+      { id: 'whole', label: 'The mystery whole number', kind: 'number', answer: '3', format: 'Type a number.' },
     ],
     explanation: '2/15 × 3 = 6/15 = 2/5, so the secret fraction is 2/5. 2/5 × 1/3 = 2/15. Dividing 2/5 by 3 also gives 2/15, so the whole number is 3.',
   },
@@ -1377,9 +1378,9 @@ export const CHALLENGES: Challenge[] = [
       'For B, the top is the bottom times the quotient, plus the remainder: 4 × 2 + 1.',
     ],
     fields: [
-      { id: 'a', label: 'Fraction A', kind: 'number', answer: '2/5', placeholder: 'Type it like 2/5', simplest: true },
-      { id: 'b', label: 'Fraction B', kind: 'number', answer: '9/4', placeholder: 'Type it like 9/4', simplest: true },
-      { id: 'product', label: 'A × B', kind: 'number', answer: '9/10', placeholder: 'Type it like 9/10', simplest: true },
+      { id: 'a', label: 'Fraction A', kind: 'number', answer: '2/5', format: 'Write a fraction in simplest form.', simplest: true },
+      { id: 'b', label: 'Fraction B', kind: 'number', answer: '9/4', format: 'Write a fraction in simplest form.', simplest: true },
+      { id: 'product', label: 'A × B', kind: 'number', answer: '9/10', format: 'Write a fraction in simplest form.', simplest: true },
     ],
     explanation: 'A = 2/5 and B = 9/4, because 4 × 2 + 1 = 9. A × B = 2/5 × 9/4 = 18/20 = 9/10, which is a proper fraction.',
   },
@@ -1395,10 +1396,10 @@ export const CHALLENGES: Challenge[] = [
       'For the other three, there is no single plan. List the arrangements that are allowed (the fraction must be proper and in simplest form, so 4/8 is not allowed), work out each one, and compare. Change the mixed number to an improper fraction first.',
     ],
     fields: [
-      { id: 'gp', label: 'Greatest product', kind: 'number', answer: '37 1/3', placeholder: 'Type it like 37 1/3' },
-      { id: 'sp', label: 'Smallest product', kind: 'number', answer: '8 3/4', placeholder: 'Type it like 8 3/4' },
-      { id: 'gq', label: 'Greatest quotient', kind: 'number', answer: '2 10/11', placeholder: 'Type it like 2 10/11' },
-      { id: 'sq', label: 'Smallest quotient', kind: 'number', answer: '8/35', placeholder: 'Type it like 8/35' },
+      { id: 'gp', label: 'Greatest product', kind: 'number', answer: '37 1/3', format: 'You can write a mixed number or a fraction.' },
+      { id: 'sp', label: 'Smallest product', kind: 'number', answer: '8 3/4', format: 'You can write a mixed number or a fraction.' },
+      { id: 'gq', label: 'Greatest quotient', kind: 'number', answer: '2 10/11', format: 'You can write a mixed number or a fraction.' },
+      { id: 'sq', label: 'Smallest quotient', kind: 'number', answer: '8/35', format: 'You can write a mixed number or a fraction.' },
     ],
     explanation:
       'Greatest product: 8 × 4 2/3 = 112/3 = 37 1/3. Smallest product: 2 × 4 3/8 = 70/8 = 8 3/4. Greatest quotient: 8 ÷ 2 3/4 = 32/11 = 2 10/11. Smallest quotient: 2 ÷ 8 3/4 = 8/35.',

@@ -64,12 +64,13 @@ const outline = (field: string) => {
       <div v-for="field in challenge.fields" :key="field.id" class="space-y-1">
         <template v-if="field.kind === 'number'">
           <label :for="`f-${field.id}`" class="block text-lg font-semibold text-slate-900">{{ field.label }}</label>
+          <span :id="`format-${challenge.id}-${field.id}`" class="block text-base text-slate-700">{{ field.format }}</span>
           <input
             :id="`f-${field.id}`"
             v-model="values[field.id]"
             :disabled="solved"
             autocomplete="off"
-            :placeholder="field.placeholder"
+            :aria-describedby="`format-${challenge.id}-${field.id}`"
             :class="[input, 'border-2', outline(field.id)]"
           >
         </template>
