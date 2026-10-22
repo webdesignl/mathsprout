@@ -25,3 +25,6 @@ logs
 docs/PLAN.md
 
 coverage
+
+# Local dev-server config for the Claude desktop app
+.claude/launch.json
