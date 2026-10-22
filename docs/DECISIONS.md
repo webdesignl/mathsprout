@@ -583,6 +583,16 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** trust a flag from the browser (rejected: anyone can forge it); also require a row in `family_members` (not needed while public sign-up is off, so every real account is invited).
 - **Status:** Active
 
+### D-71: The public demo: a private sandbox family for each visitor
+- **Date:** 2026-10
+- **Source:** User (public demo, Phase 8 step 2)
+- **Decision:** On the sign-in page a visitor presses **Try the full demo**. The app calls `signInAnonymously()`, so Supabase makes an anonymous user (`is_anonymous = true`). The sign-up trigger `handle_new_user()` sees that and builds a **demo family** (`families.is_demo = true`, named "Demo family") with sample data: a child called **Sprout** with an emoji avatar (no real name or photo), the **parent PIN 1234** (hashed like `set_parent_pin`, and shown on screen because every sandbox is private), three daily routines plus a homework template, today's tasks with a parent's order and start times (one done, one Sprout added that waits for the parent), a finished day waiting for a star, ideas, stars and a few attempts. `family_members.email` is null. Real sign-ups behave exactly as before. The seed lives in `seed_demo_family(uuid)`, which no client can call.
+- **Same rules as everyone:** a demo visitor is an `authenticated` user, so row level security keeps their family apart from every other demo family and every real family with no special cases (tested with three families in PGlite, including a mutation check).
+- **No photos:** the insert policy on `uploads` now also requires that the family is not a demo family.
+- **On screen:** a banner on every page for a demo visitor ("Demo · Your changes are deleted after 24 hours · Please don't type real names · Parent PIN: 1234") with an **End demo** button (locks parent mode, forgets the child, signs out). The sign-in page leads with the demo card; **Create account is gone** (public sign-up is off; family members are invited), and family sign-in stays.
+- **Alternatives:** one shared demo account (rejected: visitors would see each other's data); a fake frontend-only demo (rejected: it would not show the real app).
+- **Status:** Active. Cleanup after 24 hours is the next step (D-72).
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?

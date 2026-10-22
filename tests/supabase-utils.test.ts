@@ -43,6 +43,9 @@ describe('friendly errors', () => {
     expect(authErrorMessage({ message: 'Unable to validate email address: invalid format' })).toContain('email')
     expect(authErrorMessage({ message: 'email rate limit exceeded' })).toContain('wait')
     expect(authErrorMessage({ message: 'Failed to fetch' })).toContain('internet')
+    expect(authErrorMessage({ message: 'Anonymous sign-ins are disabled' })).toContain('demo is not available')
+    expect(authErrorMessage({ message: 'Signups not allowed for this instance' })).toContain('demo is not available')
+    expect(authErrorMessage({ message: 'captcha verification process failed' })).toContain('finish the check')
     expect(authErrorMessage(42)).toContain('Something went wrong')
   })
 })
@@ -320,5 +323,18 @@ describe('sync store with answers close together', () => {
     await Promise.all(['a', 'b', 'c', 'd'].map((p) => sync.record(input(p))))
     expect(saved.sort()).toEqual(['a', 'b', 'c', 'd'])
     expect(sync.pending).toHaveLength(0)
+  })
+})
+
+describe('the public demo helpers', () => {
+  it('knows an anonymous visitor, and shows the PIN and the notice', async () => {
+    const { isDemoUser, DEMO_PIN, DEMO_NOTICE, DEMO_HOURS } = await import('../app/utils/demo')
+    expect(isDemoUser({ is_anonymous: true })).toBe(true)
+    expect(isDemoUser({ is_anonymous: false })).toBe(false)
+    expect(isDemoUser({})).toBe(false)
+    expect(isDemoUser(null)).toBe(false)
+    expect(DEMO_PIN).toBe('1234')
+    expect(DEMO_NOTICE).toContain(`${DEMO_HOURS} hours`)
+    expect(DEMO_NOTICE).toMatch(/real names/)
   })
 })

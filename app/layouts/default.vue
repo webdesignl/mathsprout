@@ -118,6 +118,8 @@ const linkClass = 'inline-flex min-h-12 items-center rounded-lg px-4 font-semibo
       Skip to content
     </a>
 
+    <DemoBanner />
+
     <header class="sticky top-0 z-30 border-b-2 border-emerald-200 bg-white">
       <div class="flex w-full items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:py-3">
         <!-- Phones and tablets: menu button on the left, logo in the middle. Wide screens: logo on the left. -->

@@ -32,6 +32,10 @@ export function pinErrorMessage(error: unknown): string {
 export function authErrorMessage(error: unknown): string {
   const text = messageOf(error).toLowerCase()
   if (text.includes('invalid login')) return 'That email or password is not right.'
+  if (text.includes('anonymous') || text.includes('signups not allowed') || text.includes('signup is disabled')) {
+    return 'The demo is not available right now. Please try again later.'
+  }
+  if (text.includes('captcha')) return 'Please finish the check, then try again.'
   if (text.includes('already registered') || text.includes('already been registered')) {
     return 'That email already has an account. Try signing in.'
   }
