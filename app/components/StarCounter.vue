@@ -55,7 +55,7 @@ const hops = [
 </script>
 
 <template>
-  <div v-if="childStore.selected && loaded" class="relative inline-flex">
+  <div v-if="childStore.selected && loaded" class="relative inline-flex flex-col items-center gap-2">
     <span v-if="phase === 'opening'" class="pointer-events-none absolute inset-x-0 top-0 flex justify-center" aria-hidden="true">
       <span
         v-for="(s, i) in hops"
@@ -83,6 +83,10 @@ const hops = [
     >
       <span aria-hidden="true">⭐</span>
       {{ starMessage(total) }}
+    </p>
+    <!-- No hover on phones and tablets, so the breakdown is written out there. Wide screens keep the tooltip. -->
+    <p v-if="phase === 'open' && starBreakdown(counts)" class="text-base text-slate-800 lg:hidden">
+      {{ starBreakdown(counts) }}
     </p>
   </div>
 </template>
