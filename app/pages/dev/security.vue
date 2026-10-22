@@ -62,7 +62,7 @@ async function run(check: (typeof checks)[number]) {
     <p class="text-lg text-slate-900">
       Sign in, make sure parent mode is <strong>locked</strong>, then press each button. Every line must say Blocked.
     </p>
-    <p v-if="!user" class="text-lg font-semibold text-red-800">Not signed in. <NuxtLink to="/login" class="underline">Sign in</NuxtLink> first.</p>
+    <p v-if="!user" class="text-lg font-semibold text-red-800">Not signed in. <NuxtLink to="/login" class="inline-flex min-h-11 items-center underline">Sign in</NuxtLink> first.</p>
     <ul class="space-y-3">
       <li v-for="c in checks" :key="c.id" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4">
         <button

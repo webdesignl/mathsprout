@@ -40,7 +40,7 @@ function random() {
 }
 
 const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-lg font-bold'
-const chip = 'rounded-lg bg-white px-3 py-2 text-base font-semibold text-slate-900 ring-1 ring-slate-500 hover:bg-slate-100'
+const chip = 'inline-flex min-h-11 items-center rounded-lg bg-white px-3 py-2 text-base font-semibold text-slate-900 ring-1 ring-slate-500 hover:bg-slate-100'
 const card = 'rounded-2xl bg-white p-5 shadow-sm space-y-3'
 </script>
 
@@ -105,7 +105,7 @@ const card = 'rounded-2xl bg-white p-5 shadow-sm space-y-3'
             type="text"
             placeholder="3 9/20"
             autocomplete="off"
-            class="min-h-12 w-64 rounded-xl border-2 border-slate-700 bg-white px-4 text-xl"
+            class="min-h-12 w-full max-w-64 rounded-xl border-2 border-slate-700 bg-white px-4 text-xl"
           />
         </label>
         <button type="button" :class="[button, 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']" @click="random">

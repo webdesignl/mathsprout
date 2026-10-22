@@ -67,7 +67,7 @@ async function toggle(task: { id: string; done: boolean }) {
     </div>
 
     <p v-if="!user" class="text-xl text-slate-900">
-      <NuxtLink to="/login" class="font-semibold text-emerald-900 underline">A parent can sign in</NuxtLink> to see today’s list.
+      <NuxtLink to="/login" class="inline-flex min-h-11 items-center font-semibold text-emerald-900 underline">A parent can sign in</NuxtLink> to see today’s list.
     </p>
     <p v-else-if="!childStore.selected" class="text-xl text-slate-900">
       Pick who’s practicing on the <NuxtLink to="/" class="font-semibold text-emerald-900 underline">home page</NuxtLink>.
