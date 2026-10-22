@@ -22,6 +22,12 @@ export default defineNuxtConfig({
     public: {
       // True when the site was built with a Supabase URL and publishable key.
       supabaseConfigured,
+      // The Cloudflare Turnstile SITE key (public by design). NUXT_PUBLIC_TURNSTILE_SITE_KEY fills it in. The secret key
+      // lives only in Supabase (Authentication > Attack Protection), never in this app.
+      turnstileSiteKey: '',
+      // Optional links shown on the home page and the Privacy page: NUXT_PUBLIC_PORTFOLIO_URL, NUXT_PUBLIC_CONTACT_EMAIL.
+      portfolioUrl: '',
+      contactEmail: '',
     },
   },
   hooks: {

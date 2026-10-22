@@ -7,6 +7,7 @@ useHead({ title: 'MathSprout' })
 const user = useSupabaseUser()
 const childStore = useChildStore()
 const { fetchChildren } = useChildren()
+const portfolioUrl = String(useRuntimeConfig().public.portfolioUrl ?? '')
 
 onMounted(async () => {
   if (!user.value) return
@@ -60,7 +61,24 @@ const button =
     <!-- Signed out, or signed in with no children yet. -->
     <template v-else>
       <h1 class="text-4xl font-bold text-emerald-900 sm:text-5xl">Let’s grow your math</h1>
+      <p v-if="!user" class="text-lg text-slate-800">
+        MathSprout is a math practice app for one 4th grader doing Singapore Math and Olympiad prep. Code checks every answer, and
+        the tutor only asks hint questions.
+      </p>
       <NuxtLink to="/practice" :class="button">Start practicing</NuxtLink>
+      <div v-if="!user" class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1">
+        <NuxtLink to="/login" class="inline-flex min-h-11 items-center text-lg font-semibold text-emerald-900 underline underline-offset-4">
+          Try the full demo
+        </NuxtLink>
+        <a
+          v-if="portfolioUrl"
+          :href="portfolioUrl"
+          rel="noopener"
+          class="inline-flex min-h-11 items-center text-lg font-semibold text-emerald-900 underline underline-offset-4"
+        >
+          See my portfolio
+        </a>
+      </div>
       <p v-if="user && childStore.loaded" class="text-lg text-slate-800">
         No children yet. <NuxtLink to="/parent" class="font-semibold text-emerald-900 underline">A parent can add one</NuxtLink>.
       </p>

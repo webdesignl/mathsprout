@@ -8,6 +8,24 @@ const configured = useRuntimeConfig().public.supabaseConfigured
 const user = useSupabaseUser()
 const demo = useDemo()
 
+// The bot check for the demo button. Without a site key (local development) there is no check.
+const siteKey = String(useRuntimeConfig().public.turnstileSiteKey ?? '')
+const captchaToken = ref('')
+const captcha = ref<{ reset: () => void } | null>(null)
+
+async function startDemo() {
+  if (siteKey && !captchaToken.value) {
+    demo.error.value = 'Please finish the check, then try again.'
+    return
+  }
+  const ok = await demo.start(captchaToken.value || undefined)
+  if (!ok) {
+    // A token works once, so ask for a new one.
+    captchaToken.value = ''
+    captcha.value?.reset()
+  }
+}
+
 const email = ref('')
 const password = ref('')
 const busy = ref(false)
@@ -68,12 +86,19 @@ const field = 'min-h-12 w-full rounded-xl border-2 border-slate-600 bg-white px-
         No account needed. You get a private sandbox with sample data and a child called Sprout. Try Today, Parent mode, stars and
         Deep Check. Everything is deleted after 24 hours.
       </p>
+      <TurnstileBox
+        v-if="siteKey"
+        ref="captcha"
+        :site-key="siteKey"
+        @token="captchaToken = $event; demo.error.value = ''"
+        @expired="captchaToken = ''"
+      />
       <p v-if="demo.error.value" role="alert" class="rounded-xl bg-white p-3 text-base font-semibold text-red-800">{{ demo.error.value }}</p>
       <button
         type="button"
         :disabled="demo.starting.value || !configured"
         class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-white px-5 text-lg font-bold text-emerald-900 hover:bg-emerald-50 focus-visible:outline-4 disabled:opacity-60 sm:w-auto"
-        @click="demo.start()"
+        @click="startDemo"
       >
         {{ demo.starting.value ? 'Getting your sandbox ready…' : 'Try the full demo' }}
       </button>

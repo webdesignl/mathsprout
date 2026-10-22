@@ -601,6 +601,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Limit:** the hourly job is not run by the test database, so check in Supabase (Database > Cron Jobs, or `select * from cron.job`) that `delete-old-demo-families` exists.
 - **Status:** Active
 
+### D-73: Demo polish: bot check, tutor line, privacy page, setup checklist
+- **Date:** 2026-10
+- **Source:** User (public demo, Phase 8 step 4)
+- **Decision:** (1) **Cloudflare Turnstile** guards the demo button. The widget loads from Cloudflare, gives a one-time token, and the app passes it to `signInAnonymously({ options: { captchaToken } })`. Supabase checks it with the secret key stored in its own settings (Authentication > Attack Protection); the secret key is never in this app or in Vercel. Only the public site key (`NUXT_PUBLIC_TURNSTILE_SITE_KEY`) is. With no site key (local development) there is no widget. On a very narrow phone the small widget is used so nothing sticks out. (2) The Tutor says "Demo: the tutor uses a sample problem." under the photo button for signed-out and demo visitors, who both get canned answers. (3) The home page for a signed-out visitor has one sentence on what MathSprout is, a "Try the full demo" link and, when `NUXT_PUBLIC_PORTFOLIO_URL` is set, a portfolio link. (4) A short **Privacy** page, linked from the footer on every page, says what is stored, what goes to the AI (family account only, personal details removed, no photo stored), how long (demo: 24 hours), who handles the data (Supabase, Vercel, Cloudflare, Anthropic) and how to contact. The contact address comes from `NUXT_PUBLIC_CONTACT_EMAIL`, so no personal email is published unless chosen. (5) `docs/DEMO_SETUP.md` lists every Supabase, Cloudflare and Vercel setting, the check to run before sharing, and the open question about whether turning off sign-ups also blocks anonymous sign-ins.
+- **Footer:** the footer has the copyright line (see D-69) and the Privacy link.
+- **Status:** Active. Not testable offline: the Turnstile token check, the sign-up switch, `pg_cron` and the live sign-in; they are in the setup checklist.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
