@@ -25,3 +25,5 @@ Before finishing any task
 Run npm run test:run and npm run typecheck, and fix anything failing.
 Decisions
 Record product and engineering decisions in docs/DECISIONS.md (what, why, alternatives, status). Check it before changing behavior, and update it in the same PR when a decision is made or replaced.
+UI rules
+For any work on pages, layouts or components in app/, follow the responsive-tailwind skill: mobile-first, phone / tablet (sm:) / desktop (lg:), no hover-only interactions, 44px tap targets, and check 320, 375, 768, 1024 and 1280px before calling it done.
