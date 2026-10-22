@@ -593,6 +593,14 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** one shared demo account (rejected: visitors would see each other's data); a fake frontend-only demo (rejected: it would not show the real app).
 - **Status:** Active. Cleanup after 24 hours is the next step (D-72).
 
+### D-72: Demo sandboxes are deleted after 24 hours
+- **Date:** 2026-10
+- **Source:** User (public demo, Phase 8 step 3)
+- **Decision:** `delete_old_demo_families()` deletes demo families (`is_demo`) older than 24 hours first, which cascades to their members, secrets, unlocks, children and everything linked to the children, and then anonymous users older than 24 hours. Deleting only the user would leave the family behind, because `families` has no foreign key to `auth.users`. Real families and real users are never touched (the function only matches `is_demo` and `is_anonymous`). It is `security definer` and cannot be run by `anon` or `authenticated`; only `pg_cron` (the database owner) runs it. The migration schedules it **every hour** (`0 * * * *`) where the `pg_cron` extension exists, and skips scheduling in a plain test database. Scheduling the same job name again replaces it, so the migration is safe to run twice.
+- **Tests (PGlite, with a mutation check):** old demo data and the old anonymous user are gone; a new demo and a 40-day-old real family with its data are kept; running twice is harmless; an orphan demo family whose user is already gone is removed; `anon` and `authenticated` get "permission denied".
+- **Limit:** the hourly job is not run by the test database, so check in Supabase (Database > Cron Jobs, or `select * from cron.job`) that `delete-old-demo-families` exists.
+- **Status:** Active
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
