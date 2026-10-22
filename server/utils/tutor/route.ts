@@ -1,15 +1,21 @@
 import type { H3Event } from 'h3'
+import { serverSupabaseUser } from '#supabase/server'
 import { getAnthropic } from '../anthropic'
-import { isDemoMode } from './demo'
+import { useDemoAnswers } from './demo'
 import type { TutorDeps, TutorResponse } from './handlers'
 import { tutorLimiter } from './rateLimit'
 
-/** Builds the dependencies for a request. The API key comes from server-only runtime config. */
-export function tutorDeps(event: H3Event): TutorDeps {
+/**
+ * Builds the dependencies for a request. The API key comes from server-only runtime config.
+ * Only a real, signed-in family account gets the AI client; signed-out visitors, demo (anonymous) users,
+ * DEMO_MODE and any error reading the user get canned answers and no client at all.
+ */
+export async function tutorDeps(event: H3Event): Promise<TutorDeps> {
+  const demo = await useDemoAnswers({ readClaims: () => serverSupabaseUser(event) })
   const config = useRuntimeConfig(event)
   return {
-    client: getAnthropic(String(config.anthropicApiKey ?? '')),
-    demo: isDemoMode(),
+    client: demo ? null : getAnthropic(String(config.anthropicApiKey ?? '')),
+    demo,
     limiter: tutorLimiter,
     ip: getRequestIP(event, { xForwardedFor: true }) ?? 'unknown',
   }
