@@ -9,7 +9,7 @@ const user = useSupabaseUser()
 const demo = useDemo()
 
 // The bot check for the demo button. Without a site key (local development) there is no check.
-const siteKey = String(useRuntimeConfig().public.turnstileSiteKey ?? '')
+const siteKey = String(useRuntimeConfig().public.turnstileSiteId ?? '')
 const captchaToken = ref('')
 const captcha = ref<{ reset: () => void } | null>(null)
 

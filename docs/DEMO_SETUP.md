@@ -25,7 +25,7 @@ Then paste `supabase/tests/rls_tests.sql` and run it. It should begin with `ALL 
 1. In a free Cloudflare account, open **Turnstile → Add widget**. Hostnames: your Vercel address (and `localhost` for testing). Mode: **Managed**.
 2. Copy the **Site key** and the **Secret key**.
 3. In Supabase: **Authentication → Attack Protection → Enable CAPTCHA protection**, choose **Turnstile**, paste the **Secret key**. The secret key goes **only** here, never in Vercel or in the code.
-4. In Vercel (next section), add the **Site key** as `NUXT_PUBLIC_TURNSTILE_SITE_KEY`.
+4. In Vercel (next section), add the **Site key** as `NUXT_PUBLIC_TURNSTILE_SITE_ID`.
 
 While CAPTCHA protection is on in Supabase and the site key is missing in Vercel, the demo button will fail with "Please finish the check". Add the key and redeploy.
 
@@ -43,7 +43,7 @@ While CAPTCHA protection is on in Supabase and the site key is missing in Vercel
 |---|---|---|
 | `SUPABASE_URL` | `https://<project>.supabase.co` | The project address (nothing after `.co`) |
 | `SUPABASE_KEY` | The **publishable** key | Never the secret key |
-| `NUXT_PUBLIC_TURNSTILE_SITE_KEY` | The Turnstile **site** key | Bot check on the demo button |
+| `NUXT_PUBLIC_TURNSTILE_SITE_ID` | The Turnstile **site** key | Bot check on the demo button |
 | `NUXT_PUBLIC_PORTFOLIO_URL` | Your portfolio address (optional) | The "See my portfolio" link on the home page |
 | `NUXT_PUBLIC_CONTACT_EMAIL` | An address you are happy to publish (optional) | The contact line on the Privacy page. Without it the page says contact details will be added. |
 | `NUXT_ANTHROPIC_API_KEY` | Your API key | The real tutor, for the family account only |
