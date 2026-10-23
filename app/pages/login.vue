@@ -6,20 +6,19 @@ useHead({ title: 'Parent sign in · MathSprout' })
 const client = useSupabaseClient()
 const configured = useRuntimeConfig().public.supabaseConfigured
 const user = useSupabaseUser()
+const demo = useDemo()
 
 const email = ref('')
 const password = ref('')
-const familyName = ref('')
-const childName = ref('')
-const creating = ref(false)
 const busy = ref(false)
 const error = ref('')
 const notice = ref('')
 
+// A demo visitor goes home, where Sprout is waiting. A real parent goes to the Parent page.
 watch(
   user,
   (value) => {
-    if (value) void navigateTo('/parent')
+    if (value) void navigateTo(demo.isDemo.value ? '/' : '/parent')
   },
   { immediate: true },
 )
@@ -43,92 +42,71 @@ async function submit() {
   busy.value = true
   error.value = ''
   notice.value = ''
-  const credentials = { email: email.value.trim(), password: password.value }
-  const { data, error: failure } = creating.value
-    ? await client.auth.signUp({ ...credentials, options: { emailRedirectTo: `${window.location.origin}/confirm`,
-          data: { family_name: familyName.value.trim(), child_nickname: childName.value.trim() },
-        },
-      })
-    : await client.auth.signInWithPassword(credentials)
+  const { error: failure } = await client.auth.signInWithPassword({ email: email.value.trim(), password: password.value })
   busy.value = false
   if (failure) {
     if (import.meta.dev) console.warn('Supabase auth error:', failure.message)
     error.value = authErrorMessage(failure)
-  } else if (creating.value && data.user?.identities?.length === 0) {
-    // Supabase hides whether an email exists; an empty identities list means it does, and no email is sent.
-    error.value = authErrorMessage({ message: 'User already registered' })
-  } else if (creating.value && !data.session) {
-    notice.value = 'Check your email to confirm.'
   }
 }
 
-const field = 'min-h-12 w-full rounded-xl border-2 border-slate-600 bg-white px-4 text-xl text-slate-900'
+const field = 'min-h-12 w-full rounded-xl border-2 border-slate-600 bg-white px-4 text-base text-slate-900'
 </script>
 
 <template>
   <div class="mx-auto max-w-md space-y-6">
-    <h1 class="text-4xl font-bold text-emerald-900">Parent account</h1>
-    <div role="tablist" aria-label="Sign in or create account" class="flex gap-2">
-      <button
-        v-for="tab in [{ label: 'Sign in', value: false }, { label: 'Create account', value: true }]"
-        :key="tab.label"
-        type="button"
-        role="tab"
-        :aria-selected="creating === tab.value"
-        class="min-h-12 flex-1 rounded-xl px-4 text-lg font-bold"
-        :class="creating === tab.value ? 'bg-emerald-700 text-white' : 'bg-white text-slate-900 ring-2 ring-slate-600'"
-        @click="creating = tab.value"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
-    <p class="text-xl text-slate-900">Your child does not need an account. This is only for you.</p>
+    <h1 class="text-[clamp(1.75rem,4vw+1rem,2.5rem)] font-bold text-emerald-900">Try MathSprout</h1>
 
-    <p v-if="!configured" role="alert" class="rounded-2xl bg-amber-100 p-4 text-lg font-semibold text-amber-950">
+    <p v-if="!configured" role="alert" class="rounded-2xl bg-amber-100 p-4 text-base font-semibold text-amber-950">
       Sign-in isn’t set up on this site yet. Practice and Tutor still work.
     </p>
 
-    <form class="space-y-4 rounded-2xl bg-white p-5" @submit.prevent="submit">
-      <template v-if="creating">
-        <div class="space-y-1">
-          <label for="family" class="text-lg font-semibold text-slate-900">Family name</label>
-          <input id="family" v-model="familyName" maxlength="60" required autocomplete="off" :class="field">
-        </div>
-        <div class="space-y-1">
-          <label for="child" class="text-lg font-semibold text-slate-900">Child’s nickname</label>
-          <input id="child" v-model="childName" maxlength="30" required autocomplete="off" :class="field">
-          <p class="text-base text-slate-700">A nickname only, not a full name.</p>
-        </div>
-      </template>
-      <div class="space-y-1">
-        <label for="email" class="text-lg font-semibold text-slate-900">Email</label>
-        <input id="email" v-model="email" type="email" autocomplete="email" required :class="field">
-      </div>
-      <div class="space-y-1">
-        <label for="password" class="text-lg font-semibold text-slate-900">Password</label>
-        <input
-          id="password"
-          v-model="password"
-          type="password"
-          :autocomplete="creating ? 'new-password' : 'current-password'"
-          minlength="6"
-          required
-          :class="field"
-        >
-      </div>
-      <p v-if="error" role="alert" class="text-lg font-semibold text-red-800">{{ error }}</p>
-      <p v-if="notice" role="status" class="text-lg font-semibold text-emerald-900">{{ notice }}</p>
+    <!-- The demo: no account, a private sandbox with sample data -->
+    <section aria-labelledby="demo-title" class="space-y-3 rounded-2xl bg-emerald-700 p-5 text-white">
+      <h2 id="demo-title" class="text-2xl font-bold">Try the full demo</h2>
+      <p class="text-base text-emerald-50">
+        No account needed. You get a private sandbox with sample data and a child called Sprout. Try Today, Parent mode, stars and
+        Deep Check. Everything is deleted after 24 hours.
+      </p>
+      <p v-if="demo.error.value" role="alert" class="rounded-xl bg-white p-3 text-base font-semibold text-red-800">{{ demo.error.value }}</p>
       <button
-        type="submit"
-        :disabled="busy"
-        class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-lg font-bold text-white hover:bg-emerald-800 disabled:opacity-60"
+        type="button"
+        :disabled="demo.starting.value || !configured"
+        class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-white px-5 text-lg font-bold text-emerald-900 hover:bg-emerald-50 focus-visible:outline-4 disabled:opacity-60 sm:w-auto"
+        @click="demo.start()"
       >
-        {{ creating ? 'Create account' : 'Sign in' }}
+        {{ demo.starting.value ? 'Getting your sandbox ready…' : 'Try the full demo' }}
       </button>
-    </form>
+    </section>
 
-    <button v-if="!creating" type="button" class="min-h-12 text-lg font-semibold text-emerald-900 underline" @click="forgot">
-      Forgot password?
-    </button>
+    <!-- Family members sign in with the email and password they were invited with -->
+    <section aria-labelledby="signin-title" class="space-y-4">
+      <div>
+        <h2 id="signin-title" class="text-2xl font-bold text-slate-900">Family sign in</h2>
+        <p class="text-base text-slate-700">For the family this app was made for. Accounts are by invitation.</p>
+      </div>
+      <form class="space-y-4 rounded-2xl bg-white p-5" @submit.prevent="submit">
+        <div class="space-y-1">
+          <label for="email" class="text-base font-semibold text-slate-900">Email</label>
+          <input id="email" v-model="email" type="email" autocomplete="email" required :class="field">
+        </div>
+        <div class="space-y-1">
+          <label for="password" class="text-base font-semibold text-slate-900">Password</label>
+          <input id="password" v-model="password" type="password" autocomplete="current-password" minlength="6" required :class="field">
+        </div>
+        <p v-if="error" role="alert" class="text-base font-semibold text-red-800">{{ error }}</p>
+        <p v-if="notice" role="status" class="text-base font-semibold text-emerald-900">{{ notice }}</p>
+        <button
+          type="submit"
+          :disabled="busy"
+          class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-lg font-bold text-white hover:bg-emerald-800 focus-visible:outline-4 disabled:opacity-60"
+        >
+          Sign in
+        </button>
+      </form>
+      <button type="button" class="inline-flex min-h-11 items-center text-base font-semibold text-emerald-900 underline" @click="forgot">
+        Forgot password?
+      </button>
+    </section>
   </div>
 </template>
