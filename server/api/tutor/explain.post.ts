@@ -2,5 +2,5 @@ import { handleExplain } from '../../utils/tutor/handlers'
 import { respond, tutorDeps } from '../../utils/tutor/route'
 
 export default defineEventHandler(async (event) => {
-  return respond(event, await handleExplain(await readBody(event), tutorDeps(event)))
+  return respond(event, await handleExplain(await readBody(event), await tutorDeps(event)))
 })

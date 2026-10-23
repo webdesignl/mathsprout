@@ -575,6 +575,14 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 
 ---
 
+### D-70: The real AI is only for real family accounts
+- **Date:** 2026-10
+- **Source:** User (public demo, Phase 8 step 1)
+- **Decision:** The tutor routes decide on the server, for each request, whether to use the AI. Canned demo answers (and no AI client at all) are used when `DEMO_MODE` is on, when nobody is signed in, when the user is a demo (anonymous) user, and whenever reading the user fails. Only an account that is signed in, has the `authenticated` role and has `is_anonymous` set to false in a token the server verified (`serverSupabaseUser`, which checks the token) reaches Claude. The check never reads the request body, and a missing claim means demo, so the safe default is "no AI". `DEMO_MODE=true` stays as an emergency switch and is checked first, so it does not even read a token. The per-IP limit, the Vercel Firewall rule and the Anthropic spend limit stay.
+- **Why:** with a public demo, strangers must never cost money or reach the AI, while the real family keeps the full tutor.
+- **Alternatives:** trust a flag from the browser (rejected: anyone can forge it); also require a row in `family_members` (not needed while public sign-up is off, so every real account is invited).
+- **Status:** Active
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
