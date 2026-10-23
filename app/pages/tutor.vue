@@ -9,6 +9,10 @@ import { opSymbol, type AnyOp, type AnyProblem } from '../utils/fraction'
 useHead({ title: 'Tutor · MathSprout' })
 
 const store = useTutorStore()
+// Signed-out visitors and demo visitors get a sample problem and canned answers (the server decides; this only says so).
+const user = useSupabaseUser()
+const demo = useDemo()
+const sampleOnly = computed(() => !user.value || demo.isDemo.value)
 
 const empty = (): AnswerBoxes => ({ whole: '', num: '', den: '' })
 const answer = ref<AnswerBoxes>(empty())
@@ -141,6 +145,7 @@ function another() {
           />
         </label>
         <button type="button" :class="secondary" @click="typing = true">Type it</button>
+        <p v-if="sampleOnly" class="w-full text-base text-slate-700">Demo: the tutor uses a sample problem.</p>
       </div>
 
       <div v-else class="space-y-5">
