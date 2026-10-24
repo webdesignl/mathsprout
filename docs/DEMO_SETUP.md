@@ -64,3 +64,9 @@ Also keep:
 - [ ] A second browser (or a private window) gets its **own** demo sandbox, not the first one's data.
 - [ ] Phone and desktop both look right.
 - [ ] Record a 60 to 90 second walkthrough video (Today, tick a task, earn a star, unlock Parent with the PIN, plan tomorrow). Most recruiters watch a video before they click.
+
+## Feedback from visitors
+
+- Run `supabase/migrations/20261024100000_feedback.sql` in the SQL editor (after the two demo migrations).
+- Read the feedback in Supabase: Table Editor > `feedback` (ratings, "who", notes, `is_demo`). The app cannot read it, and it is kept after the 24-hour demo cleanup.
+- Test: press *Try the full demo*, press *Feedback* in the banner, send a rating, and check that a row appears. Then press *End demo* and check that "Skip and end demo" works.
