@@ -99,7 +99,7 @@ const scoreMessage = computed(() => {
 
 <template>
   <div :class="['mx-auto', showPad ? 'max-w-7xl lg:grid lg:grid-cols-[minmax(0,1fr)_34rem] lg:items-start lg:gap-8' : 'max-w-4xl']">
-    <div :class="['min-w-0 space-y-6', showPad ? 'pb-[60vh] lg:pb-0' : '']">
+    <div :class="['min-w-0 space-y-6', showPad ? 'pb-[48vh] lg:pb-0' : '']">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-3xl font-bold text-emerald-900 sm:text-4xl">{{ heading }}</h1>
       <div v-if="store.view !== 'home'" class="flex flex-wrap items-center gap-2">
@@ -348,7 +348,7 @@ const scoreMessage = computed(() => {
       v-if="showPad"
       id="rough-work"
       aria-label="Rough work"
-      class="fixed inset-x-0 bottom-0 z-20 max-h-[60vh] overflow-y-auto rounded-t-2xl border-t-4 border-slate-700 bg-emerald-50 p-4 shadow-2xl lg:sticky lg:top-24 lg:max-h-none lg:self-start lg:overflow-visible lg:rounded-2xl lg:border-4 lg:shadow-md"
+      class="fixed inset-x-0 bottom-0 z-20 max-h-[48vh] overflow-y-auto rounded-t-2xl border-t-4 border-slate-700 bg-emerald-50 p-4 shadow-2xl lg:sticky lg:top-24 lg:max-h-none lg:self-start lg:overflow-visible lg:rounded-2xl lg:border-4 lg:shadow-md"
     >
       <PracticeScratchPad :page-key="padKey" @close="scratch.toggle()" />
     </aside>
