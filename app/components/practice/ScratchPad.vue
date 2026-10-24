@@ -51,6 +51,7 @@ function onDown(event: PointerEvent) {
   if (event.pointerType === 'mouse' && event.button !== 0) return
   if (activePointer !== null) return
   event.preventDefault()
+  window.getSelection()?.removeAllRanges()
   try {
     canvas.value?.setPointerCapture(event.pointerId)
   } catch {
@@ -104,9 +105,9 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
 </script>
 
 <template>
-  <section aria-labelledby="rough-work-title" class="space-y-3">
+  <section aria-labelledby="rough-work-title" class="select-none space-y-2 sm:space-y-3">
     <div class="flex items-center justify-between gap-3">
-      <h2 id="rough-work-title" class="text-2xl font-bold text-slate-900">Rough work</h2>
+      <h2 id="rough-work-title" class="text-xl font-bold text-slate-900 sm:text-2xl">Rough work</h2>
       <button
         type="button"
         class="min-h-12 rounded-xl px-4 text-lg font-semibold text-slate-900 underline underline-offset-4"
@@ -116,7 +117,8 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
       </button>
     </div>
 
-    <div class="flex flex-wrap gap-2" role="group" aria-label="Drawing tools">
+    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex gap-2" role="group" aria-label="Drawing tools">
       <button
         v-for="id in TOOL_ORDER"
         :key="id"
@@ -125,7 +127,7 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
         :aria-label="TOOLS[id].label"
         :title="TOOLS[id].label"
         :class="[
-          'inline-flex size-14 items-center justify-center rounded-xl',
+          'inline-flex size-12 items-center justify-center rounded-xl sm:size-14',
           scratch.tool === id
             ? 'bg-slate-900 text-white'
             : `bg-white ring-2 ring-slate-600 hover:bg-slate-100 ${TOOL_ICON_COLOR[id]}`,
@@ -136,7 +138,7 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
       </button>
     </div>
 
-    <div class="flex flex-wrap gap-2" role="group" aria-label="Fix mistakes">
+    <div class="flex gap-2" role="group" aria-label="Fix mistakes">
       <button type="button" :class="actionButton" :disabled="!scratch.canUndo(pageKey)" @click="scratch.undo(pageKey)">
         Undo
       </button>
@@ -149,6 +151,7 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
         Clear
       </button>
     </div>
+    </div>
 
     <canvas
       ref="canvas"
@@ -156,19 +159,22 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
       :height="PAGE_HEIGHT * SCALE"
       role="img"
       aria-label="Rough work page. Draw with a finger, a pen or a mouse."
-      class="paper mx-auto block aspect-square h-[48vh] w-auto max-w-full touch-none rounded-xl border-2 border-slate-700 bg-white lg:h-auto lg:w-full"
+      class="paper mx-auto block aspect-square h-[28vh] w-auto max-w-full touch-none select-none rounded-xl border-2 border-slate-700 bg-white sm:h-[40vh] lg:h-auto lg:w-full"
+      @contextmenu.prevent
       @pointerdown="onDown"
       @pointermove="onMove"
       @pointerup="onUp"
       @pointercancel="onUp"
     />
-    <p class="text-base text-slate-700">Your rough work stays on this page for each problem.</p>
+    <p class="hidden text-base text-slate-700 sm:block">Your rough work stays on this page for each problem.</p>
   </section>
 </template>
 
 <style scoped>
 /* A light grid, like graph paper, drawn behind the canvas. */
 .paper {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   background-image:
     linear-gradient(to right, rgb(148 163 184 / 0.35) 1px, transparent 1px),
     linear-gradient(to bottom, rgb(148 163 184 / 0.35) 1px, transparent 1px);
