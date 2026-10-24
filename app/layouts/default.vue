@@ -106,6 +106,9 @@ const parentOpen = ref(route.path.startsWith('/parent'))
 watch(() => route.path, (path) => { if (path.startsWith('/parent')) parentOpen.value = true })
 const activeSection = computed(() => (route.path.startsWith('/parent') ? (route.query.tab as string | undefined) ?? 'plan' : ''))
 
+/** Shown in the footer's copyright line. */
+const year = new Date().getFullYear()
+
 const linkClass = 'inline-flex min-h-12 items-center rounded-lg px-4 font-semibold text-emerald-900 hover:bg-emerald-100'
 </script>
 
@@ -297,5 +300,9 @@ const linkClass = 'inline-flex min-h-12 items-center rounded-lg px-4 font-semibo
     <main id="main" class="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-8" tabindex="-1">
       <slot />
     </main>
+
+    <footer class="border-t border-emerald-200 bg-white px-4 py-4 text-center text-sm text-slate-700 sm:px-6">
+      © {{ year }} Priyadharshini Sadhasivam. All rights reserved.
+    </footer>
   </div>
 </template>
