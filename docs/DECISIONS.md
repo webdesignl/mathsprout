@@ -575,6 +575,12 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 
 ---
 
+### D-69: Copyright line in the footer
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** Every page ends with a small footer: "© <year> Priyadharshini Sadhasivam. All rights reserved." The year comes from the current date. It sits in the default layout under the main content, in readable contrast, and is plain text (no link) so it adds no tap target.
+- **Status:** Active. The Privacy page link now sits in the same footer (see D-73).
+
 ### D-70: The real AI is only for real family accounts
 - **Date:** 2026-10
 - **Source:** User (public demo, Phase 8 step 1)
