@@ -14,11 +14,10 @@ Then paste `supabase/tests/rls_tests.sql` and run it. It should begin with `ALL 
 ## 2. Supabase: sign-in settings (Authentication → Sign In / Providers)
 
 - Turn **on** *Allow anonymous sign-ins*. This is what the demo button uses.
-- Turn **off** *Allow new users to sign up*, so strangers cannot create real accounts.
-- **Test both ways before sharing the link:**
+- Keep *Allow new users to sign up* **on**. Turning it off also blocks the demo button (`signup_disabled`, tested; see D-74). The app has no Create account form, and CAPTCHA (section 3) must stay on.
+- **Test before sharing the link:**
   1. Press *Try the full demo* on the site: you should land on the home page with the yellow demo banner and a child called Sprout.
-  2. Try to create a real account some other way (for example with the Supabase API from a script): it must be refused.
-- **Open question until tested:** the sign-up switch might also block anonymous sign-ins on your project. If the demo button then says "The demo is not available right now", turn sign-ups back on, keep anonymous sign-ins on, and tell me: the sign-in page no longer has a Create account button, so a stranger has no way to create an account in the app, and we can find another way to block the API.
+  2. Check that Authentication > Attack Protection has CAPTCHA turned **on** with the Turnstile secret key.
 
 ## 3. Cloudflare Turnstile (bot check for the demo button)
 

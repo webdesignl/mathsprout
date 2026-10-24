@@ -608,6 +608,14 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Footer:** the footer has the copyright line (see D-69) and the Privacy link.
 - **Status:** Active. Not testable offline: the Turnstile token check, the sign-up switch, `pg_cron` and the live sign-in; they are in the setup checklist.
 
+### D-74: Supabase sign-ups stay on so the demo works; CAPTCHA is the protection
+- **Date:** 2026-10
+- **Source:** User (tested on the live project)
+- **Decision:** In Supabase, *Allow new users to sign up* is **on** (and *Allow anonymous sign-ins* is on). Tested: with sign-ups off, Try the full demo fails with `signup_disabled` (422, "Signups not allowed for this instance"), because that switch also blocks anonymous sign-ins. This replaces the "public sign-up is turned off" part of D-71 and D-73. The app still has no Create account form and no `signUp` or magic-link call, so nothing in the app can make a real account; the Sign in form only calls `signInWithPassword`, which never creates one. Turnstile CAPTCHA (Authentication > Attack Protection) stays **on** to slow down scripts.
+- **Accepted risk:** someone who calls the Supabase API directly could still create a real email account. It would get an empty family and could see none of the existing data (row level security). The owner accepts this for now.
+- **Alternatives:** a `before insert` trigger on `auth.users` that rejects every non-anonymous sign-up (not built; the best next step if abuse shows up); sign-ups off and no demo button (rejected: the demo is the goal).
+- **Status:** Active
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
