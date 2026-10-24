@@ -622,6 +622,14 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** a `before insert` trigger on `auth.users` that rejects every non-anonymous sign-up (not built; the best next step if abuse shows up); sign-ups off and no demo button (rejected: the demo is the goal).
 - **Status:** Active
 
+### D-75: Feedback from demo visitors
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** A **Feedback** button sits in the demo banner (visible on every page, so no extra nav item) and **End demo** now opens the same form first, with "Skip and end demo" so leaving is never blocked. The form is a native dialog (keyboard and screen-reader friendly, Escape closes): 1 to 5 stars (required), "I am a recruiter / teacher / parent / developer / someone else" (optional), and a note up to 1000 characters (optional), with a reminder not to type personal details. No name or email is asked. Saved in `public.feedback` (migration `20261024100000_feedback.sql`): the app can only **insert** (own family, honest `is_demo` flag, 5 a day), never read, change or delete; the owner reads it in the Supabase Table Editor. `family_id` has no foreign key on purpose, so feedback is **kept** when the 24-hour demo cleanup deletes the family.
+- **Tests:** PGlite (own family only, honest flag, limits, daily cap, no read/update/delete, survives cleanup; mutation-checked) and `tests/feedback.test.ts`.
+- **Alternatives:** a Feedback link in the main nav (rejected: the nav is for the child's tasks, the banner is the demo's own space); only asking at End demo (rejected: many visitors just close the tab); emailing feedback or a third-party form (rejected: a second service and more personal data); collecting an email (rejected: not needed, and it would be personal data).
+- **Status:** Active. Run the migration in Supabase before using it.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?

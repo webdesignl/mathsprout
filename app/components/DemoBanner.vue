@@ -2,6 +2,22 @@
 import { DEMO_NOTICE, DEMO_PIN } from '../utils/demo'
 
 const { isDemo, end } = useDemo()
+
+/** The feedback form: opened from the Feedback button, or when ending the demo. */
+const formOpen = ref(false)
+const ending = ref(false)
+
+function openForm(isEnding: boolean) {
+  ending.value = isEnding
+  formOpen.value = true
+}
+
+async function finish() {
+  formOpen.value = false
+  await end()
+}
+
+const button = 'inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-base font-bold ring-2 focus-visible:outline-4'
 </script>
 
 <template>
@@ -11,13 +27,11 @@ const { isDemo, end } = useDemo()
         <span class="font-semibold">{{ DEMO_NOTICE }}</span>
         <span class="mt-1 block sm:ml-2 sm:mt-0 sm:inline">Parent PIN: <strong class="rounded bg-white px-2 py-0.5 font-mono text-lg">{{ DEMO_PIN }}</strong></span>
       </p>
-      <button
-        type="button"
-        class="inline-flex min-h-11 shrink-0 items-center justify-center self-start rounded-xl bg-white px-4 text-base font-bold text-amber-950 ring-2 ring-amber-700 focus-visible:outline-4 sm:self-auto"
-        @click="end"
-      >
-        End demo
-      </button>
+      <div class="flex shrink-0 flex-wrap gap-2 self-start sm:self-auto">
+        <button type="button" :class="[button, 'bg-amber-950 text-white ring-amber-950']" @click="openForm(false)">Feedback</button>
+        <button type="button" :class="[button, 'bg-white text-amber-950 ring-amber-700']" @click="openForm(true)">End demo</button>
+      </div>
     </div>
   </section>
+  <FeedbackDialog v-if="isDemo" :open="formOpen" :ending="ending" @close="formOpen = false" @finished="finish" />
 </template>
