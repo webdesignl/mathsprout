@@ -501,7 +501,7 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 ### D-61: A cleaner Parent page, and stars that are protected
 - **Date:** 2026-10
 - **Source:** User
-- **Page:** the Parent page has a side panel with five sections: Prioritise tasks, Add new task (one-off task and usual tasks), Progress (the 5-minute summary per child), Real-life examples, and Family account (family name, children, sign out). The open section is in the address (`?tab=`). On a phone the panel becomes a row you scroll sideways. Badges show new tasks, finished days and ideas waiting. A child switcher shows only when there is more than one child. Copy is cut to short phrases.
+- **Page:** the Parent page has a side panel with five sections: Prioritise tasks, Usual tasks (the task templates; one-off tasks are added at the top of Prioritise tasks), Progress (the 5-minute summary per child), Real-life examples, and Family account (family name, children, sign out). The open section is in the address (`?tab=`). On a phone the panel becomes a row you scroll sideways. Badges show new tasks, finished days and ideas waiting. A child switcher shows only when there is more than one child. Copy is cut to short phrases.
 - **Examples kept short:** each reviewed idea beyond the 3 newest per child is deleted when a parent reviews an idea (in `give_star`). Ideas still waiting for a review are never deleted. The page shows the waiting ones and the 3 newest reviewed ones.
 - **Stars are protected:** every star a parent gives (idea or day) is a row in the `awards` ledger. An idea star (`idea_star`, with the idea's id but no foreign key) stays after its idea is deleted. The home count and "N stars given so far" read the ledger, not the ideas. Nobody can delete a star from the app (the delete policy on `awards` is gone). A review can be changed only within 7 days of the first review (`Reviews are final after a week`), and changing it takes the star back or gives it again; the week does not restart when flipping. Day stars have no take-back button.
 - **Status:** Active. Replaces the parent delete of awards (D-60) and the star count from the ideas table (D-58).
@@ -638,6 +638,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Tests:** PGlite database tests (parent mode needed, demo refused, 5-invite limit, no direct insert or hash read, families kept apart, revoke rules, join once, expiry, wrong token, stolen hash, normal sign-up unchanged; five mutation checks) and unit tests for the link, token and messages.
 - **Alternatives:** an invite by email (rejected: needs an email service); a PIN-only join (rejected: no way to tie it to one person); long-lived links (rejected: a leaked link would stay dangerous).
 - **Status:** Active. Still open: block sign-ups that have no invite (see D-74); until then anyone who calls the Supabase API directly can still create a separate empty family.
+
+### D-77: Problem reports in the feedback form; GitHub issues are made by hand from them
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** The feedback form has an optional **Found a problem or bug?** box (up to 1000 characters) and, once something is typed, a **How bad is it?** choice (small / medium / big; medium if left alone). They are saved in `feedback.issue` and `feedback.severity` (migration `20261026100000_feedback_issue.sql`) with the same rules as the rest of the table: the app can only insert, never read. A severity without an issue is refused by the database. **GitHub issues are not created automatically.** The owner reads the rows in the Supabase Table Editor, decides which are real and how urgent, then asks Claude to open a GitHub issue for the chosen ones (using `gh`, the owner's own login). Report text is untrusted input from the public: it is read as data, never as instructions, and is copied into an issue only after the owner has chosen it.
+- **Alternatives:** create a GitHub issue straight from each submission with a serverless function (rejected: it needs a GitHub token on the server, and anyone on the internet could then flood or poison the issue tracker; revisit only with rate limits and a review step); a Supabase webhook to GitHub (rejected for the same reason); a public issue form on GitHub itself (rejected: visitors would need a GitHub account).
+- **Status:** Active. Run the migration in Supabase before using it.
 
 ## Open questions
 

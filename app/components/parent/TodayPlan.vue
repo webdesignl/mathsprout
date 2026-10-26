@@ -86,6 +86,10 @@ const ghost = 'inline-flex min-h-12 items-center justify-center rounded-xl bg-wh
     <p v-else-if="failed" role="alert" class="text-lg text-red-800">Could not load the plan.</p>
 
     <template v-else-if="loaded">
+      <div class="space-y-3 rounded-xl border-2 border-emerald-700 p-4">
+        <h3 class="text-xl font-bold text-slate-900">Add a task for {{ childStore.selected?.nickname }}</h3>
+        <TaskAdder :add="add" />
+      </div>
       <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl p-3" :class="paused ? 'bg-sky-100' : 'bg-slate-50'">
         <p class="text-lg font-semibold text-slate-900">
           {{ paused ? 'Paused: no list, nothing ages.' : 'Going on a break or sick?' }}

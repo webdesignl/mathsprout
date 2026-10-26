@@ -8,7 +8,7 @@ export function useParentSections() {
 
   const sections = computed(() => [
     { id: 'plan', label: 'Prioritise tasks', badge: unseenTasks.value + unseenCompletions.value, needsChild: true },
-    { id: 'add', label: 'Add new task', badge: 0, needsChild: true },
+    { id: 'add', label: 'Usual tasks', badge: 0, needsChild: true },
     { id: 'backlog', label: 'Backlog', badge: backlogCount.value, needsChild: true },
     { id: 'history', label: 'History', badge: historyUnseen.value, needsChild: false },
     { id: 'progress', label: 'Progress', badge: 0, needsChild: false },

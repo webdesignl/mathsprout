@@ -88,4 +88,20 @@ describe('feedback', () => {
     expect((await db.query('select 1 from public.families where id = $1', [fam])).rows).toHaveLength(0)
     expect((await db.query('select 1 from public.feedback where family_id = $1', [fam])).rows).toHaveLength(1)
   })
+
+  it('stores a problem report with a severity, and refuses a bad severity, a long issue or a severity with no issue', async () => {
+    const db = await setup()
+    const fam = await familyOf(db, DEMO)
+    const withIssue = (cols: string) => `insert into public.feedback (family_id, is_demo, rating, issue, severity) values ('${fam}', true, 3, ${cols})`
+    expect((await asUser(db, DEMO, withIssue(`'Stars missing', 'high'`))).error).toBeUndefined()
+    expect((await asUser(db, DEMO, withIssue(`'Stars missing', 'urgent'`))).error).toMatch(/severity/)
+    expect((await asUser(db, DEMO, withIssue(`'${'x'.repeat(1001)}', 'low'`))).error).toMatch(/issue/)
+    expect((await asUser(db, DEMO, withIssue(`null, 'low'`))).error).toMatch(/severity/)
+    expect((await db.query('select issue, severity from public.feedback')).rows).toEqual([{ issue: 'Stars missing', severity: 'high' }])
+  })
+
+  it('the app cannot read the problem reports either', async () => {
+    const db = await setup()
+    expect((await asUser(db, DEMO, 'select issue, severity from public.feedback')).error).toMatch(/permission denied/)
+  })
 })
