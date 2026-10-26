@@ -2,6 +2,7 @@
 import { useChildStore, type Child } from '../../stores/child'
 import { avatarOf } from '../../utils/avatars'
 import AvatarPicker from './AvatarPicker.vue'
+import InviteParent from './InviteParent.vue'
 
 const client = useSupabaseClient()
 const childStore = useChildStore()
@@ -100,6 +101,8 @@ const input = 'min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-
         <button type="submit" :class="[button, 'bg-emerald-700 text-white hover:bg-emerald-800']">Rename</button>
       </form>
     </section>
+
+    <InviteParent />
 
     <section aria-labelledby="children" class="space-y-4 rounded-2xl bg-white p-5">
       <h2 id="children" class="text-2xl font-bold">Children</h2>

@@ -26,6 +26,15 @@ async function startDemo() {
   }
 }
 
+// Supabase's CAPTCHA protection also covers sign-in and password reset, so that form has its own one-time check.
+const signInToken = ref('')
+const signInCaptcha = ref<{ reset: () => void } | null>(null)
+
+function freshSignInCheck() {
+  signInToken.value = ''
+  signInCaptcha.value?.reset()
+}
+
 const email = ref('')
 const password = ref('')
 const busy = ref(false)
@@ -48,20 +57,35 @@ async function forgot() {
     error.value = 'Type your email above first.'
     return
   }
+  if (siteKey && !signInToken.value) {
+    error.value = 'Please finish the check, then try again.'
+    return
+  }
   const { error: failure } = await client.auth.resetPasswordForEmail(email.value.trim(), {
     redirectTo: `${window.location.origin}/confirm`,
+    captchaToken: signInToken.value || undefined,
   })
+  freshSignInCheck()
   if (failure) error.value = authErrorMessage(failure)
   else notice.value = 'If that email has an account, we sent a link to reset the password.'
 }
 
 async function submit() {
   if (busy.value) return
-  busy.value = true
   error.value = ''
   notice.value = ''
-  const { error: failure } = await client.auth.signInWithPassword({ email: email.value.trim(), password: password.value })
+  if (siteKey && !signInToken.value) {
+    error.value = 'Please finish the check, then try again.'
+    return
+  }
+  busy.value = true
+  const { error: failure } = await client.auth.signInWithPassword({
+    email: email.value.trim(),
+    password: password.value,
+    options: { captchaToken: signInToken.value || undefined },
+  })
   busy.value = false
+  if (failure) freshSignInCheck()
   if (failure) {
     if (import.meta.dev) console.warn('Supabase auth error:', failure.message)
     error.value = authErrorMessage(failure)
@@ -119,6 +143,7 @@ const field = 'min-h-12 w-full rounded-xl border-2 border-slate-600 bg-white px-
           <label for="password" class="text-base font-semibold text-slate-900">Password</label>
           <input id="password" v-model="password" type="password" autocomplete="current-password" minlength="6" required :class="field">
         </div>
+        <TurnstileBox v-if="siteKey" ref="signInCaptcha" :site-key="siteKey" @token="signInToken = $event; error = ''" @expired="signInToken = ''" />
         <p v-if="error" role="alert" class="text-base font-semibold text-red-800">{{ error }}</p>
         <p v-if="notice" role="status" class="text-base font-semibold text-emerald-900">{{ notice }}</p>
         <button

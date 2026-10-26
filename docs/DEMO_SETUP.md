@@ -70,3 +70,11 @@ Also keep:
 - Run `supabase/migrations/20261024100000_feedback.sql` in the SQL editor (after the two demo migrations).
 - Read the feedback in Supabase: Table Editor > `feedback` (ratings, "who", notes, `is_demo`). The app cannot read it, and it is kept after the 24-hour demo cleanup.
 - Test: press *Try the full demo*, press *Feedback* in the banner, send a rating, and check that a row appears. Then press *End demo* and check that "Skip and end demo" works.
+
+## Invite a parent
+
+- Run `supabase/migrations/20261024110000_parent_invites.sql` in the SQL editor (after the feedback migration).
+- Authentication > URL Configuration: your site address and `/confirm` must be allowed as redirect URLs (the confirmation email returns there).
+- Test: sign in, Parent > Family account > *Invite a parent*, copy the link, open it in a private window, sign up with a second email, confirm the email, sign in, and enter the family PIN. Check that the second parent sees the same family and children. Open the link a second time: it must say it has expired or was used.
+- The Family sign-in form now has its own Turnstile check (Supabase CAPTCHA also covers password sign-in). Make sure sign-in and "Forgot password" work on the live site.
+
