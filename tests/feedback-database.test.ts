@@ -104,4 +104,18 @@ describe('feedback', () => {
     const db = await setup()
     expect((await asUser(db, DEMO, 'select issue, severity from public.feedback')).error).toMatch(/permission denied/)
   })
+
+  it('deletes feedback older than 30 days and keeps newer feedback; the app cannot run the cleanup', async () => {
+    const db = await setup()
+    const fam = await familyOf(db, DEMO)
+    await db.exec(`
+      insert into public.feedback (family_id, is_demo, rating, created_at) values
+        ('${fam}', true, 4, now() - interval '31 days'),
+        ('${fam}', true, 5, now() - interval '29 days'),
+        ('${fam}', true, 3, now());
+    `)
+    expect((await asUser(db, DEMO, 'select public.delete_old_feedback()')).error).toMatch(/permission denied/)
+    expect((await db.query<{ n: number }>('select public.delete_old_feedback() as n')).rows[0]!.n).toBe(1)
+    expect((await db.query<{ rating: number }>('select rating from public.feedback order by rating')).rows.map((r) => r.rating)).toEqual([3, 5])
+  })
 })
