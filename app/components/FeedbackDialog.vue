@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FEEDBACK_WHO, MAX_FEEDBACK_MESSAGE, RATING_WORDS, type FeedbackWho } from '../utils/feedback'
+import { FEEDBACK_SEVERITY, FEEDBACK_WHO, MAX_FEEDBACK_ISSUE, MAX_FEEDBACK_MESSAGE, RATING_WORDS, type FeedbackSeverity, type FeedbackWho } from '../utils/feedback'
 
 /**
  * A short feedback form in a native dialog (focus stays inside, Escape closes it).
@@ -13,6 +13,8 @@ const dialog = ref<HTMLDialogElement | null>(null)
 const rating = ref(0)
 const who = ref<FeedbackWho | ''>('')
 const message = ref('')
+const issue = ref('')
+const severity = ref<FeedbackSeverity | ''>('')
 const sent = ref(false)
 
 watch(
@@ -22,6 +24,8 @@ watch(
       rating.value = 0
       who.value = ''
       message.value = ''
+      issue.value = ''
+      severity.value = ''
       sent.value = false
       error.value = ''
       if (!dialog.value?.open) dialog.value?.showModal()
@@ -32,7 +36,7 @@ watch(
 )
 
 async function submit() {
-  if (await send({ rating: rating.value, who: who.value, message: message.value })) sent.value = true
+  if (await send({ rating: rating.value, who: who.value, message: message.value, issue: issue.value, severity: severity.value })) sent.value = true
 }
 
 const field = 'mt-1 block min-h-11 w-full rounded-xl border-2 border-slate-600 bg-white px-3 py-2 text-base text-slate-900'
@@ -86,6 +90,27 @@ const secondary = 'inline-flex min-h-12 items-center justify-center rounded-xl b
         <label for="feedback-message" class="text-lg font-semibold">What worked? What was confusing? <span class="font-normal text-slate-700">(optional)</span></label>
         <textarea id="feedback-message" v-model="message" rows="4" :maxlength="MAX_FEEDBACK_MESSAGE" :class="field" aria-describedby="feedback-hint" />
         <p id="feedback-hint" class="mt-1 text-base text-slate-700">Please don’t type your name, email or any personal details.</p>
+      </div>
+
+      <div>
+        <label for="feedback-issue" class="text-lg font-semibold">Found a problem or bug? <span class="font-normal text-slate-700">(optional)</span></label>
+        <textarea
+          id="feedback-issue"
+          v-model="issue"
+          rows="3"
+          :maxlength="MAX_FEEDBACK_ISSUE"
+          :class="field"
+          aria-describedby="feedback-issue-hint"
+        />
+        <p id="feedback-issue-hint" class="mt-1 text-base text-slate-700">Which page, what you pressed, and what happened. No personal details.</p>
+      </div>
+
+      <div v-if="issue.trim()">
+        <label for="feedback-severity" class="text-lg font-semibold">How bad is it?</label>
+        <select id="feedback-severity" v-model="severity" :class="field">
+          <option value="">Medium: something does not work</option>
+          <option v-for="o in FEEDBACK_SEVERITY.filter((x) => x.value !== 'medium')" :key="o.value" :value="o.value">{{ o.label }}</option>
+        </select>
       </div>
 
       <p v-if="error" role="alert" class="text-base font-semibold text-red-900">{{ error }}</p>

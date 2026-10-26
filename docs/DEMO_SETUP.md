@@ -69,6 +69,7 @@ Also keep:
 
 - Run `supabase/migrations/20261024100000_feedback.sql` in the SQL editor (after the two demo migrations).
 - Read the feedback in Supabase: Table Editor > `feedback` (ratings, "who", notes, `is_demo`). The app cannot read it, and it is kept after the 24-hour demo cleanup.
+- Problem reports: run `supabase/migrations/20261026100000_feedback_issue.sql` too. Rows with an `issue` and a `severity` (low, medium, high) are bug reports. Filter on `issue is not null` in the Table Editor, pick the real ones, and ask Claude to open GitHub issues for them.
 - Test: press *Try the full demo*, press *Feedback* in the banner, send a rating, and check that a row appears. Then press *End demo* and check that "Skip and end demo" works.
 
 ## Invite a parent

@@ -1,21 +1,20 @@
 <script setup lang="ts">
-import { TASK_CATEGORIES, TASK_KINDS, defaultCategory, todayString, type TaskCategory, type TaskKind } from '../utils/todayPlan'
+import { TASK_CATEGORIES, todayString, type TaskCategory, type TaskKind } from '../utils/todayPlan'
 
 const props = defineProps<{
   add: (kind: TaskKind, title: string, due: string | null, minutes?: number | null, category?: TaskCategory) => Promise<boolean>
 }>()
 
-const kind = ref<TaskKind>('homework')
+/** A task typed by hand has no special type (like IXL); how it behaves comes from "Kind of task". */
+const kind: TaskKind = 'homework'
 const category = ref<TaskCategory>('important')
-/** Picking a kind suggests its usual category; it can still be changed. */
-watch(kind, (k) => (category.value = defaultCategory(k)))
 const title = ref('')
 const due = ref('')
 const error = ref('')
 const busy = ref(false)
 
-/** Time-sensitive tasks must have a due date. Homework may have one too. */
-const wantsDate = computed(() => category.value === 'timed' || kind.value === 'homework')
+/** Time-sensitive tasks must have a due date. Important ones may have one too. A daily routine has none. */
+const wantsDate = computed(() => category.value !== 'routine')
 
 async function submit() {
   error.value = ''
@@ -32,7 +31,7 @@ async function submit() {
     return
   }
   busy.value = true
-  const ok = await props.add(kind.value, title.value.trim(), wantsDate.value && due.value ? due.value : null, null, category.value)
+  const ok = await props.add(kind, title.value.trim(), wantsDate.value && due.value ? due.value : null, null, category.value)
   busy.value = false
   if (ok) {
     title.value = ''
@@ -47,12 +46,6 @@ const input = 'min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-
 
 <template>
   <form class="flex flex-wrap items-end gap-3" @submit.prevent="submit">
-    <label class="space-y-1 text-lg font-semibold text-slate-900">
-      Type
-      <select v-model="kind" :class="[input, 'block']">
-        <option v-for="k in TASK_KINDS" :key="k.kind" :value="k.kind">{{ k.label }}</option>
-      </select>
-    </label>
     <label class="space-y-1 text-lg font-semibold text-slate-900">
       Kind of task
       <select v-model="category" :class="[input, 'block']">

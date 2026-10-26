@@ -5,7 +5,6 @@ import PinPad from '../components/parent/PinPad.vue'
 import FamilyManager from '../components/parent/FamilyManager.vue'
 import ParentTodayPlan from '../components/parent/TodayPlan.vue'
 import TemplateManager from '../components/parent/TemplateManager.vue'
-import AddTask from '../components/parent/AddTask.vue'
 import ProgressSummary from '../components/parent/ProgressSummary.vue'
 import BacklogList from '../components/parent/BacklogList.vue'
 import HistoryList from '../components/parent/HistoryList.vue'
@@ -174,10 +173,7 @@ const button = 'inline-flex min-h-12 items-center justify-center rounded-xl px-5
         </p>
 
         <ParentTodayPlan v-if="tab === 'plan'" />
-        <template v-else-if="tab === 'add'">
-          <AddTask />
-          <TemplateManager />
-        </template>
+        <TemplateManager v-else-if="tab === 'add'" />
         <BacklogList v-else-if="tab === 'backlog'" />
         <HistoryList v-else-if="tab === 'history'" />
         <ProgressSummary v-else-if="tab === 'progress'" />
