@@ -630,6 +630,15 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** a Feedback link in the main nav (rejected: the nav is for the child's tasks, the banner is the demo's own space); only asking at End demo (rejected: many visitors just close the tab); emailing feedback or a third-party form (rejected: a second service and more personal data); collecting an email (rejected: not needed, and it would be personal data).
 - **Status:** Active. Run the migration in Supabase before using it.
 
+### D-76: Invite a parent: a one-time link to join the same family
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** In Parent > Family account, **Invite a parent** makes a one-time link (`/join#<token>`). The token is 192 random bits, shown once, and only its SHA-256 hash is stored (`family_invites`, migration `20261024110000_parent_invites.sql`). It expires after **3 days**, works once, and a family may have at most 5 open invites. The token sits after the `#` so it is never sent to a server or logged, and the join page removes it from the address bar and sets no-referrer and noindex. Creating an invite is a security definer function that requires **parent mode (PIN)** and refuses demo families; the app cannot insert invites directly or read the hash. Listing and removing unused invites need parent mode and the same family (RLS). When the invited parent signs up with the token (`signUp` with `invite_token` in the user data), `handle_new_user()` adds them to the inviting family (no new family, no new secrets) and marks the invite used under a row lock, so two sign-ups cannot share a link. An invalid, used or expired token stops the sign-up. A sign-up with no token behaves as before. The new parent uses the **family's existing PIN**; the inviter tells them in person (the PIN is never in the link).
+- **Also fixed:** Supabase CAPTCHA protection covers password sign-in and password reset as well as sign-up, so the Family sign-in form now has its own Turnstile check and sends `captchaToken` (it only appeared on the demo button before).
+- **Tests:** PGlite database tests (parent mode needed, demo refused, 5-invite limit, no direct insert or hash read, families kept apart, revoke rules, join once, expiry, wrong token, stolen hash, normal sign-up unchanged; five mutation checks) and unit tests for the link, token and messages.
+- **Alternatives:** an invite by email (rejected: needs an email service); a PIN-only join (rejected: no way to tie it to one person); long-lived links (rejected: a leaked link would stay dangerous).
+- **Status:** Active. Still open: block sign-ups that have no invite (see D-74); until then anyone who calls the Supabase API directly can still create a separate empty family.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
