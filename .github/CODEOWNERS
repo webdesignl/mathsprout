@@ -1,0 +1,7 @@
+# Files an automatic fix must never change on its own. With "Require review from Code Owners" on in the branch
+# protection rule for main, a change here needs the owner's approval.
+/.github/ @webdesignl
+/.claude/ @webdesignl
+/supabase/ @webdesignl
+/package.json @webdesignl
+/package-lock.json @webdesignl

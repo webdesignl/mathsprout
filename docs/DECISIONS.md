@@ -647,6 +647,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** create a GitHub issue straight from each submission with a serverless function (rejected: it needs a GitHub token on the server, and anyone on the internet could then flood or poison the issue tracker; revisit only with rate limits and a review step); a Supabase webhook to GitHub (rejected for the same reason); a public issue form on GitHub itself (rejected: visitors would need a GitHub account).
 - **Status:** Active. Run the migration in Supabase before using it.
 
+### D-78: Feedback triage and automatic fixes in three stages (Supabase inbox, GitHub tracker)
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** Raw problem reports stay in Supabase (private, write-only, deleted after 30 days, D-77). Confirmed problems become **GitHub issues** (public repo, so anonymous text written by the triage agent) with labels for severity, type and status. Stage 1: the `triage-feedback` skill, run by hand. Stage 2: a plain-code screen (`scripts/screen-feedback.ts`) removes junk and anything that tries to instruct the agent, hides personal details and merges duplicates before an agent reads a report. Stage 3: the label `ready-to-fix` (only added by a person with write access, or the triage agent under the owner's login) starts the `fix-issue` workflow: an agent makes a small fix on a `claude/` branch, the workflow refuses changes to `.github/`, `.claude/`, `supabase/`, `package*.json` and `.env*`, runs tests and typecheck, then opens a PR that says `Fixes #N`. **Nothing merges itself**: the owner reads and approves every PR. Limits: 3 automatic PRs a day, one run at a time, 40 agent turns, 30 minutes. Not for security, login, PIN, RLS, payments, migrations or child data: those stay with the owner. Details and setup: `docs/FEEDBACK_AUTOMATION.md`.
+- **Alternatives:** create issues straight from the app with a server token (rejected: public spam and attack surface, more agent cost, see the cost comparison in the conversation of 2026-10-26); keep tracking in Supabase (rejected: rebuilds what GitHub already does); let the agent merge its own PRs (rejected: this is a child's app).
+- **Status:** Active; stages 1 and 2 ready, stage 3 written but not yet run. Needs `ANTHROPIC_API_KEY` as a repo secret (with a spend limit) and the repo settings in the setup list. Scheduling stage 2 is optional and not on.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
