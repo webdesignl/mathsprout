@@ -19,4 +19,11 @@ describe('Kind of task dropdown fits its card', () => {
       expect(select).toEqual(expect.arrayContaining(['w-full', 'max-w-full']))
     })
   }
+  it('TaskAdder keeps the options short and shows the hint under the dropdown', () => {
+    const src = readFileSync(join(__dirname, '..', 'app/components/TaskAdder.vue'), 'utf8')
+    expect(src).not.toContain('{{ c.label }} · {{ c.hint }}')
+    expect(src).toContain('{{ categoryHint }}')
+    expect(src).toMatch(/aria-describedby="kind-hint"/)
+    expect(src).toMatch(/id="kind-hint"/)
+  })
 })
