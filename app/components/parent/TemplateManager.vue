@@ -75,8 +75,8 @@ const input = 'min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-
       </button>
 
       <form class="flex flex-wrap items-end gap-3 border-t-2 border-slate-200 pt-4" @submit.prevent="submit">
-        <label class="space-y-1 text-lg font-semibold">Kind of task
-          <select v-model="category" :class="[input, 'block']">
+        <label class="min-w-0 max-w-full space-y-1 text-lg font-semibold">Kind of task
+          <select v-model="category" :class="[input, 'block w-full max-w-full']">
             <option v-for="c in TASK_CATEGORIES" :key="c.category" :value="c.category">{{ c.label }}</option>
           </select>
         </label>
