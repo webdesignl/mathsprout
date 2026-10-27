@@ -8,6 +8,8 @@ const props = defineProps<{
 /** A task typed by hand has no special type (like IXL); how it behaves comes from "Kind of task". */
 const kind: TaskKind = 'homework'
 const category = ref<TaskCategory>('important')
+/** The short explanation shown under the dropdown, so the options themselves stay short. */
+const categoryHint = computed(() => TASK_CATEGORIES.find((c) => c.category === category.value)?.hint ?? '')
 const title = ref('')
 const due = ref('')
 const error = ref('')
@@ -46,12 +48,15 @@ const input = 'min-h-12 rounded-xl border-2 border-slate-600 bg-white px-4 text-
 
 <template>
   <form class="flex flex-wrap items-end gap-3" @submit.prevent="submit">
-    <label class="space-y-1 text-lg font-semibold text-slate-900">
-      Kind of task
-      <select v-model="category" :class="[input, 'block']">
-        <option v-for="c in TASK_CATEGORIES" :key="c.category" :value="c.category">{{ c.label }} · {{ c.hint }}</option>
-      </select>
-    </label>
+    <div class="min-w-0 max-w-full space-y-1">
+      <label class="block min-w-0 max-w-full space-y-1 text-lg font-semibold text-slate-900">
+        Kind of task
+        <select v-model="category" aria-describedby="kind-hint" :class="[input, 'block w-full max-w-full']">
+          <option v-for="c in TASK_CATEGORIES" :key="c.category" :value="c.category">{{ c.label }}</option>
+        </select>
+      </label>
+      <p id="kind-hint" class="max-w-64 text-base text-slate-700">{{ categoryHint }}</p>
+    </div>
     <label class="min-w-48 flex-1 space-y-1 text-lg font-semibold text-slate-900">
       What is it?
       <input v-model="title" maxlength="120" :class="[input, 'block w-full']" autocomplete="off">
