@@ -65,6 +65,8 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Use the workflow's own token, so no GitHub App or OIDC login is needed.
+          github_token: ${{ github.token }}
           branch_prefix: claude/
           prompt: |
             You are fixing GitHub issue #${{ github.event.issue.number }} in ${{ github.repository }} (a Nuxt 4 / Vue 3 / TypeScript math practice app for a child).
