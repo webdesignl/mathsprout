@@ -60,6 +60,13 @@ jobs:
         if: steps.limit.outputs.stop != 'true'
         run: npm ci && npx nuxi prepare
 
+      - name: Create the branch
+        if: steps.limit.outputs.stop != 'true'
+        run: |
+          git config user.name "fix-issue agent"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "claude/issue-${ISSUE}-${GITHUB_RUN_ID}"
+
       - name: Agent
         if: steps.limit.outputs.stop != 'true'
         uses: anthropics/claude-code-action@v1
@@ -78,24 +85,34 @@ jobs:
             - Make the smallest change that fixes the problem. Add or update a Vitest test that fails before the fix and passes after.
             - Do NOT touch: .github/, .claude/, supabase/, package.json, package-lock.json, any .env file, or anything about login, the parent PIN, row level security or secrets. If the fix needs one of those, change nothing and explain why in your final message.
             - Never print or look for secrets. Do not call any network service except through the allowed commands.
-            - Work on the branch you were given. Commit with a clear message. Do not open a pull request and do not merge; a later step does that.
+            - You are already on a new branch. Edit the files, then commit with git add and git commit (a clear message). Do not create or switch branches, do not push, do not open a pull request and do not merge; a later step does all of that after checks.
             - If you are not sure the fix is right, change nothing and say what you found.
           claude_args: |
             --max-turns 40
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(npm run test:run:*),Bash(npm run typecheck:*),Bash(npx vitest:*)"
 
+      - name: Show what the agent was not allowed to do
+        if: always() && steps.limit.outputs.stop != 'true'
+        run: |
+          f=/home/runner/work/_temp/claude-execution-output.json
+          [ -f "$f" ] && jq -c '[.[] | select(.type=="result") | {turns: .num_turns, denials: (.permission_denials // [] | map({tool: .tool_name, input: (.tool_input | tostring | .[0:200])}))}]' "$f" || echo "no execution file"
+
       - name: Check and open the PR
         if: steps.limit.outputs.stop != 'true'
         run: |
           set -u
-          git fetch -q origin '+refs/heads/claude/*:refs/remotes/origin/claude/*' || true
-          branch=$(git for-each-ref --format='%(refname:short)' --sort=-committerdate "refs/remotes/origin/claude/issue-${ISSUE}-*" | head -n1)
-          branch=${branch#origin/}
-          if [ -z "$branch" ]; then
+          branch=$(git branch --show-current)
+          if [ -z "$branch" ] || [ "$branch" = "main" ]; then
             gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "The agent made no change (it was not sure, or the fix touches something it may not change). A person needs to look at this one."
             exit 0
           fi
-          git checkout -q -B "$branch" "origin/$branch"
+          # Keep the branch name under claude/ (the daily limit counts those), whatever the agent did.
+          case "$branch" in claude/*) ;; *) git branch -m "claude/issue-${ISSUE}-${GITHUB_RUN_ID}"; branch="claude/issue-${ISSUE}-${GITHUB_RUN_ID}" ;; esac
+          # Commit anything the agent edited but did not commit.
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -q -m "Fix #$ISSUE (automatic)"
+          fi
           if [ -z "$(git diff --name-only origin/main...HEAD)" ]; then
             gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "The agent made no change. A person needs to look at this one."
             exit 0
@@ -111,6 +128,7 @@ jobs:
             tail -n 40 /tmp/checks.log
             exit 0
           fi
+          git push -q origin "$branch"
           gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
             --title "Fix #$ISSUE (automatic)" \
             --body "Fixes #$ISSUE
