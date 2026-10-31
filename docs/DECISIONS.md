@@ -654,6 +654,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** create issues straight from the app with a server token (rejected: public spam and attack surface, more agent cost, see the cost comparison in the conversation of 2026-10-26); keep tracking in Supabase (rejected: rebuilds what GitHub already does); let the agent merge its own PRs (rejected: this is a child's app).
 - **Status:** Active; stages 1 and 2 ready, stage 3 written but not yet run. Needs `ANTHROPIC_API_KEY` as a repo secret (with a spend limit) and the repo settings in the setup list. Scheduling stage 2 is optional and not on.
 
+### D-79: Tutor: words only for typed problems, rough work, and a picture of each step
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** "Type it" in the Tutor opens one box for a word problem (the same reader as photos); the two-fraction entry form and "Fix it" are gone. A wrong reading is fixed by editing the text or starting again. The solve and understand screens get a **Rough work** button (the same drawing pad as Practice, one page per step, bottom sheet on phones and a side column on wide screens) and a **bar model picture** (`StepVisual`): in "understand" it shows the two numbers only (the operation is still hers to find); while solving it shows what the step does (parts together, take away, equal groups, share, how many fit) with a short grow-in animation, "Show again", and a row of step dots in multi-step problems. Pictures fit the question: a number line with hops for add, subtract and "how many fit", groups of icons for whole-number multiply, a pile and empty boxes for even sharing, and bars otherwise (bars also show what each fraction means: bottom number = equal parts, top number = coloured parts). Icons come from keyword matching on the question (`storyEmoji.ts`, no AI, no names), and no picture shows the answer. Before typing, she picks Whole number, Fraction or Mixed number, which sets the answer boxes. The picture only draws; code still checks every answer.
+- **Alternatives:** keep the fraction form as a fallback (rejected: clutter, and the word reader handles typed numbers); an AI-drawn picture (rejected: code draws it from the engine's numbers, so it can never show a wrong or leaked answer).
+- **Status:** Active.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?

@@ -3,9 +3,11 @@ import { ref } from 'vue'
 import type { AnswerBoxes } from '../../utils/answer'
 
 const model = defineModel<AnswerBoxes>({ required: true })
+const props = withDefaults(defineProps<{ kind?: 'whole' | 'fraction' | 'mixed' }>(), { kind: 'mixed' })
 const emit = defineEmits<{ submit: [] }>()
 
 const wholeBox = ref<HTMLInputElement | null>(null)
+const numBox = ref<HTMLInputElement | null>(null)
 
 /** Keeps digits only, so the child can't type letters or symbols. */
 function onInput(field: keyof AnswerBoxes, event: Event) {
@@ -16,7 +18,7 @@ function onInput(field: keyof AnswerBoxes, event: Event) {
 }
 
 function focus() {
-  wholeBox.value?.focus()
+  ;(wholeBox.value ?? numBox.value)?.focus()
 }
 defineExpose({ focus })
 
@@ -27,6 +29,7 @@ const box =
 <template>
   <div role="group" aria-label="Your answer" class="flex items-center justify-center gap-4">
     <input
+      v-if="props.kind !== 'fraction'"
       ref="wholeBox"
       :value="model.whole"
       type="text"
@@ -38,8 +41,9 @@ const box =
       @input="onInput('whole', $event)"
       @keydown.enter.prevent="emit('submit')"
     />
-    <div class="flex flex-col items-center gap-1">
+    <div v-if="props.kind !== 'whole'" class="flex flex-col items-center gap-1">
       <input
+        ref="numBox"
         :value="model.num"
         type="text"
         inputmode="numeric"
