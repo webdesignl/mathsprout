@@ -53,6 +53,12 @@ describe('buildUnitPlan', () => {
     expect(buildUnitPlan({ groups: [{ takes: [{ share: 'x' }] }], left: { amount: '5' } })).toBeNull()
   })
 
+  it('does not crash on a group list with a hole in it', () => {
+    const sparse = { ...MIA, groups: [MIA.groups[0]!, undefined as never] }
+    expect(buildUnitPlan(sparse)).toBeNull()
+    expect(buildUnitPlan({ ...MIA, groups: [{ takes: undefined as never }] })).toBeNull()
+  })
+
   it('offers no similar problem for a unit-bar plan', () => {
     expect(similarPlan(buildUnitPlan(MIA)!.plan)).toBeNull()
   })

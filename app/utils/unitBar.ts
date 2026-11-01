@@ -65,12 +65,16 @@ export function buildUnitPlan(spec: UnitSpec, whole?: string): UnitPlan | null {
   const shares: Fraction[][] = []
   const stillLeft: Fraction[] = []
   const stepOfRem: number[] = []
+  /** The step that combines the two groups' left-over fractions (none with one group), and the last step. */
+  let combineStep = -1
   let combinedRef = ''
   let combinedValue: Fraction = ONE
 
   for (let g = 0; g < spec.groups.length; g++) {
-    const takes = spec.groups[g]!.takes
-    if (takes.length < 1 || takes.length > MAX_TAKES) return null
+    const group = spec.groups[g]
+    if (!group) return null
+    const takes = group.takes
+    if (!takes || takes.length < 1 || takes.length > MAX_TAKES) return null
     const parsed = takes.map((t) => fractionOf(t.share))
     if (parsed.some((f) => f === null)) return null
     const fractions = parsed as Fraction[]
@@ -109,6 +113,7 @@ export function buildUnitPlan(spec: UnitSpec, whole?: string): UnitPlan | null {
       combinedValue = rem
     } else {
       push({ op: 'multiply', a: combinedRef, b: ref(), label: `What fraction of ${wholeName} is left at the end?` })
+      combineStep = steps.length - 1
       combinedValue = simplify(multiply(combinedValue, rem))
       combinedRef = ref()
     }
@@ -120,6 +125,7 @@ export function buildUnitPlan(spec: UnitSpec, whole?: string): UnitPlan | null {
     b: combinedRef,
     label: `What was ${wholeName} at the start?`,
   })
+  const divideStep = steps.length - 1
   if (steps.length > MAX_PLAN_STEPS) return null
 
   const totalResult = divide(amount, combinedValue)
@@ -133,7 +139,7 @@ export function buildUnitPlan(spec: UnitSpec, whole?: string): UnitPlan | null {
   const last = toFraction(check.results.at(-1)!)
   if (last.numerator * total.denominator !== total.numerator * last.denominator) return null
 
-  return { plan, total, stages: unitStages(spec, wholeName, shares, stillLeft, stepOfRem, combinedValue, amount, total) }
+  return { plan, total, stages: unitStages(spec, wholeName, shares, stillLeft, { rem: stepOfRem, combine: combineStep, divide: divideStep }, combinedValue, amount, total) }
 }
 
 function unitStages(
@@ -141,7 +147,7 @@ function unitStages(
   wholeName: string,
   shares: Fraction[][],
   stillLeft: Fraction[],
-  stepOfRem: number[],
+  stepAt: { rem: number[]; combine: number; divide: number },
   leftOfWhole: Fraction,
   amount: ReturnType<typeof parseMixed> & object,
   total: Fraction,
@@ -179,7 +185,7 @@ function unitStages(
   const restCells0 = cells0 - at
   const firstIsLast = spec.groups.length === 1
   const stage1: BarStage = {
-    step: stepOfRem[0]!,
+    step: stepAt.rem[0]!,
     before: { cells: cells0, marks: [] },
     after: {
       cells: cells0,
@@ -214,7 +220,7 @@ function unitStages(
     leftMark = mark(pos, leftCells, restTone + 1 + second.length, leftName, true, 2)
     const after: BarSnapshot = { cells, marks: [...base, ...secondMarks, leftMark] }
     stages.push({
-      step: stepOfRem.length > 1 ? stepOfRem[1]! + 1 : stepOfRem[0]!,
+      step: stepAt.combine,
       before: { cells: cells0, marks: stage1.after.marks },
       after,
       whole: `${wholeName}: ?`,
@@ -237,7 +243,7 @@ function unitStages(
   )
   finalMarks.push(mark(leftMark.start, 1, leftMark.tone, `1 unit = ${withUnit(perUnit, spec.left.unit)}`, false, 2))
   stages.push({
-    step: stepOfRem.length > 1 ? stepOfRem[1]! + 2 : stepOfRem[0]! + 1,
+    step: stepAt.divide,
     before: lastAfter,
     after: { cells, marks: finalMarks },
     whole: `${wholeName} = ${totalText}`,
