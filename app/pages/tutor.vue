@@ -6,6 +6,7 @@ import { slipName } from '../utils/messages'
 import { resizePhoto } from '../utils/image'
 import { opSymbol, type AnyOp } from '../utils/fraction'
 import { useScratchStore } from '../stores/scratch'
+import { buildBarStages } from '../utils/fractionBar'
 
 useHead({ title: 'Tutor · MathSprout' })
 
@@ -18,6 +19,9 @@ const sampleOnly = computed(() => !user.value || demo.isDemo.value)
 
 const empty = (): AnswerBoxes => ({ whole: '', num: '', den: '' })
 const answer = ref<AnswerBoxes>(empty())
+/** The bar model for a "fraction of the rest" problem, or null when this problem is not that kind. */
+const barStages = computed(() => (store.plan ? buildBarStages(store.plan) : null))
+const barReplay = ref(0)
 const answerKind = ref<'whole' | 'fraction' | 'mixed'>('mixed')
 const ANSWER_KINDS = [
   { id: 'whole', label: 'Whole number' },
@@ -340,6 +344,20 @@ function another() {
       <!-- In a multi-step problem the hint sits under the question and above the numbers. -->
       <PracticeProblemCard v-if="store.state !== 'teach'" :problem="store.problem" />
       <TutorStepVisual v-if="store.state !== 'teach'" :problem="store.problem" mode="step" />
+      <section
+        v-if="barStages && store.state !== 'teach' && store.stepIndex > 0"
+        aria-label="The bar model so far"
+        class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6"
+      >
+        <h2 class="text-xl font-bold text-slate-900">What we found so far</h2>
+        <TutorFractionBar :stage="barStages[store.stepIndex - 1]!" still />
+      </section>
+      <details v-if="barStages" class="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <summary class="min-h-11 cursor-pointer text-xl font-bold text-slate-900">Draw your own bar model (optional)</summary>
+        <div class="pt-3">
+          <TutorBarSketch :key="`${store.inSimilar}-${store.stepIndex}`" />
+        </div>
+      </details>
 
       <PracticeLearnPanel
         v-if="store.state === 'teach'"
@@ -392,6 +410,19 @@ function another() {
       <p class="text-center text-2xl text-slate-900">
         {{ store.stepLabel }} <span class="font-bold">{{ store.acceptedAnswer }}</span>
       </p>
+      <section v-if="barStages" aria-label="The bar model" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-xl font-bold text-slate-900">See it in a bar model</h2>
+          <button
+            type="button"
+            class="min-h-11 rounded-xl px-4 text-base font-semibold text-slate-900 underline underline-offset-4"
+            @click="barReplay++"
+          >
+            Show again
+          </button>
+        </div>
+        <TutorFractionBar :stage="barStages[store.stepIndex]!" :replay="barReplay" />
+      </section>
       <div class="flex justify-center">
         <button type="button" :class="primary" @click="store.nextStep()">
           {{ store.stepIndex + 1 >= store.stepCount ? 'Done' : 'Next step' }}
@@ -408,6 +439,9 @@ function another() {
         </li>
       </ol>
       <p class="text-2xl font-bold text-emerald-900">The answer is {{ store.mainSteps.at(-1)?.answer }}.</p>
+      <section v-if="barStages" aria-label="The bar model" class="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <TutorFractionBar :stage="barStages.at(-1)!" still />
+      </section>
       <p class="text-center text-2xl text-slate-900">Want to try one like it, with new numbers?</p>
       <div class="flex flex-wrap justify-center gap-4">
         <button type="button" :class="primary" @click="store.startSimilar()">Try one like it</button>

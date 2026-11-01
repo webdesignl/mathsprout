@@ -661,6 +661,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** keep the fraction form as a fallback (rejected: clutter, and the word reader handles typed numbers); an AI-drawn picture (rejected: code draws it from the engine's numbers, so it can never show a wrong or leaked answer).
 - **Status:** Active.
 
+### D-80: Tutor: the fraction bar model, built by code, named by the AI, revealed after each step
+- **Date:** 2026-10
+- **Source:** User (drawing of a "fraction of the rest" bar model)
+- **Decision:** For multi-step problems that subtract from the whole or take a fraction of an earlier answer or a fraction (for example 3/4 wear glasses, 1/3 of the rest are male), `app/utils/fractionBar.ts` builds a stage per step: the bar cut into equal parts, the given part shaded, the rest highlighted, then every part cut again and the new fraction shaded in a new colour. Code builds every stage from the plan and rejects it unless the shaded part equals the fraction engine's answer for that step; plans it cannot draw (adding steps, mixed numbers) get no bar. The AI only adds optional words (`aName`, `bName`, `name`, `whole`), cleaned by `safeName` (no digits, no operation words, 8 words at most, no personal details) and replaced by plain words when unsafe. The bar for a step plays (cut lines, then colour) only after she has answered that step, so it never gives the answer away; during later steps the bars found so far stay in view. Before answering she can draw her own bar (cut, colour, label), which is practice only and never checked.
+- **Alternatives:** show the bar for the step being solved (rejected: it shows the answer); let the AI draw the bar (rejected: code must be able to prove the picture); one picture that covers unknown-total problems (rejected: those need a "unit bar", planned as a separate build).
+- **Status:** Active. Unknown-total problems ("$250 left, how much did Ian win?") are the next piece.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
