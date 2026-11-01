@@ -38,9 +38,29 @@ const textInput = z.object({
 /** Either a photo or typed text, not both and not neither. */
 export const readInputSchema = z.union([imageInput, textInput])
 
+/** An unknown-whole problem: takes in groups, then an amount left. Code builds the steps and the answer. */
+export const modelUnknownTotalSchema = z.object({
+  unknownTotal: z.object({
+    whole: z.string().max(80).optional(),
+    groups: z
+      .array(
+        z.object({
+          takes: z.array(z.object({ share: z.string().max(30), name: z.string().max(80).optional() })).min(1).max(3),
+        }),
+      )
+      .min(1)
+      .max(2),
+    left: z.object({ amount: z.string().max(30), unit: z.string().max(6).optional(), name: z.string().max(80).optional() }),
+  }),
+  problemText: z.string().max(600),
+  confidence: z.enum(['high', 'low']),
+})
+
 /** What the model returns when it reads a problem. */
 export const modelReadSchema = z.union([
   z.object({ unsupported: z.literal(true) }),
+  // Placed before the others: its own shape is checked first, so a plan with steps never matches it by accident.
+  modelUnknownTotalSchema,
   z.object({
     operation: z.enum(OPERATIONS),
     operands: z.array(z.string().max(30)).min(2).max(6),

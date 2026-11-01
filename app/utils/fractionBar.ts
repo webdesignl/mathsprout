@@ -25,6 +25,7 @@ export interface BarSnapshot {
 }
 
 export interface BarStage {
+  /** The plan step after which she sees this stage (she has answered it). */
   step: number
   /** The bar before this step. Null for the first step, which starts with the bar cut into equal parts. */
   before: BarSnapshot
@@ -173,4 +174,11 @@ export function buildBarStages(plan: Plan): BarStage[] | null {
     stages.push({ step: i, before, after, whole, caption })
   }
   return stages
+}
+
+/** The latest stage she may see once steps up to and including `step` are answered, or null if none yet. */
+export function stageAt(stages: BarStage[], step: number): BarStage | null {
+  let found: BarStage | null = null
+  for (const stage of stages) if (stage.step <= step) found = stage
+  return found
 }
