@@ -338,9 +338,7 @@ function another() {
       <p v-if="store.plan" class="text-2xl font-semibold text-slate-900">{{ store.stepLabel }}</p>
       <p v-if="hintNumber" class="text-xl font-semibold text-slate-800">Hint {{ hintNumber }} of 3</p>
       <!-- In a multi-step problem the hint sits under the question and above the numbers. -->
-      <TutorHelpMessages v-if="store.plan" />
       <PracticeProblemCard v-if="store.state !== 'teach'" :problem="store.problem" />
-      <TutorHelpMessages v-if="!store.plan" />
       <TutorStepVisual v-if="store.state !== 'teach'" :problem="store.problem" mode="step" />
 
       <PracticeLearnPanel
@@ -352,6 +350,9 @@ function another() {
         :show-back="false"
       />
       <p v-if="store.state === 'teach'" class="text-xl font-semibold text-slate-900">Now try your answer again.</p>
+
+      <!-- The hint sits right above the answer boxes, so she never scrolls between them. -->
+      <TutorHelpMessages />
 
       <form class="space-y-4" @submit.prevent="check">
         <p v-if="store.state === 'attempt'" class="text-center text-xl font-semibold">Try it first. What is your answer?</p>

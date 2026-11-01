@@ -27,6 +27,9 @@ interface Bar {
 }
 
 const MAX_PIECES = 8
+/** More whole bars than this, or more cuts than MAX_CUTS, become one short labelled bar so the picture stays small. */
+const MAX_WHOLE_BARS = 5
+const MAX_CUTS = 12
 
 interface Meaning {
   text: string
@@ -252,12 +255,29 @@ const summary = computed(() =>
       <div v-for="(m, i) in meanings" :key="i" class="space-y-1">
         <div class="flex flex-wrap items-end gap-2" role="img" :aria-label="meaningLabel(m)">
           <span
-            v-for="w in m.wholes"
-            :key="`w${w}`"
-            class="seg flex h-10 w-20 rounded-lg border-2 border-slate-700 bg-emerald-300 sm:h-12 sm:w-28"
-            :style="{ animationDelay: `${(i * 4 + w) * 100}ms` }"
-          />
-          <span v-if="m.num > 0" class="flex h-14 w-full max-w-xs overflow-hidden rounded-lg border-2 border-slate-700 bg-white sm:h-16">
+            v-if="m.wholes > MAX_WHOLE_BARS"
+            class="seg flex h-10 w-full max-w-xs items-center justify-center rounded-lg border-2 border-slate-700 bg-emerald-300 text-lg font-bold text-slate-900 sm:h-12"
+          >
+            {{ m.wholes }} wholes
+          </span>
+          <template v-else>
+            <span
+              v-for="w in m.wholes"
+              :key="`w${w}`"
+              class="seg flex h-10 w-20 rounded-lg border-2 border-slate-700 bg-emerald-300 sm:h-12 sm:w-28"
+              :style="{ animationDelay: `${(i * 4 + w) * 100}ms` }"
+            />
+          </template>
+          <span
+            v-if="m.num > 0 && m.den > MAX_CUTS"
+            class="flex h-14 w-full max-w-xs overflow-hidden rounded-lg border-2 border-slate-700 bg-white sm:h-16"
+          >
+            <span
+              class="seg flex items-center justify-center bg-emerald-300 text-lg font-bold"
+              :style="{ width: `${(m.num / m.den) * 100}%` }"
+            />
+          </span>
+          <span v-else-if="m.num > 0" class="flex h-14 w-full max-w-xs overflow-hidden rounded-lg border-2 border-slate-700 bg-white sm:h-16">
             <span
               v-for="p in m.den"
               :key="p"

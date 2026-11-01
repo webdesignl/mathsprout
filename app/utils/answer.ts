@@ -12,12 +12,12 @@ export function isFractionIncomplete(boxes: AnswerBoxes): boolean {
 
 /** True when nothing has been typed at all. */
 export function isAnswerEmpty(boxes: AnswerBoxes): boolean {
-  return [boxes.whole, boxes.num, boxes.den].every((v) => v.trim() === '')
+  return [boxes.whole.replace(/[$,\s]/g, ''), boxes.num, boxes.den].every((v) => v.trim() === '')
 }
 
 /** Joins the boxes into text for checkAnswer: "3 9/20", "9/20" or "3". */
 export function boxesToText(boxes: AnswerBoxes): string {
-  const whole = boxes.whole.trim()
+  const whole = boxes.whole.replace(/[$,\s]/g, '')
   const fraction = boxes.num.trim() && boxes.den.trim() ? `${boxes.num.trim()}/${boxes.den.trim()}` : ''
   return [whole, fraction].filter(Boolean).join(' ')
 }
