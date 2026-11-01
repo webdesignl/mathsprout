@@ -39,16 +39,29 @@ export interface UnitSpec {
   left: { amount: string; unit?: string; name?: string }
 }
 
+/**
+ * "The same amount is used each day": a fraction is left after some days, and an amount is left after some more.
+ * Code turns it into plan steps and a day strip (see rateBar.ts).
+ */
+export interface RateSpec {
+  first: { days: string; left: string }
+  second: { days: string; amountLeft: string }
+  unit?: string
+}
+
 export interface Plan {
   steps: PlanStep[]
   /** What the whole is called in the bar model, for example "the family". */
   whole?: string
   /** Set when the plan was made from an unknown-whole problem; it adds the unit bar. */
   unit?: UnitSpec
+  /** Set when the plan was made from a same-amount-each-day problem; it adds the day strip. */
+  rate?: RateSpec
 }
 
 export const MIN_PLAN_STEPS = 2
-export const MAX_PLAN_STEPS = 5
+/** The AI may write up to 5 steps; plans built by code from a known shape (unit bar, same amount each day) may use 6. */
+export const MAX_PLAN_STEPS = 6
 /** A step result bigger than this is not a school problem, and could overflow the engine. */
 const MAX_PART = 99_999
 
@@ -124,7 +137,7 @@ export interface SimilarPlan {
  */
 export function similarPlan(plan: Plan, random: () => number = Math.random): SimilarPlan | null {
   // The unit bar's shares are not in the steps, so a new set of numbers would not match it.
-  if (plan.unit) return null
+  if (plan.unit || plan.rate) return null
   const pick = (n: number) => Math.floor(random() * n)
   const fraction = () => {
     const den = 2 + pick(7)

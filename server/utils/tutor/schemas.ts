@@ -56,11 +56,24 @@ export const modelUnknownTotalSchema = z.object({
   confidence: z.enum(['high', 'low']),
 })
 
+/** A same-amount-each-day problem: a fraction left after some days, an amount left after some more days. */
+export const modelSameRateSchema = z.object({
+  sameRate: z.object({
+    whole: z.string().max(80).optional(),
+    first: z.object({ days: z.string().max(10), left: z.string().max(30) }),
+    second: z.object({ days: z.string().max(10), amountLeft: z.string().max(30) }),
+    unit: z.string().max(12).optional(),
+  }),
+  problemText: z.string().max(600),
+  confidence: z.enum(['high', 'low']),
+})
+
 /** What the model returns when it reads a problem. */
 export const modelReadSchema = z.union([
   z.object({ unsupported: z.literal(true) }),
   // Placed before the others: its own shape is checked first, so a plan with steps never matches it by accident.
   modelUnknownTotalSchema,
+  modelSameRateSchema,
   z.object({
     operation: z.enum(OPERATIONS),
     operands: z.array(z.string().max(30)).min(2).max(6),
