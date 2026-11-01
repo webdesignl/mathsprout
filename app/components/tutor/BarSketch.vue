@@ -17,11 +17,20 @@ const COLOURS = [
 const props = withDefaults(defineProps<{ start?: number; checkLabel?: string; locked?: boolean }>(), { start: 4 })
 const emit = defineEmits<{ submit: [parts: Array<number | null>] }>()
 
-const cells = ref<Array<number | null>>(Array(props.start).fill(null))
+/** One place for the starting number of parts, used by the first draw and by Start again. */
+const blank = () => Array<number | null>(props.start).fill(null)
+
+/** A colour is found by its id, never by its position in the list. */
+const colourOf = (id: number | null) => COLOURS.find((c) => c.id === id)
+
+const cells = ref<Array<number | null>>(blank())
 const pen = ref<number | null>(0)
 const names = ref<Record<number, string>>({})
 
-const used = computed(() => COLOURS.filter((c) => cells.value.includes(c.id)))
+const used = computed(() => {
+  const inUse = new Set(cells.value)
+  return COLOURS.filter((c) => inUse.has(c.id))
+})
 
 /** Cut the whole bar into this many equal parts. */
 function setParts(n: number) {
@@ -41,7 +50,7 @@ function paint(i: number) {
 }
 
 function clear() {
-  cells.value = Array(props.start).fill(null)
+  cells.value = blank()
   names.value = {}
   pen.value = 0
 }
@@ -87,8 +96,8 @@ const small =
           v-for="(c, i) in cells"
           :key="i"
           type="button"
-          :aria-label="`Part ${i + 1} of ${cells.length}, ${c === null ? 'empty' : COLOURS[c]!.name}`"
-          :class="['min-w-11 flex-1 border-slate-700', i > 0 ? 'border-l-2' : '', c === null ? 'bg-white' : COLOURS[c]!.cls]"
+          :aria-label="`Part ${i + 1} of ${cells.length}, ${colourOf(c)?.name ?? 'empty'}`"
+          :class="['min-w-11 flex-1 border-slate-700', i > 0 ? 'border-l-2' : '', colourOf(c)?.cls ?? 'bg-white']"
           @click="paint(i)"
         />
       </div>
