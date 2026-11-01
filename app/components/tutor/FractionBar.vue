@@ -6,7 +6,7 @@ import type { BarStage } from '../../utils/fractionBar'
  * One stage of the fraction bar model. It plays in three phases: the bar as it was, then the new cut lines
  * and the given part, then this step's answer in a new colour. With `still` it shows the finished bar.
  */
-const props = defineProps<{ stage: BarStage; still?: boolean; replay?: number }>()
+const props = defineProps<{ stage: BarStage; still?: boolean; replay?: number; /** Leave out the caption under the bar (the caller shows its own). */ quiet?: boolean }>()
 
 const TONES = ['bg-emerald-300', 'bg-amber-300', 'bg-pink-300', 'bg-sky-300', 'bg-violet-300', 'bg-orange-300']
 const TEXT = ['text-emerald-900', 'text-amber-900', 'text-pink-900', 'text-sky-900', 'text-violet-900', 'text-orange-900']
@@ -88,6 +88,6 @@ const summary = computed(() => props.stage.caption)
         >{{ m.label }}</span>
       </div>
     </div>
-    <p class="text-lg font-semibold text-slate-900">{{ stage.caption }}</p>
+    <p v-if="!quiet" class="text-lg font-semibold text-slate-900">{{ stage.caption }}</p>
   </div>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Rule } from '../../data/deepCheck'
+import { modelStage } from '../../utils/modelSamples'
 
 defineProps<{ rule: Rule; /** Shown inside a quiz: no quiz or back buttons, just a close button. */ compact?: boolean }>()
 const emit = defineEmits<{ quiz: []; back: []; close: [] }>()
@@ -43,7 +44,8 @@ const emit = defineEmits<{ quiz: []; back: []; close: [] }>()
           <span aria-hidden="true">{{ line.tone === 'wrong' ? '✗ ' : line.tone === 'right' ? '✓ ' : '' }}</span>{{ line.text }}
         </p>
       </div>
-      <DeepCheckReciprocalFlow v-else :steps="frame.steps" :result="frame.result" :balance="frame.balance" />
+      <TutorFractionBar v-else-if="frame.kind === 'model'" :stage="modelStage(frame.sample, frame.step)!" still quiet />
+      <DeepCheckReciprocalFlow v-else-if="frame.kind === 'flow'" :steps="frame.steps" :result="frame.result" :balance="frame.balance" />
       <p class="text-lg text-slate-900">{{ frame.caption }}</p>
     </div>
 

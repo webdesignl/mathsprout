@@ -682,6 +682,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** a line graph (kept as a possible second view); an automatic warm-up when step 2 is wrong (rejected: kids who see the idea should not be slowed); letting the AI write the steps (rejected, as in D-81).
 - **Status:** Active. Real AI reading of these problems is untested.
 
+### D-83: Deep Check: a topic for the three word-problem models
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** A third Deep Check topic, "Word-problem models", has three rules: **R19 Of the rest**, **R20 Work backwards from what is left** and **R21 The same amount each day**. Each has the usual five items (always/sometimes/never, spot the mistake, which one doesn't belong, reverse it, draw it), one hint each, and a Learn picture from the Tutor's model builders (`app/utils/modelSamples.ts`, a new `model` frame kind). The "draw it" item for these rules uses the bar sketch tool: code checks that the bar has the right number of parts and that the coloured groups have the right sizes, in any colours and order (`gradeModel`). Labels she writes are not checked. Six original Olympiad challenges (C9 to C14) cover the types, two each. Every problem is written from scratch (nothing from the home-work problem that started this).
+- **Alternatives:** a sixth item type for every rule (rejected: it would change mastery for all 18 existing rules); checking the drawing against exact cell positions (rejected: the order of the colours does not matter for understanding).
+- **Status:** Active.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?

@@ -10,11 +10,14 @@ import {
   buildChapterQuiz,
   gradeAsn,
   gradeBars,
+  gradeModel,
+  isModelDraw,
   gradeChoice,
   gradeReverse,
   itemsFor,
   ruleOf,
   type BarState,
+  type ModelState,
   type ChallengeGrade,
   type Grade,
 } from '../utils/deepCheck'
@@ -153,7 +156,13 @@ export const useDeepCheckStore = defineStore('deepCheck', () => {
 
   function answerDraw(state: BarState): Grade {
     const item = current.value
-    return item?.type === 'draw' ? settle(gradeBars(item.target, state)) : { status: 'invalid', message: 'Not this kind of question.' }
+    return item?.type === 'draw' && 'target' in item ? settle(gradeBars(item.target, state)) : { status: 'invalid', message: 'Not this kind of question.' }
+  }
+
+  /** A bar model drawn with the sketch tool: the cuts and the colours are checked by code. */
+  function answerModel(parts: ModelState): Grade {
+    const item = current.value
+    return item && isModelDraw(item) ? settle(gradeModel(item.model, parts)) : { status: 'invalid', message: 'Not this kind of question.' }
   }
 
   function openChallenge(id: string) {
@@ -205,6 +214,6 @@ export const useDeepCheckStore = defineStore('deepCheck', () => {
 
   return {
     view, scope, groupId, group, hintShown, challenge, challengeResult, challengeTries, items, index, results, feedback, current, total, score, isLast, answered, rule,
-    goHome, openLearn, showHint, openChallenge, submitChallenge, tryAgain, startRule, startChapter, answerAsn, answerChoice, answerReverse, answerDraw, next,
+    goHome, openLearn, showHint, openChallenge, submitChallenge, tryAgain, startRule, startChapter, answerAsn, answerChoice, answerReverse, answerDraw, answerModel, next,
   }
 })

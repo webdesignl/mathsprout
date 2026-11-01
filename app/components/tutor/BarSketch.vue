@@ -14,7 +14,10 @@ const COLOURS = [
   { id: 4, name: 'purple', cls: 'bg-violet-300' },
 ] as const
 
-const cells = ref<Array<number | null>>(Array(4).fill(null))
+const props = withDefaults(defineProps<{ start?: number; checkLabel?: string; locked?: boolean }>(), { start: 4 })
+const emit = defineEmits<{ submit: [parts: Array<number | null>] }>()
+
+const cells = ref<Array<number | null>>(Array(props.start).fill(null))
 const pen = ref<number | null>(0)
 const names = ref<Record<number, string>>({})
 
@@ -33,11 +36,12 @@ function cutEach(by: number) {
 }
 
 function paint(i: number) {
+  if (props.locked) return
   cells.value = cells.value.map((c, k) => (k === i ? (c === pen.value ? null : pen.value) : c))
 }
 
 function clear() {
-  cells.value = Array(4).fill(null)
+  cells.value = Array(props.start).fill(null)
   names.value = {}
   pen.value = 0
 }
@@ -106,6 +110,17 @@ const small =
       </label>
     </div>
 
-    <button type="button" :class="small" @click="clear">Start again</button>
+    <div class="flex flex-wrap gap-3">
+      <button
+        v-if="checkLabel"
+        type="button"
+        :disabled="locked"
+        class="inline-flex min-h-12 items-center rounded-xl bg-emerald-700 px-6 text-lg font-bold text-white hover:bg-emerald-800 disabled:opacity-60"
+        @click="emit('submit', cells)"
+      >
+        {{ checkLabel }}
+      </button>
+      <button type="button" :class="small" :disabled="locked" @click="clear">Start again</button>
+    </div>
   </div>
 </template>

@@ -13,21 +13,24 @@ import {
   gradeAsn,
   gradeBars,
   gradeChoice,
+  gradeModel,
   gradeReverse,
   groupOf,
   itemsFor,
+  ruleOf,
   rulesIn,
   stepBars,
   type BarState,
 } from '../app/utils/deepCheck'
+import { modelStage } from '../app/utils/modelSamples'
 import { add, compare, divide, equals, isSimplestFraction, isSimplestMixed, multiply, parse, parseMixed, subtract, toFraction } from '../app/utils/fraction'
 
 const num = (text: string) => toFraction(parseMixed(text)!)
 const item = <T extends Item['type']>(id: string) => ITEMS.find((i) => i.id === id) as Extract<Item, { type: T }>
 
 describe('deep check content', () => {
-  it('has 18 rules with exactly one item of each of the 5 types', () => {
-    expect(RULES).toHaveLength(18)
+  it('has 21 rules with exactly one item of each of the 5 types', () => {
+    expect(RULES).toHaveLength(21)
     for (const rule of RULES) {
       const items = itemsFor(rule.id)
       expect(items.map((i) => i.type), rule.id).toEqual(ITEM_TYPES.map((t) => t.type))
@@ -35,8 +38,8 @@ describe('deep check content', () => {
       expect(rule.misconception.length).toBeGreaterThan(10)
       expect(rule.frames.length).toBeGreaterThan(0)
     }
-    expect(ITEMS).toHaveLength(90)
-    expect(new Set(ITEMS.map((i) => i.id)).size).toBe(90)
+    expect(ITEMS).toHaveLength(105)
+    expect(new Set(ITEMS.map((i) => i.id)).size).toBe(105)
   })
 
   it('keeps multiple-choice answers in range, with no repeated options and an explanation', () => {
@@ -105,7 +108,7 @@ describe('deep check content', () => {
 
   it('draw items start and end with consistent amounts', () => {
     for (const i of ITEMS) {
-      if (i.type !== 'draw') continue
+      if (i.type !== 'draw' || 'model' in i) continue
       expect(i.dens, i.id).toContain(i.start.den)
       expect(i.dens, i.id).toContain(i.target.den)
       if (i.target.exact) {
@@ -272,7 +275,7 @@ describe('quizzes and progress', () => {
     const progress = deepCheckProgress(lines)
     expect(progress.R2).toEqual({ stars: 2, tried: 4, right: 3 })
     expect(progress.R1).toEqual({ stars: 0, tried: 0, right: 0 })
-    expect(Object.keys(progress)).toHaveLength(18)
+    expect(Object.keys(progress)).toHaveLength(21)
   })
 })
 
@@ -359,7 +362,9 @@ describe('rule groups', () => {
     expect(RULE_GROUPS.map((g) => g.title)).toEqual([
       'Fraction addition and subtraction',
       'Fraction multiplication and division',
+      'Word-problem models',
     ])
+    expect(rulesIn('models').map((r) => r.id)).toEqual(['R19', 'R20', 'R21'])
     expect(rulesIn('addsub').map((r) => r.id)).toEqual(['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8'])
     expect(rulesIn('muldiv').map((r) => r.id)).toEqual(['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18'])
     expect(groupOf('nope')).toBeUndefined()
@@ -804,10 +809,11 @@ describe('Olympiad challenges', () => {
     return { ok: g.correct, readable: g.readable, fields: Object.fromEntries(Object.entries(g.fields).map(([k, v]) => [k, v.status])) }
   }
 
-  it('has 8 challenges in the multiplication and division topic, each with a hint and readable answers', () => {
-    expect(CHALLENGES).toHaveLength(8)
-    expect(new Set(CHALLENGES.map((c) => c.id)).size).toBe(8)
+  it('has 8 challenges in the multiplication and division topic and 6 in word-problem models, each with a hint and readable answers', () => {
+    expect(CHALLENGES).toHaveLength(14)
+    expect(new Set(CHALLENGES.map((c) => c.id)).size).toBe(14)
     expect(challengesIn('muldiv')).toHaveLength(8)
+    expect(challengesIn('models')).toHaveLength(6)
     expect(challengesIn('addsub')).toHaveLength(0)
     for (const c of CHALLENGES) {
       expect(c.hints.length, c.id).toBeGreaterThan(0)
@@ -914,7 +920,7 @@ describe('Olympiad challenges', () => {
     const lines = [
       { mode: 'deep_check', problem: 'C3 challenge', correct: true },
       { mode: 'deep_check', problem: 'C4 challenge', correct: false },
-      { mode: 'deep_check', problem: 'C9 challenge', correct: true },
+      { mode: 'deep_check', problem: 'C99 challenge', correct: true },
       { mode: 'practice', problem: 'C1 challenge', correct: true },
     ]
     expect([...challengesSolved(lines)]).toEqual(['C3'])
@@ -958,7 +964,7 @@ describe('one hint per question', () => {
       if (i.type === 'reverse' && i.check.kind === 'fractionEquals') {
         expect(hint, i.id).not.toContain(i.check.target.toLowerCase())
       }
-      if (i.type === 'draw') {
+      if (i.type === 'draw' && 'target' in i) {
         expect(hint, i.id).not.toContain(`${i.target.total}/${i.target.den}`)
       }
     }
@@ -1012,5 +1018,114 @@ describe('one hint per question', () => {
     ]
     const progress = deepCheckProgress(lines)
     expect(progress.R1).toEqual({ stars: 2, tried: 3, right: 3 })
+  })
+})
+
+
+describe('word-problem models (R19 to R21)', () => {
+  const quiz = (id: string) => ITEMS.find((i) => i.id === id)!
+
+  it('the right answers match the fraction engine', () => {
+    // R19: 1/4 of the 1/3 not in the choir is 1/12; 1/4 of 2/3 is 1/6 (the odd one out)
+    expect(equals(multiply(num('1/4'), subtract(num('1'), num('2/3'))), num('1/12'))).toBe(true)
+    expect(equals(multiply(num('1/4'), num('2/3')), num('1/6'))).toBe(true)
+    // R20: 18 is 3/5 of the coins, so there were 30; three of the options give 30, one does not
+    const whole = divide(num('18'), num('3/5'))
+    expect(whole.ok && equals(whole.value, num('30'))).toBe(true)
+    expect(equals(multiply(num('18'), num('5/3')), num('30'))).toBe(true)
+    expect(equals(multiply(num('18'), num('3/5')), num('30'))).toBe(false)
+    // R21: 1/5 lasts 2 days, so all of it lasts 10; 2 x 1/5 is not 10
+    const days = divide(num('2'), num('1/5'))
+    expect(days.ok && equals(days.value, num('10'))).toBe(true)
+    expect(equals(multiply(num('2'), num('1/5')), num('10'))).toBe(false)
+    // R20 spot: the tank is 30 / (3/4) = 40 litres, not 30 x 3/4
+    const tank = divide(num('30'), num('3/4'))
+    expect(tank.ok && equals(tank.value, num('40'))).toBe(true)
+    // R21 spot: 4 / (1/3) = 12 days
+    const juice = divide(num('4'), num('1/3'))
+    expect(juice.ok && equals(juice.value, num('12'))).toBe(true)
+  })
+
+  it('names the wrong option in each "which one does not" item', () => {
+    expect((quiz('R19-odd') as Extract<Item, { type: 'oddOneOut' }>).options[2]).toBe('1/4 × 2/3')
+    expect((quiz('R20-odd') as Extract<Item, { type: 'oddOneOut' }>).options[2]).toBe('18 × 3/5')
+    expect((quiz('R21-odd') as Extract<Item, { type: 'oddOneOut' }>).options[2]).toBe('2 × 1/5')
+  })
+
+  it('grades the "reverse it" answers', () => {
+    const r = (id: string) => (quiz(id) as Extract<Item, { type: 'reverse' }>).check
+    expect(gradeReverse(r('R19-rev'), '1/12').status).toBe('correct')
+    expect(gradeReverse(r('R19-rev'), '2/24').status).toBe('correct')
+    expect(gradeReverse(r('R19-rev'), '1/6').status).toBe('wrong')
+    expect(gradeReverse(r('R20-rev'), '3/5').status).toBe('correct')
+    expect(gradeReverse(r('R21-rev'), '10').status).toBe('correct')
+    expect(gradeReverse(r('R21-rev'), '5').status).toBe('wrong')
+  })
+
+  it('grades a drawn bar model by its cuts and its colour groups, in any colours', () => {
+    const target = (id: string) => (quiz(id) as Extract<Item, { type: 'draw'; model: unknown }>).model as Parameters<typeof gradeModel>[0]
+    const nine = Array<number | null>(9).fill(0)
+    // R19: 12 parts, 9 in one colour and 1 in another
+    expect(gradeModel(target('R19-draw'), [...nine, 1, null, null]).status).toBe('correct')
+    expect(gradeModel(target('R19-draw'), [...nine.map(() => 3), 2, null, null]).status).toBe('correct')
+    expect(gradeModel(target('R19-draw'), [...nine, 1, 1, null]).status).toBe('wrong')
+    expect(gradeModel(target('R19-draw'), [...nine, 1]).status).toBe('wrong')
+    expect(gradeModel(target('R19-draw'), Array(12).fill(null)).status).toBe('wrong')
+    // R20: 5 parts, 2 coloured
+    expect(gradeModel(target('R20-draw'), [0, 0, null, null, null]).status).toBe('correct')
+    // R21: 10 day blocks, 2 coloured
+    expect(gradeModel(target('R21-draw'), [1, 1, ...Array(8).fill(null)]).status).toBe('correct')
+    expect(gradeModel(target('R21-draw'), [1, 1, null, null, null]).status).toBe('wrong')
+  })
+
+  it('each rule shows a picture built by code', () => {
+    for (const id of ['R19', 'R20', 'R21']) {
+      for (const frame of ruleOf(id)!.frames) {
+        expect(frame.kind).toBe('model')
+        if (frame.kind === 'model') expect(modelStage(frame.sample, frame.step), `${id} ${frame.sample} ${frame.step}`).not.toBeNull()
+      }
+    }
+  })
+
+  it('the challenge answers match the fraction engine', () => {
+    const f = (t: string) => toFraction(parseMixed(t)!)
+    // C9: 1/4 of 3/5 = 3/20; not sold 1 - 2/5 - 3/20 = 9/20
+    expect(equals(multiply(f('1/4'), f('3/5')), f('3/20'))).toBe(true)
+    expect(equals(subtract(subtract(f('1'), f('2/5')), f('3/20')), f('9/20'))).toBe(true)
+    // C10: 5/8 - 2/5 of 5/8 - 1/5 of 5/8 = 1/4
+    const rest = f('5/8')
+    expect(equals(subtract(subtract(rest, multiply(f('2/5'), rest)), multiply(f('1/5'), rest)), f('1/4'))).toBe(true)
+    // C11: 24 is 1/3 of the apples (1/2 left, 2/3 of that left) so 72
+    expect(equals(multiply(f('1/2'), f('2/3')), f('1/3'))).toBe(true)
+    // C12: 4/5 left, game 3/8 of that = 3/10, left 1/2, so $50
+    expect(equals(subtract(f('4/5'), multiply(f('3/8'), f('4/5'))), f('1/2'))).toBe(true)
+    // C13: 1/5 in 2 hours -> 10 hours; 5 hours left holds 6 L -> 6/5 per hour -> 12
+    // C14: 1/6 in 2 days -> 12 days; 6 days left hold 4 1/2 kg -> 3/4 per day -> 9
+    const perDay = divide(f('4 1/2'), f('6'))
+    expect(perDay.ok && equals(perDay.value, f('3/4'))).toBe(true)
+    expect(gradeChallenge(challengeOf('C11')!, { total: '72' }).correct).toBe(true)
+    expect(gradeChallenge(challengeOf('C12')!, { total: '50' }).correct).toBe(true)
+    expect(gradeChallenge(challengeOf('C13')!, { total: '12' }).correct).toBe(true)
+    expect(gradeChallenge(challengeOf('C14')!, { total: '9' }).correct).toBe(true)
+    expect(gradeChallenge(challengeOf('C9')!, { sat: '3/20', left: '9/20' }).correct).toBe(true)
+    expect(gradeChallenge(challengeOf('C9')!, { sat: '6/40', left: '9/20' }).correct).toBe(false)
+    expect(gradeChallenge(challengeOf('C10')!, { left: '1/4' }).correct).toBe(true)
+    expect(gradeChallenge(challengeOf('C14')!, { total: '4.5' }).correct).toBe(false)
+  })
+
+  it('plays the draw model in a quiz through the store', () => {
+    setActivePinia(createPinia())
+    const store = useDeepCheckStore()
+    store.startRule('R20')
+    // The R20 draw item is the fifth question of its rule quiz.
+    for (let i = 0; i < 4; i++) {
+      const item = store.current!
+      if (item.type === 'asn') store.answerAsn('always')
+      else if (item.type === 'spotMistake' || item.type === 'oddOneOut') store.answerChoice(item.answer)
+      else if (item.type === 'reverse') store.answerReverse('3/5')
+      store.next()
+    }
+    expect(store.current!.id).toBe('R20-draw')
+    expect(store.answerModel([0, 0, null, null, null]).status).toBe('correct')
   })
 })
