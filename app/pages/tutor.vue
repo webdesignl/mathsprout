@@ -6,7 +6,8 @@ import { slipName } from '../utils/messages'
 import { resizePhoto } from '../utils/image'
 import { opSymbol, type AnyOp } from '../utils/fraction'
 import { useScratchStore } from '../stores/scratch'
-import { buildBarStages } from '../utils/fractionBar'
+import { buildBarStages, stageAt } from '../utils/fractionBar'
+import { buildUnitPlan } from '../utils/unitBar'
 
 useHead({ title: 'Tutor · MathSprout' })
 
@@ -20,7 +21,14 @@ const sampleOnly = computed(() => !user.value || demo.isDemo.value)
 const empty = (): AnswerBoxes => ({ whole: '', num: '', den: '' })
 const answer = ref<AnswerBoxes>(empty())
 /** The bar model for a "fraction of the rest" problem, or null when this problem is not that kind. */
-const barStages = computed(() => (store.plan ? buildBarStages(store.plan) : null))
+const barStages = computed(() => {
+  const plan = store.plan
+  if (!plan) return null
+  return plan.unit ? (buildUnitPlan(plan.unit, plan.whole)?.stages ?? null) : buildBarStages(plan)
+})
+/** The bar she has earned so far: the latest stage whose step she has answered. */
+const stageSoFar = computed(() => (barStages.value && store.stepIndex > 0 ? stageAt(barStages.value, store.stepIndex - 1) : null))
+const stageNow = computed(() => (barStages.value ? stageAt(barStages.value, store.stepIndex) : null))
 const barReplay = ref(0)
 const answerKind = ref<'whole' | 'fraction' | 'mixed'>('mixed')
 const ANSWER_KINDS = [
@@ -345,12 +353,12 @@ function another() {
       <PracticeProblemCard v-if="store.state !== 'teach'" :problem="store.problem" />
       <TutorStepVisual v-if="store.state !== 'teach'" :problem="store.problem" mode="step" />
       <section
-        v-if="barStages && store.state !== 'teach' && store.stepIndex > 0"
+        v-if="stageSoFar && store.state !== 'teach'"
         aria-label="The bar model so far"
         class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6"
       >
         <h2 class="text-xl font-bold text-slate-900">What we found so far</h2>
-        <TutorFractionBar :stage="barStages[store.stepIndex - 1]!" still />
+        <TutorFractionBar :stage="stageSoFar" still />
       </section>
       <details v-if="barStages" class="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
         <summary class="min-h-11 cursor-pointer text-xl font-bold text-slate-900">Draw your own bar model (optional)</summary>
@@ -410,7 +418,7 @@ function another() {
       <p class="text-center text-2xl text-slate-900">
         {{ store.stepLabel }} <span class="font-bold">{{ store.acceptedAnswer }}</span>
       </p>
-      <section v-if="barStages" aria-label="The bar model" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+      <section v-if="stageNow" aria-label="The bar model" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="text-xl font-bold text-slate-900">See it in a bar model</h2>
           <button
@@ -421,7 +429,7 @@ function another() {
             Show again
           </button>
         </div>
-        <TutorFractionBar :stage="barStages[store.stepIndex]!" :replay="barReplay" />
+        <TutorFractionBar :stage="stageNow" :still="stageNow.step !== store.stepIndex" :replay="barReplay" />
       </section>
       <div class="flex justify-center">
         <button type="button" :class="primary" @click="store.nextStep()">

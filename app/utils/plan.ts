@@ -29,10 +29,22 @@ export interface PlanStep {
   name?: string
 }
 
+/**
+ * A problem that asks for the unknown whole ("he had $250 left; how much did he win?"). Takes happen in groups:
+ * the first group takes fractions of the whole, the next of what was left. Code turns this into plan steps and a
+ * unit bar (see unitBar.ts); the AI only reads the shape and the words.
+ */
+export interface UnitSpec {
+  groups: Array<{ takes: Array<{ share: string; name?: string }> }>
+  left: { amount: string; unit?: string; name?: string }
+}
+
 export interface Plan {
   steps: PlanStep[]
   /** What the whole is called in the bar model, for example "the family". */
   whole?: string
+  /** Set when the plan was made from an unknown-whole problem; it adds the unit bar. */
+  unit?: UnitSpec
 }
 
 export const MIN_PLAN_STEPS = 2
@@ -111,6 +123,8 @@ export interface SimilarPlan {
  * engine accepts is returned, so it always works out. Null if none is found.
  */
 export function similarPlan(plan: Plan, random: () => number = Math.random): SimilarPlan | null {
+  // The unit bar's shares are not in the steps, so a new set of numbers would not match it.
+  if (plan.unit) return null
   const pick = (n: number) => Math.floor(random() * n)
   const fraction = () => {
     const den = 2 + pick(7)
