@@ -56,10 +56,14 @@ export const modelReadSchema = z.union([
           a: z.string().max(30),
           b: z.string().max(30),
           label: z.string().max(200),
+          aName: z.string().max(80).optional(),
+          bName: z.string().max(80).optional(),
+          name: z.string().max(80).optional(),
         }),
       )
       .min(2)
       .max(5),
+    whole: z.string().max(80).optional(),
     problemText: z.string().max(600),
     confidence: z.enum(['high', 'low']),
   }),
