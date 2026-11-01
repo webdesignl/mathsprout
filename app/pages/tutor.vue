@@ -8,6 +8,8 @@ import { opSymbol, type AnyOp } from '../utils/fraction'
 import { useScratchStore } from '../stores/scratch'
 import { buildBarStages, stageAt } from '../utils/fractionBar'
 import { buildUnitPlan } from '../utils/unitBar'
+import { challengeForRule, deepCheckLink, modelRuleId } from '../utils/modelRules'
+import { ruleOf } from '../utils/deepCheck'
 import { buildRatePlan } from '../utils/rateBar'
 
 useHead({ title: 'Tutor · MathSprout' })
@@ -33,6 +35,13 @@ const barStages = computed(() => {
 const stageSoFar = computed(() => (barStages.value && store.stepIndex > 0 ? stageAt(barStages.value, store.stepIndex - 1) : null))
 const stageNow = computed(() => (barStages.value ? stageAt(barStages.value, store.stepIndex) : null))
 const barReplay = ref(0)
+/** The Deep Check rule this problem teaches (found by code from the plan), for the links. */
+const modelRule = computed(() => {
+  const id = modelRuleId(store.plan)
+  return id ? ruleOf(id)! : null
+})
+const modelChallenge = computed(() => (modelRule.value ? challengeForRule(modelRule.value.id) : null))
+const showRule = ref(false)
 const answerKind = ref<'whole' | 'fraction' | 'mixed'>('mixed')
 const ANSWER_KINDS = [
   { id: 'whole', label: 'Whole number' },
@@ -96,6 +105,7 @@ watch(
   () => store.state,
   (state) => {
     answerMessage.value = ''
+    if (state === 'attempt' || state === 'stepDone') showRule.value = false
     if (['attempt', 'hint1', 'hint2', 'hint3', 'teach'].includes(state)) focusAnswer()
   },
 )
@@ -388,6 +398,19 @@ function another() {
 
       <!-- The hint sits right above the answer boxes, so she never scrolls between them. -->
       <TutorHelpMessages />
+      <div v-if="modelRule && (hintNumber > 0 || store.state === 'teach')" class="space-y-3">
+        <button
+          type="button"
+          :aria-expanded="showRule"
+          class="inline-flex min-h-12 items-center rounded-xl bg-white px-5 text-lg font-bold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+          @click="showRule = !showRule"
+        >
+          {{ showRule ? 'Close the rule' : `Look at the rule: ${modelRule.title}` }}
+        </button>
+        <div v-if="showRule" class="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+          <DeepCheckLearnPanel :rule="modelRule" compact @close="showRule = false" />
+        </div>
+      </div>
 
       <form class="space-y-4" @submit.prevent="check">
         <p v-if="store.state === 'attempt'" class="text-center text-xl font-semibold">Try it first. What is your answer?</p>
@@ -459,6 +482,7 @@ function another() {
       <section v-if="barStages" aria-label="The bar model" class="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
         <TutorFractionBar :stage="barStages.at(-1)!" still />
       </section>
+      <TutorPracticeLinks v-if="modelRule" :rule-id="modelRule.id" :rule-title="modelRule.title" :challenge-id="modelChallenge" />
       <p class="text-center text-2xl text-slate-900">Want to try one like it, with new numbers?</p>
       <div class="flex flex-wrap justify-center gap-4">
         <button type="button" :class="primary" @click="store.startSimilar()">Try one like it</button>
@@ -541,6 +565,7 @@ function another() {
         </div>
       </dl>
       <p v-if="slipLabel" class="text-xl text-slate-800">One thing to watch: {{ slipLabel }}.</p>
+      <TutorPracticeLinks v-if="modelRule && !store.inSimilar" :rule-id="modelRule.id" :rule-title="modelRule.title" :challenge-id="modelChallenge" />
 
       <button type="button" :class="primary" @click="another">Solve another</button>
     </section>
