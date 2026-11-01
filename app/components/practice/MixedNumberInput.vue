@@ -3,20 +3,27 @@ import { ref } from 'vue'
 import type { AnswerBoxes } from '../../utils/answer'
 
 const model = defineModel<AnswerBoxes>({ required: true })
+const props = withDefaults(defineProps<{ kind?: 'whole' | 'fraction' | 'mixed' }>(), { kind: 'mixed' })
 const emit = defineEmits<{ submit: [] }>()
 
 const wholeBox = ref<HTMLInputElement | null>(null)
+const numBox = ref<HTMLInputElement | null>(null)
 
-/** Keeps digits only, so the child can't type letters or symbols. */
+/**
+ * Keeps digits only, so the child can't type letters or symbols. The whole number box also keeps a
+ * leading "$" (money answers like $500); the checker ignores it. Commas are dropped.
+ */
 function onInput(field: keyof AnswerBoxes, event: Event) {
   const target = event.target as HTMLInputElement
-  const digits = target.value.replace(/\D/g, '')
-  target.value = digits
-  model.value = { ...model.value, [field]: digits }
+  const raw = target.value
+  const digits = raw.replace(/\D/g, '')
+  const kept = field === 'whole' && raw.trimStart().startsWith('$') ? `$${digits}` : digits
+  target.value = kept
+  model.value = { ...model.value, [field]: kept }
 }
 
 function focus() {
-  wholeBox.value?.focus()
+  ;(wholeBox.value ?? numBox.value)?.focus()
 }
 defineExpose({ focus })
 
@@ -27,38 +34,40 @@ const box =
 <template>
   <div role="group" aria-label="Your answer" class="flex items-center justify-center gap-4">
     <input
+      v-if="props.kind !== 'fraction'"
       ref="wholeBox"
       :value="model.whole"
       type="text"
       inputmode="numeric"
       autocomplete="off"
-      maxlength="2"
+      maxlength="9"
       aria-label="Whole number"
-      :class="[box, 'w-24']"
+      :class="[box, 'w-36 px-2']"
       @input="onInput('whole', $event)"
       @keydown.enter.prevent="emit('submit')"
     />
-    <div class="flex flex-col items-center gap-1">
+    <div v-if="props.kind !== 'whole'" class="flex flex-col items-center gap-1">
       <input
+        ref="numBox"
         :value="model.num"
         type="text"
         inputmode="numeric"
         autocomplete="off"
-        maxlength="3"
+        maxlength="6"
         aria-label="Numerator, the top number of the fraction"
-        :class="[box, 'h-16 w-24']"
+        :class="[box, 'h-16 w-28 px-2']"
         @input="onInput('num', $event)"
         @keydown.enter.prevent="emit('submit')"
       />
-      <div class="h-1 w-24 rounded bg-slate-900" aria-hidden="true" />
+      <div class="h-1 w-28 rounded bg-slate-900" aria-hidden="true" />
       <input
         :value="model.den"
         type="text"
         inputmode="numeric"
         autocomplete="off"
-        maxlength="3"
+        maxlength="6"
         aria-label="Denominator, the bottom number of the fraction"
-        :class="[box, 'h-16 w-24']"
+        :class="[box, 'h-16 w-28 px-2']"
         @input="onInput('den', $event)"
         @keydown.enter.prevent="emit('submit')"
       />

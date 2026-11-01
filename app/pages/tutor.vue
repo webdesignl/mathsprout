@@ -4,11 +4,13 @@ import { useTutorStore } from '../stores/tutor'
 import { boxesToText, isAnswerEmpty, isFractionIncomplete, type AnswerBoxes } from '../utils/answer'
 import { slipName } from '../utils/messages'
 import { resizePhoto } from '../utils/image'
-import { opSymbol, type AnyOp, type AnyProblem } from '../utils/fraction'
+import { opSymbol, type AnyOp } from '../utils/fraction'
+import { useScratchStore } from '../stores/scratch'
 
 useHead({ title: 'Tutor · MathSprout' })
 
 const store = useTutorStore()
+const scratch = useScratchStore()
 // Signed-out visitors and demo visitors get a sample problem and canned answers (the server decides; this only says so).
 const user = useSupabaseUser()
 const demo = useDemo()
@@ -16,11 +18,15 @@ const sampleOnly = computed(() => !user.value || demo.isDemo.value)
 
 const empty = (): AnswerBoxes => ({ whole: '', num: '', den: '' })
 const answer = ref<AnswerBoxes>(empty())
+const answerKind = ref<'whole' | 'fraction' | 'mixed'>('mixed')
+const ANSWER_KINDS = [
+  { id: 'whole', label: 'Whole number' },
+  { id: 'fraction', label: 'Fraction' },
+  { id: 'mixed', label: 'Mixed number' },
+] as const
 const answerMessage = ref('')
 const typing = ref(false)
-const wordMode = ref(false)
 const wordText = ref('')
-const fixing = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const input = ref<{ focus: () => void } | null>(null)
 
@@ -42,16 +48,39 @@ const checkMethodLabel = computed(() =>
 )
 const slipLabel = computed(() => (store.slip && store.problem ? slipName(store.slip, store.problem.op) : null))
 
+/** One rough-work page per problem step, kept while the tab stays open. */
+const padKey = computed(() => `tutor-${store.inSimilar ? 's' : 'm'}-${store.stepIndex}-${store.problemText.length}`)
+const showPad = computed(() => scratch.open && (answering.value || store.state === 'understand'))
+
+/** Switching the kind clears boxes that kind does not use, so nothing hidden is sent. */
+function pickKind(kind: typeof answerKind.value) {
+  answerKind.value = kind
+  answer.value = {
+    whole: kind === 'fraction' ? '' : answer.value.whole,
+    num: kind === 'whole' ? '' : answer.value.num,
+    den: kind === 'whole' ? '' : answer.value.den,
+  }
+  answerMessage.value = ''
+  focusAnswer()
+}
+
 async function focusAnswer() {
   await nextTick()
   input.value?.focus()
 }
 
 watch(
+  () => store.stepIndex,
+  () => {
+    answerKind.value = 'mixed'
+    answer.value = empty()
+  },
+)
+
+watch(
   () => store.state,
   (state) => {
     answerMessage.value = ''
-    fixing.value = false
     if (['attempt', 'hint1', 'hint2', 'hint3', 'teach'].includes(state)) focusAnswer()
   },
 )
@@ -78,19 +107,10 @@ function readWord() {
   store.readProblem({ text: wordText.value })
 }
 
-function typed(problem: AnyProblem) {
-  store.enterTyped(problem)
-}
-
-// --- confirm ---
-function saveFix(problem: AnyProblem) {
-  if (store.editProblem(problem) === null) fixing.value = false
-}
-
 // --- attempt, hints, teach ---
 async function check() {
   if (isAnswerEmpty(answer.value)) {
-    answerMessage.value = 'Type your answer in the boxes first.'
+    answerMessage.value = 'Type your answer first.'
     return
   }
   if (isFractionIncomplete(answer.value)) {
@@ -113,14 +133,31 @@ async function stuck() {
 function another() {
   store.reset()
   answer.value = empty()
+  answerKind.value = 'mixed'
   typing.value = false
-  wordMode.value = false
   wordText.value = ''
+  scratch.reset()
 }
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl space-y-6">
+  <div :class="['mx-auto', showPad ? 'max-w-6xl lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-6' : 'max-w-3xl']">
+  <div :class="['min-w-0 space-y-6', showPad ? 'pb-[50vh] lg:pb-0' : '']">
+    <div v-if="answering || store.state === 'understand'" class="flex justify-end">
+      <button
+        type="button"
+        aria-controls="rough-work"
+        :aria-expanded="showPad"
+        class="inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-4 text-lg font-semibold text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100"
+        @click="scratch.toggle()"
+      >
+        <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+          <path d="M4 20l1-4L16 5l3 3L8 19l-4 1Z" stroke-linejoin="round" />
+        </svg>
+        Rough work
+      </button>
+    </div>
+
     <!-- 1. Capture -->
     <section v-if="store.state === 'capture'" class="space-y-6">
       <h1 class="text-4xl font-bold text-emerald-900">Show me your problem</h1>
@@ -148,31 +185,24 @@ function another() {
         <p v-if="sampleOnly" class="w-full text-base text-slate-700">Demo: the tutor uses a sample problem.</p>
       </div>
 
-      <div v-else class="space-y-5">
-        <div v-if="!wordMode" class="space-y-4">
-          <TutorProblemEntry submit-label="Use these numbers" :error="store.error" @submit="typed" />
-          <button type="button" :class="secondary" @click="wordMode = true">Type a word problem instead</button>
+      <div v-else class="space-y-4">
+        <label for="word-problem" class="block text-2xl font-semibold text-slate-900">Type or paste your problem.</label>
+        <textarea
+          id="word-problem"
+          v-model="wordText"
+          maxlength="1000"
+          rows="5"
+          class="w-full rounded-xl border-2 border-slate-700 bg-white p-4 text-xl text-slate-900"
+        />
+        <div class="flex flex-wrap gap-3">
+          <button type="button" :class="primary" :disabled="store.busy === 'reading'" @click="readWord">Read it</button>
+          <button type="button" :class="secondary" @click="typing = false">Back</button>
         </div>
-        <div v-else class="space-y-4">
-          <label for="word-problem" class="block text-2xl font-semibold text-slate-900">Type or paste your problem.</label>
-          <textarea
-            id="word-problem"
-            v-model="wordText"
-            maxlength="1000"
-            rows="4"
-            class="w-full rounded-xl border-2 border-slate-700 bg-white p-4 text-xl text-slate-900"
-          />
-          <div class="flex flex-wrap gap-3">
-            <button type="button" :class="primary" :disabled="store.busy === 'reading'" @click="readWord">Read it</button>
-            <button type="button" :class="secondary" @click="wordMode = false">Type numbers instead</button>
-          </div>
-        </div>
-        <button type="button" :class="secondary" @click="typing = false; wordMode = false">Back</button>
       </div>
 
       <div role="status" aria-live="polite">
         <p v-if="store.busy === 'reading'" class="text-2xl font-semibold text-slate-800">Thinking…</p>
-        <p v-if="store.error && !(typing && !wordMode)" class="text-xl font-semibold text-red-800" role="alert">{{ store.error }}</p>
+        <p v-if="store.error" class="text-xl font-semibold text-red-800" role="alert">{{ store.error }}</p>
       </div>
     </section>
 
@@ -227,13 +257,9 @@ function another() {
         I am not sure I read this right. Please check.
       </p>
 
-      <div v-if="!fixing" class="flex flex-wrap justify-center gap-4">
+      <div class="flex flex-wrap justify-center gap-4">
         <button type="button" :class="primary" @click="store.confirmProblem()">Yes</button>
-        <button type="button" :class="secondary" @click="fixing = true">Fix it</button>
-      </div>
-      <div v-else class="space-y-4">
-        <TutorProblemEntry :initial="store.problem" submit-label="Save" :error="store.error" @submit="saveFix" />
-        <button type="button" :class="secondary" @click="fixing = false">Cancel</button>
+        <button type="button" :class="secondary" @click="another">This isn’t my problem</button>
       </div>
     </section>
 
@@ -246,6 +272,7 @@ function another() {
       </p>
       <PracticeProblemCard :problem="store.problem" :hide-operation="true" />
       <p v-if="store.problemText && !store.plan" class="text-center text-lg text-slate-700">{{ store.problemText }}</p>
+      <TutorStepVisual :problem="store.problem" mode="question" />
 
       <div v-if="!store.plan && !store.understanding.text && !store.understanding.loading">
         <button type="button" :class="secondary" @click="store.explainQuestion()">I don’t understand the question</button>
@@ -311,9 +338,8 @@ function another() {
       <p v-if="store.plan" class="text-2xl font-semibold text-slate-900">{{ store.stepLabel }}</p>
       <p v-if="hintNumber" class="text-xl font-semibold text-slate-800">Hint {{ hintNumber }} of 3</p>
       <!-- In a multi-step problem the hint sits under the question and above the numbers. -->
-      <TutorHelpMessages v-if="store.plan" />
       <PracticeProblemCard v-if="store.state !== 'teach'" :problem="store.problem" />
-      <TutorHelpMessages v-if="!store.plan" />
+      <TutorStepVisual v-if="store.state !== 'teach'" :problem="store.problem" mode="step" />
 
       <PracticeLearnPanel
         v-if="store.state === 'teach'"
@@ -325,9 +351,28 @@ function another() {
       />
       <p v-if="store.state === 'teach'" class="text-xl font-semibold text-slate-900">Now try your answer again.</p>
 
+      <!-- The hint sits right above the answer boxes, so she never scrolls between them. -->
+      <TutorHelpMessages />
+
       <form class="space-y-4" @submit.prevent="check">
         <p v-if="store.state === 'attempt'" class="text-center text-xl font-semibold">Try it first. What is your answer?</p>
-        <PracticeMixedNumberInput ref="input" v-model="answer" @submit="check" />
+        <div role="radiogroup" aria-label="What kind of answer?" class="flex flex-wrap justify-center gap-2">
+          <button
+            v-for="kind in ANSWER_KINDS"
+            :key="kind.id"
+            type="button"
+            role="radio"
+            :aria-checked="answerKind === kind.id"
+            :class="[
+              'inline-flex min-h-11 items-center rounded-xl px-4 text-lg font-semibold',
+              answerKind === kind.id ? 'bg-emerald-700 text-white' : 'bg-white text-emerald-900 ring-2 ring-emerald-700',
+            ]"
+            @click="pickKind(kind.id)"
+          >
+            {{ kind.label }}
+          </button>
+        </div>
+        <PracticeMixedNumberInput ref="input" v-model="answer" :kind="answerKind" @submit="check" />
         <p v-if="answerMessage" class="text-center text-xl font-semibold text-red-800" role="alert">{{ answerMessage }}</p>
         <div class="flex flex-wrap justify-center gap-4">
           <button type="submit" :class="primary" :disabled="!store.canAnswer">Check my answer</button>
@@ -448,6 +493,17 @@ function another() {
 
       <button type="button" :class="primary" @click="another">Solve another</button>
     </section>
+  </div>
+
+  <!-- Rough work: beside the problem on wide screens, a bottom sheet on narrow ones. -->
+  <aside
+    v-if="showPad"
+    id="rough-work"
+    aria-label="Rough work"
+    class="fixed inset-x-0 bottom-0 z-20 max-h-[48vh] overflow-y-auto rounded-t-2xl border-t-4 border-slate-700 bg-emerald-50 p-4 shadow-2xl lg:sticky lg:top-4 lg:max-h-none lg:overflow-visible lg:rounded-2xl lg:border-4 lg:shadow-md"
+  >
+    <PracticeScratchPad :page-key="padKey" @close="scratch.toggle()" />
+  </aside>
   </div>
 </template>
 
