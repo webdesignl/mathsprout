@@ -249,7 +249,6 @@ const summary = computed(() =>
 
     <div :key="`m${replay}`" class="space-y-4">
       <p v-if="mode === 'question' && icon !== '●'" class="text-5xl" aria-hidden="true">{{ icon }}</p>
-      <h3 class="text-xl font-bold text-slate-900">What the numbers mean</h3>
       <div v-for="(m, i) in meanings" :key="i" class="space-y-1">
         <div class="flex flex-wrap items-end gap-2" role="img" :aria-label="meaningLabel(m)">
           <span
@@ -272,11 +271,14 @@ const summary = computed(() =>
             </span>
           </span>
         </div>
-        <ul v-if="m.num > 0 && m.wholes === 0" class="space-y-1 text-lg text-slate-900 sm:text-xl">
-          <li><span class="font-bold text-indigo-800">Bottom number {{ m.den }}:</span> the bar has {{ m.den }} equal parts.</li>
-          <li><span class="font-bold text-emerald-800">Top number {{ m.num }}:</span> we colour {{ m.num }} of them.</li>
-        </ul>
-        <p v-else class="text-lg font-semibold text-slate-900 sm:text-xl">{{ m.sentence }}</p>
+        <p class="flex items-center gap-2 text-4xl font-bold text-slate-900" aria-hidden="true">
+          <span v-if="m.wholes > 0 || m.num === 0">{{ m.wholes }}</span>
+          <span v-if="m.num > 0" class="flex flex-col items-center text-3xl leading-tight">
+            <span>{{ m.num }}</span>
+            <span class="my-0.5 h-1 w-full rounded bg-slate-900" />
+            <span>{{ m.den }}</span>
+          </span>
+        </p>
       </div>
     </div>
 

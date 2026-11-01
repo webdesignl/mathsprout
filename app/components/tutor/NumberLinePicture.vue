@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 /**
- * A number line from 0 with hops. The end point is shown as "?" when `unknownEnd` is set,
+ * A number line from 0 with hops. Everything is drawn inside one SVG, so the line, ticks, hops and
+ * labels always stay lined up whatever the screen size. The end point is shown as "?" when `end` is set,
  * so the picture never gives the answer away.
  */
 export interface Hop {
@@ -10,6 +13,7 @@ export interface Hop {
 }
 
 const props = defineProps<{
+  /** The biggest number the hops reach. The line is drawn up to the whole number at or above it. */
   max: number
   hops: Hop[]
   /** The number the child starts on, marked with a dot. */
@@ -19,62 +23,55 @@ const props = defineProps<{
   label: string
 }>()
 
-const pct = (n: number) => `${(Math.min(Math.max(n, 0), props.max) / props.max) * 100}%`
-const ticks = Array.from({ length: Math.floor(props.max) + 1 }, (_, i) => i)
-const arc = (h: Hop) => {
-  const x1 = (h.from / props.max) * 1000
-  const x2 = (h.to / props.max) * 1000
-  return `M ${x1} 100 Q ${(x1 + x2) / 2} 0 ${x2} 100`
-}
+const WIDTH = 1000
+const PAD = 40
+const LINE_Y = 120
+
+const axisMax = computed(() => Math.max(Math.ceil(props.max), 1))
+const ticks = computed(() => Array.from({ length: axisMax.value + 1 }, (_, i) => i))
+const x = (n: number) => PAD + (Math.min(Math.max(n, 0), axisMax.value) / axisMax.value) * (WIDTH - PAD * 2)
+const arc = (h: Hop) => `M ${x(h.from)} ${LINE_Y} Q ${(x(h.from) + x(h.to)) / 2} 20 ${x(h.to)} ${LINE_Y}`
 </script>
 
 <template>
   <div class="space-y-2">
-    <div class="relative mx-3 h-32" role="img" :aria-label="label">
-      <svg class="absolute inset-x-0 top-0 h-20 w-full overflow-visible" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
-        <path
-          v-for="(h, i) in hops"
-          :key="i"
-          :d="arc(h)"
-          pathLength="1"
-          fill="none"
-          stroke="#4338ca"
-          stroke-width="4"
-          stroke-linecap="round"
-          vector-effect="non-scaling-stroke"
-          class="hop"
-          :style="{ animationDelay: `${i * 250}ms` }"
-        />
-      </svg>
-      <div class="absolute inset-x-0 top-20 h-1 rounded bg-slate-900" aria-hidden="true" />
-      <template v-for="t in ticks" :key="t">
-        <span class="absolute top-[4.75rem] h-3 w-0.5 -translate-x-1/2 bg-slate-900" :style="{ left: pct(t) }" aria-hidden="true" />
-        <span
-          class="absolute top-[6.25rem] -translate-x-1/2 text-sm font-semibold text-slate-800"
-          :style="{ left: pct(t) }"
-          aria-hidden="true"
-        >{{ t }}</span>
-      </template>
-      <span
+    <svg viewBox="0 0 1000 180" class="block h-auto w-full" role="img" :aria-label="label">
+      <path
+        v-for="(h, i) in hops"
+        :key="i"
+        :d="arc(h)"
+        pathLength="1"
+        fill="none"
+        stroke="#4338ca"
+        stroke-width="5"
+        stroke-linecap="round"
+        class="hop"
+        :style="{ animationDelay: `${i * 250}ms` }"
+      />
+      <text
         v-for="(h, i) in hops"
         :key="`l${i}`"
-        class="absolute top-6 -translate-x-1/2 rounded bg-white px-1 text-base font-bold text-indigo-900"
-        :style="{ left: pct((h.from + h.to) / 2) }"
-        aria-hidden="true"
-      >{{ h.label }}</span>
-      <span
-        v-if="start"
-        class="absolute top-[4.4rem] size-4 -translate-x-1/2 rounded-full border-2 border-slate-900 bg-emerald-400"
-        :style="{ left: pct(start.at) }"
-        aria-hidden="true"
-      />
-      <span
-        v-if="end !== undefined"
-        class="absolute top-[4.1rem] flex size-6 -translate-x-1/2 items-center justify-center rounded-full border-2 border-dashed border-indigo-800 bg-indigo-100 text-sm font-bold text-indigo-900"
-        :style="{ left: pct(end) }"
-        aria-hidden="true"
-      >?</span>
-    </div>
+        :x="(x(h.from) + x(h.to)) / 2"
+        y="62"
+        text-anchor="middle"
+        font-size="30"
+        font-weight="700"
+        fill="#312e81"
+        stroke="white"
+        stroke-width="8"
+        paint-order="stroke"
+      >{{ h.label }}</text>
+      <line :x1="PAD" :x2="WIDTH - PAD" :y1="LINE_Y" :y2="LINE_Y" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
+      <g v-for="t in ticks" :key="t">
+        <line :x1="x(t)" :x2="x(t)" :y1="LINE_Y - 2" :y2="LINE_Y + 14" stroke="#0f172a" stroke-width="3" />
+        <text :x="x(t)" y="158" text-anchor="middle" font-size="28" font-weight="600" fill="#1e293b">{{ t }}</text>
+      </g>
+      <circle v-if="start" :cx="x(start.at)" :cy="LINE_Y" r="11" fill="#34d399" stroke="#0f172a" stroke-width="3" />
+      <g v-if="end !== undefined">
+        <circle :cx="x(end)" :cy="LINE_Y" r="17" fill="#e0e7ff" stroke="#3730a3" stroke-width="3" stroke-dasharray="6 4" />
+        <text :x="x(end)" :y="LINE_Y + 9" text-anchor="middle" font-size="26" font-weight="700" fill="#312e81">?</text>
+      </g>
+    </svg>
     <p class="text-lg font-semibold text-slate-900">{{ label }}</p>
   </div>
 </template>
