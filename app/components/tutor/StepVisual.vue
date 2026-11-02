@@ -3,7 +3,6 @@ import { computed, ref } from 'vue'
 import GroupsPicture from './GroupsPicture.vue'
 import NumberLinePicture, { type Hop } from './NumberLinePicture.vue'
 import { useTutorStore } from '../../stores/tutor'
-import { emojiFor } from '../../utils/storyEmoji'
 import { formatMixed, toFraction, toMixed, type AnyProblem, type MixedNumber } from '../../utils/fraction'
 
 /**
@@ -200,7 +199,6 @@ const picture = computed<Picture | null>(() => {
       return null
   }
 })
-const icon = computed(() => emojiFor(store.problemText) ?? '●')
 
 const TONE: Record<Seg['tone'], string> = {
   a: 'bg-emerald-300',
@@ -251,7 +249,6 @@ const summary = computed(() =>
     </ol>
 
     <div :key="`m${replay}`" class="space-y-4">
-      <p v-if="mode === 'question' && icon !== '●'" class="text-5xl" aria-hidden="true">{{ icon }}</p>
       <div v-for="(m, i) in meanings" :key="i" class="space-y-1">
         <div class="flex flex-wrap items-end gap-2" role="img" :aria-label="meaningLabel(m)">
           <span
@@ -308,7 +305,6 @@ const summary = computed(() =>
         :mode="picture.kind"
         :boxes="picture.boxes"
         :count="picture.count"
-        :icon="icon"
         :label="picture.label"
       />
       <NumberLinePicture
