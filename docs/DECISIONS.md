@@ -674,6 +674,20 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** show the bar for the step being solved (rejected: it shows the answer); let the AI draw the bar (rejected: code must be able to prove the picture); one picture that covers unknown-total problems (rejected: those need a "unit bar", planned as a separate build).
 - **Status:** Active. Unknown-total problems ("$250 left, how much did Ian win?") are the next piece.
 
+### D-81: Tutor: unknown-whole problems get engine-built steps and a unit bar
+- **Date:** 2026-10
+- **Source:** User (the "how much did Ian win?" problem)
+- **Decision:** When the question asks for the whole that things were taken from ("gave 1/5, then of the rest 1/4 and 1/8, had $250 left"), the AI returns only the shape (`unknownTotal`: up to two groups of up to three takes, then the amount left) and names. `app/utils/unitBar.ts` builds the plan steps (add the shares, subtract from 1, multiply the left-over fractions, divide the amount by the fraction left), checks them with the fraction engine and works out the whole; a plan it cannot do exactly (more than 5 steps, shares that add to 1 or more, bad numbers) is a misread, so the model is asked once more. Every step label comes from code templates plus the cleaned names, so none carries a number. The unit bar shows the whole as "?" cut into equal parts, then cut again into units, with the amount on the left part; the last stage ("5 units = $60, 1 unit = $12, all 12 units make $144") appears only after the last step is answered. These problems get no "try one like it" (new fractions would not match the bar). The draw-your-own bar is available as in D-80.
+- **Alternatives:** let the AI write the steps (rejected: it must not do the maths and a long plan is easy to get wrong); solve by units only with no fraction steps (rejected: the app teaches the fraction steps too); more than two groups (later, if real problems need it).
+- **Status:** Active. Real AI reading of these problems is untested (the demo has none).
+
+### D-82: Tutor: same-amount-each-day problems (day strip) and an optional warm-up
+- **Date:** 2026-10
+- **Source:** User (their way of solving a home-work oil problem)
+- **Decision:** A problem where the same amount is used each day (a fraction left after some days, an amount left after some more) is read by the AI only as a shape (`sameRate`). `app/utils/rateBar.ts` builds six steps in the order a child thinks them (what fraction was used; how many days to use all of it = days ÷ fraction used; the day number now; days left; amount per day; the whole), checks each with the fraction engine and draws a day strip, one stage per answered step. A step whose days do not divide into whole cells keeps its steps and loses only the picture. Code-built plans may have six steps (the AI still writes at most five). On the "days to use all of it" step an optional "Try an easier one first" row asks the same question with half the jar used, checks the answer by code and then shows the half-and-half picture. A developer page, `/dev/models`, previews the three picture types and loads a sample into the Tutor with no AI, and `docs/LOCAL_CHECK_MODELS.md` says how to check each PR.
+- **Alternatives:** a line graph (kept as a possible second view); an automatic warm-up when step 2 is wrong (rejected: kids who see the idea should not be slowed); letting the AI write the steps (rejected, as in D-81).
+- **Status:** Active. Real AI reading of these problems is untested.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
