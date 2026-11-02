@@ -545,14 +545,8 @@ export const RULE_GROUPS: RuleGroup[] = [
   {
     id: 'muldiv',
     title: 'Fraction multiplication and division',
-    summary: 'Setting up mixed numbers, what multiplying and dividing by fractions mean, the shortcuts, and the greatest-product plan.',
-    ruleIds: ['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18'],
-  },
-  {
-    id: 'models',
-    title: 'Word-problem models',
-    summary: 'Part of the rest, working backwards from what is left, and the same amount each day, with bar models.',
-    ruleIds: ['R19', 'R20', 'R21'],
+    summary: 'Setting up mixed numbers, what multiplying and dividing by fractions mean, the shortcuts, the greatest-product plan, and word problems with bar models.',
+    ruleIds: ['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19', 'R20', 'R21'],
   },
 ]
 
@@ -1706,7 +1700,7 @@ export const CHALLENGES: Challenge[] = [
   {
     id: 'C9',
     title: 'The Ticket Table',
-    groupId: 'models',
+    groupId: 'muldiv',
     ruleIds: ['R19'],
     story:
       'A school fair sold 2/5 of its tickets on Friday. On Saturday it sold 1/4 of the tickets that were still left. What fraction of all the tickets were sold on Saturday? And what fraction of all the tickets were still not sold after Saturday?',
@@ -1720,7 +1714,7 @@ export const CHALLENGES: Challenge[] = [
   {
     id: 'C10',
     title: 'The Baker’s Flour',
-    groupId: 'models',
+    groupId: 'muldiv',
     ruleIds: ['R19'],
     story:
       'A baker used 3/8 of the flour for bread. Of the flour that was left, 2/5 was used for cakes and 1/5 for pies. What fraction of all the flour was still left at the end?',
@@ -1731,7 +1725,7 @@ export const CHALLENGES: Challenge[] = [
   {
     id: 'C11',
     title: 'The Orchard Sale',
-    groupId: 'models',
+    groupId: 'muldiv',
     ruleIds: ['R19', 'R20'],
     story:
       'A farmer sold 1/2 of the apples he picked. Then he gave 1/3 of the apples that were left to a school. He had 24 apples left. How many apples did he pick?',
@@ -1742,7 +1736,7 @@ export const CHALLENGES: Challenge[] = [
   {
     id: 'C12',
     title: 'Nina’s Savings',
-    groupId: 'models',
+    groupId: 'muldiv',
     ruleIds: ['R19', 'R20'],
     story:
       'Nina spent 1/5 of her savings on a book. Of what was left she spent 3/8 on a game. She had $25 left. How many dollars did she save at first?',
@@ -1753,7 +1747,7 @@ export const CHALLENGES: Challenge[] = [
   {
     id: 'C13',
     title: 'The Pump',
-    groupId: 'models',
+    groupId: 'muldiv',
     ruleIds: ['R21'],
     story:
       'A pump empties a tank at the same speed each hour. After 2 hours, 4/5 of the water is left. After 3 more hours, 6 litres are left. How many litres were in the tank at first?',
@@ -1764,7 +1758,7 @@ export const CHALLENGES: Challenge[] = [
   {
     id: 'C14',
     title: 'The Rice Bag',
-    groupId: 'models',
+    groupId: 'muldiv',
     ruleIds: ['R21'],
     story:
       'A family eats the same amount of rice each day. After 2 days, 5/6 of the rice in a bag is left. After 4 more days, 4 1/2 kilograms are left. How many kilograms of rice were in the bag at first?',
