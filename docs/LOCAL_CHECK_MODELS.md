@@ -18,7 +18,7 @@ The PRs are stacked, so each branch includes the one before it.
 | 1 | `feature/tutor-fraction-bar-model` | Part of the rest (fraction bar) |
 | 2 | `feature/tutor-unit-bar` | Work backwards (unit bar) |
 | 3 | `feature/tutor-rate-day-strip` | Same amount each day (day strip, warm-up, preview page) |
-| 4 | `feature/deepcheck-word-problem-models` | Deep Check topic "Word-problem models": three rules, 15 quiz items, 6 Olympiad challenges, drawn bar models |
+| 4 | `feature/deepcheck-word-problem-models` | Three word-problem rules (R19 to R21) under Fraction multiplication and division in Deep Check: 15 quiz items, 6 Olympiad challenges, drawn bar models |
 
 ```bash
 git checkout feature/tutor-rate-day-strip
@@ -76,18 +76,18 @@ Open <http://localhost:3000/dev/models>. It only exists while developing, and th
 The AI reading a real problem into one of these shapes needs a signed-in family account and the API key, and is not covered by the preview page. To try it, sign in as a parent, open the Tutor and type a problem of that type. The first runs may need small changes to the prompt in `server/utils/tutor/read.ts`.
 
 
-## Deep Check: Word-problem models (branch `feature/deepcheck-word-problem-models`)
+## Deep Check: word-problem models (branch `feature/deepcheck-word-problem-models`)
 
-Open <http://localhost:3000/deep-check>. A new topic, **Word-problem models**, sits under the other two.
+Open <http://localhost:3000/deep-check> and open the **Fraction multiplication and division** topic. The three new rules come after the earlier ones.
 
-1. **Topic row:** it says "3 rules · 0 mastered" with a **Chapter quiz** button, and an **Olympiad challenges** row ("0 of 6 solved").
+1. **Topic row:** it now says "13 rules · 0 mastered" with a **Chapter quiz** button, and the **Olympiad challenges** row says "0 of 14 solved" (C1 to C8, then the new C9 to C14). There is no separate "Word-problem models" topic.
 2. **Learn** on each rule (R19 Of the rest, R20 Work backwards from what is left, R21 The same amount each day):
    - The picture is built by code from a sample problem and matches the words under it.
    - R19 shows two pictures: the first cut and the second cut. R21 shows the day strip.
 3. **Quiz me** on each rule: five questions (always/sometimes/never, spot the mistake, which one doesn't belong, reverse it, draw it).
    - **Draw it** uses the bar sketch tool: cut the parts, colour them, **Check my drawing**. For R19 it needs 12 parts with 9 in one colour and 1 in another (any colours). A wrong drawing says what to fix.
    - One hint per question, and it must never give the answer.
-4. **Chapter quiz** for the topic: 10 questions drawn only from these three rules.
+4. **Chapter quiz** for the topic: 10 questions drawn from all 13 rules of the topic, so a quiz may include the new ones.
 5. **Olympiad challenges** (C9 to C14): try a wrong answer, then a right one. An equal form is accepted (6/40 for 3/20 is wrong only where the question asks for simplest form).
 6. **Parent page:** after answering, the parent page shows the new rules' stars and the challenges solved.
 

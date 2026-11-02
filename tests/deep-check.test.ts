@@ -358,15 +358,13 @@ describe('the Deep Check store', () => {
 })
 
 describe('rule groups', () => {
-  it('puts R1 to R8 under addition and subtraction and R9 to R12 under multiplication and division', () => {
+  it('puts R1 to R8 under addition and subtraction and R9 to R21 under multiplication and division', () => {
     expect(RULE_GROUPS.map((g) => g.title)).toEqual([
       'Fraction addition and subtraction',
       'Fraction multiplication and division',
-      'Word-problem models',
     ])
-    expect(rulesIn('models').map((r) => r.id)).toEqual(['R19', 'R20', 'R21'])
     expect(rulesIn('addsub').map((r) => r.id)).toEqual(['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8'])
-    expect(rulesIn('muldiv').map((r) => r.id)).toEqual(['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18'])
+    expect(rulesIn('muldiv').map((r) => r.id)).toEqual(['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19', 'R20', 'R21'])
     expect(groupOf('nope')).toBeUndefined()
     // every rule belongs to exactly one group
     const all = RULE_GROUPS.flatMap((g) => g.ruleIds)
@@ -809,11 +807,12 @@ describe('Olympiad challenges', () => {
     return { ok: g.correct, readable: g.readable, fields: Object.fromEntries(Object.entries(g.fields).map(([k, v]) => [k, v.status])) }
   }
 
-  it('has 8 challenges in the multiplication and division topic and 6 in word-problem models, each with a hint and readable answers', () => {
+  it('has 14 challenges in the multiplication and division topic (8, then 6 word-problem models), each with a hint and readable answers', () => {
     expect(CHALLENGES).toHaveLength(14)
     expect(new Set(CHALLENGES.map((c) => c.id)).size).toBe(14)
-    expect(challengesIn('muldiv')).toHaveLength(8)
-    expect(challengesIn('models')).toHaveLength(6)
+    expect(challengesIn('muldiv')).toHaveLength(14)
+    expect(challengesIn('muldiv').slice(8).map((c) => c.id)).toEqual(['C9', 'C10', 'C11', 'C12', 'C13', 'C14'])
+    expect(challengesIn('models')).toHaveLength(0)
     expect(challengesIn('addsub')).toHaveLength(0)
     for (const c of CHALLENGES) {
       expect(c.hints.length, c.id).toBeGreaterThan(0)
