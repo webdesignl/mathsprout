@@ -19,10 +19,20 @@ export interface PlanStep {
   b: string
   /** A question in plain words for this step. It never names the operation or a result. */
   label: string
+  /**
+   * Short names for the bar model, written by the AI and used only as words on the picture:
+   * what the first number is, what the second number is, and what this step's answer is
+   * (for example "wear glasses", "male", "male who do not wear glasses"). No digits, never an answer.
+   */
+  aName?: string
+  bName?: string
+  name?: string
 }
 
 export interface Plan {
   steps: PlanStep[]
+  /** What the whole is called in the bar model, for example "the family". */
+  whole?: string
 }
 
 export const MIN_PLAN_STEPS = 2
@@ -119,7 +129,7 @@ export function similarPlan(plan: Plan, random: () => number = Math.random): Sim
     }
     const lookup = new Map(swaps)
     const swap = (text: string) => lookup.get(text.trim()) ?? text
-    const next: Plan = { steps: plan.steps.map((s) => ({ ...s, a: swap(s.a), b: swap(s.b) })) }
+    const next: Plan = { ...plan, steps: plan.steps.map((s) => ({ ...s, a: swap(s.a), b: swap(s.b) })) }
     const changed = swaps.every(([old, now]) => old !== now) && new Set(swaps.map(([, n]) => n)).size === swaps.length
     if (changed && resolvePlan(next).ok) return { plan: next, swaps }
   }
