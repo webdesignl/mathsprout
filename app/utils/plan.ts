@@ -50,18 +50,24 @@ export interface RateSpec {
 }
 
 /**
- * "Things in a row with the same gap between them" (balloons, trees, poles). Positions are counted from 1.
- * Either the length of one gap is given (`gap`), or two known things and the distance between them (`near`).
- * `far` is where counting starts and the distance from there to the last one. Code turns it into steps and a
- * number line (see spacing.ts); the AI only reads the shape and the words.
+ * Spacing: marks at equal gaps along a line. The words (balloons, trees, poles, lamps, stairs) do not matter; the
+ * core is that marks and gaps are different counts: marks = gaps + 1, and distance = gaps x one gap. Positions are
+ * counted from 1. Two kinds of question:
+ * - find the last mark: `far` is where counting starts and the distance from there to the last mark, and the length
+ *   of one gap is given (`gap`) or worked out from two known marks (`near`).
+ * - find the distance: `count` marks in all and the length of one `gap`.
+ * Code turns it into steps and a number line (see spacing.ts); the AI only reads the shape and a word for the mark.
  */
 export interface SpacingSpec {
-  thing: string
+  /** What a mark is called ("balloon"); optional, and "mark" is used when it is missing. */
+  thing?: string
   plural?: string
   unit?: string
   gap?: string
   near?: { from: string; to: string; distance: string }
-  far: { from: string; distance: string }
+  far?: { from: string; distance: string }
+  /** How many marks there are in all, when the question is how far it is from the first to the last. */
+  count?: string
 }
 
 export interface Plan {

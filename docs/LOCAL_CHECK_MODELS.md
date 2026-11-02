@@ -63,13 +63,14 @@ Open <http://localhost:3000/dev/models>. It only exists while developing, and th
 - The strip grows after each step: used fraction, days for all of it, the day now, the days left, one day, all days.
 - The whole amount is not shown before step 6.
 
-### Things in a row (number line)
+### Spacing (marks and gaps on a number line)
 
 Pick "Things in a row (number line)" on `/dev/models`, step through, then "Use this sample in the Tutor".
 - The understand screen lists "What is given" and a number line with the known lanterns and a dashed "?" end.
 - No answer appears early: the 19th lantern is only drawn after the last step is answered.
 - Wrong answers to step 1 of 4 ("4") and the last step ("17" or "18") each show a nudge about the picture, never the answer.
 - "Rough work" opens with a number line behind the pad; "Number line" switches it off.
+- Also try the distance question in the Tutor by typing a reply through the AI or a test: 12 marks, gap 2 1/2 m, so 11 gaps and 27 1/2 m.
 - There is no bar model on these screens. Check at 375px: words stay readable and the page does not scroll sideways.
 
 ## In every case

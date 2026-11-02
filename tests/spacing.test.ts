@@ -71,11 +71,37 @@ describe('buildSpacingPlan', () => {
     expect(buildSpacingPlan({ ...POLES, gap: '0' })).toBeNull()
     expect(buildSpacingPlan({ ...POLES, far: { from: '0', distance: '20' } })).toBeNull()
     expect(buildSpacingPlan({ ...POLES, far: { from: '1', distance: '500' } })).toBeNull()
-    expect(buildSpacingPlan({ ...POLES, thing: ' ' })).toBeNull()
+    expect(buildSpacingPlan({ ...POLES, far: undefined })).toBeNull()
+    expect(buildSpacingPlan({ unit: 'm', count: '1', gap: '2' })).toBeNull()
+    expect(buildSpacingPlan({ unit: 'm', count: '5', gap: '0' })).toBeNull()
   })
 
   it('is not used to make a similar problem', () => {
     expect(similarPlan(buildSpacingPlan(LANTERNS)!.plan)).toBeNull()
+  })
+})
+
+describe('the word for the mark does not matter', () => {
+  it('works with no word at all and says "mark"', () => {
+    const built = buildSpacingPlan({ ...POLES, thing: undefined })!
+    expect(built.plan.steps[1]!.label).toBe('How many marks are there in all?')
+  })
+
+  it('finds the distance from the number of marks: gaps are one fewer', () => {
+    // 12 trees 2 1/2 m apart: 11 gaps, 27 1/2 m.
+    const built = buildSpacingPlan({ thing: 'tree', unit: 'm', count: '12', gap: '2 1/2' })!
+    const check = resolvePlan(built.plan)
+    expect(check.ok && check.results.map((r) => formatMixed(r))).toEqual(['11', '27 1/2'])
+    expect(built.stages).toHaveLength(2)
+    expect(built.stages[1]!.arcs.some((a) => a.label === '11 gaps = 27 1/2 m')).toBe(true)
+    expect(built.given.caption).not.toContain('27 1/2')
+    expect(built.stages[0]!.arcs.some((a) => a.label.includes('27'))).toBe(false)
+  })
+
+  it('nudges the usual slips for the distance question without giving the answer', () => {
+    const built = buildSpacingPlan({ thing: 'tree', unit: 'm', count: '12', gap: '2 1/2' })!
+    expect(built.nudges.map((n) => n.wrong)).toEqual(['12', '30'])
+    for (const n of built.nudges) expect(n.message).not.toMatch(/\b(11|27)\b/)
   })
 })
 
@@ -92,6 +118,13 @@ describe('reading a things-in-a-row problem', () => {
     const { client } = fakeClient(reply)
     const result = await readProblem(client, { text: 'x' })
     expect(result).toMatchObject({ ok: true, plan: { steps: [{}, {}, {}, {}], spacing: { thing: 'lantern' } } })
+  })
+
+  it('reads the distance question and a reply with no word for the mark', async () => {
+    const reply = JSON.stringify({ spacing: { count: '12', gap: '2 1/2', unit: 'm' }, problemText: 'A road story.', confidence: 'high' })
+    const { client } = fakeClient(reply)
+    const result = await readProblem(client, { text: 'x' })
+    expect(result).toMatchObject({ ok: true, plan: { steps: [{}, {}] } })
   })
 
   it('refuses a reply whose gaps do not fit', async () => {

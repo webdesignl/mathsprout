@@ -85,15 +85,16 @@ export const modelSameRateSchema = z.object({
   confidence: z.enum(['high', 'low']),
 })
 
-/** A things-in-a-row problem (balloons, trees, poles): gaps and positions, with the distance between known ones. */
+/** A spacing problem (marks at equal gaps: balloons, trees, poles, stairs): positions, gaps and distances. */
 export const modelSpacingSchema = z.object({
   spacing: z.object({
-    thing: z.string().max(30),
+    thing: z.string().max(30).optional(),
     plural: z.string().max(30).optional(),
     unit: z.string().max(12).optional(),
     gap: z.string().max(30).optional(),
     near: z.object({ from: z.string().max(3), to: z.string().max(3), distance: z.string().max(30) }).optional(),
-    far: z.object({ from: z.string().max(3), distance: z.string().max(30) }),
+    far: z.object({ from: z.string().max(3), distance: z.string().max(30) }).optional(),
+    count: z.string().max(3).optional(),
   }),
   problemText: z.string().max(600),
   confidence: z.enum(['high', 'low']),

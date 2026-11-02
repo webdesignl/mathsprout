@@ -1,12 +1,12 @@
-import { divide, formatMixed, parseMixed, simplify, toFraction, toMixed, type Fraction } from './fraction'
+import { divide, formatMixed, multiply, parseMixed, simplify, toFraction, toMixed, type Fraction } from './fraction'
 import { resolvePlan, type Plan, type PlanStep, type SpacingSpec } from './plan'
 import { withUnit } from './unitBar'
 
 /**
- * "Things in a row" problems (balloons, trees, poles): the distance between two of them is given, and the child
- * works out how many gaps there are, how long one gap is and which one is last. The classic slip is forgetting that
- * the things and the gaps are different counts, so the number line shows both. Code builds every step, checks it
- * with the fraction engine and draws the line; the AI only reads the shape and the words.
+ * Spacing problems: marks at equal gaps along a line (balloons, trees, poles, stairs; the word does not matter).
+ * The core is that marks and gaps are different counts (marks = gaps + 1) and distance = gaps x one gap. The number
+ * line shows both, because forgetting the difference is the classic slip. Code builds every step, checks it with
+ * the fraction engine and draws the line; the AI only reads the shape and a word for the mark.
  */
 const MAX_POSITION = 99
 /** Past this many positions the line shows only the named ones, not every tick. */
@@ -73,8 +73,9 @@ export interface SpacingPlan {
 }
 
 export function buildSpacingPlan(spec: SpacingSpec): SpacingPlan | null {
-  const thing = spec.thing.trim()
-  if (!thing) return null
+  const thing = spec.thing?.trim() || 'mark'
+  if (spec.count !== undefined) return buildDistancePlan(spec, thing)
+  if (!spec.far) return null
   const things = spec.plural?.trim() || pluralOf(thing)
   const unit = spec.unit?.trim()
   const start = wholeNumber(spec.far.from)
@@ -231,4 +232,62 @@ export function buildSpacingPlan(spec: SpacingSpec): SpacingPlan | null {
   ]
 
   return { plan, gaps, last, facts, given, stages, nudges }
+}
+
+/** "There are 12 trees, 2 1/2 m apart. How long is the road from the first to the last?" Marks minus one is the gaps. */
+function buildDistancePlan(spec: SpacingSpec, thing: string): SpacingPlan | null {
+  const things = spec.plural?.trim() || pluralOf(thing)
+  const unit = spec.unit?.trim()
+  const count = wholeNumber(spec.count ?? '')
+  const gap = parseMixed(spec.gap ?? '')
+  if (count === null || count < 2 || !gap || toFraction(gap).numerator <= 0) return null
+  const gaps = count - 1
+  const gapLength = simplify(toFraction(gap))
+  const steps: PlanStep[] = [
+    { op: 'subtract', a: String(count), b: '1', label: `How many gaps are there between the ${things}?` },
+    { op: 'multiply', a: 'r1', b: spec.gap!.trim(), label: `How far is it from the first ${thing} to the last one?` },
+  ]
+  const plan: Plan = { steps, spacing: spec }
+  const check = resolvePlan(plan)
+  if (!check.ok) return null
+  const total = simplify(multiply({ numerator: gaps, denominator: 1 }, gapLength))
+  const got = toFraction(check.results.at(-1)!)
+  if (got.numerator * total.denominator !== total.numerator * got.denominator) return null
+
+  const lengthText = withUnit(formatMixed(toMixed(gapLength)), unit)
+  const totalText = withUnit(formatMixed(toMixed(total)), unit)
+  const wrongTotal = simplify(multiply({ numerator: count, denominator: 1 }, gapLength))
+  const dots = (): SpacingDot[] => {
+    const all = count <= MAX_DOTS ? Array.from({ length: count }, (_, i) => ({ at: i + 1, tone: 2 as const })) : []
+    const named = new Map<number, SpacingDot>()
+    for (const d of [...all, { at: 1, label: '1st', tone: 0 as const }, { at: count, label: `${ordinal(count)} (last)`, tone: 0 as const }]) named.set(d.at, d)
+    return [...named.values()].sort((p, q) => p.at - q.at)
+  }
+  const firstGap: SpacingArc = { from: 1, to: 2, label: `1 gap = ${lengthText}`, side: 'above', tone: 0 }
+  const given: SpacingStage = {
+    dots: dots(),
+    arcs: [firstGap],
+    caption: `There are ${count} ${things} in a row. Each gap is ${lengthText}. How far is it from the first to the last?`,
+  }
+  const stages: SpacingStage[] = [
+    {
+      dots: dots(),
+      arcs: [firstGap, { from: 1, to: count, label: `${gaps} gaps`, side: 'below', tone: 1 }],
+      caption: `${count} ${things} have one fewer gap: the first ${thing} has no gap before it.`,
+    },
+    {
+      dots: dots(),
+      arcs: [firstGap, { from: 1, to: count, label: `${gaps} gaps = ${totalText}`, side: 'below', tone: 3 }],
+      caption: `${gaps} gaps of ${lengthText} each make ${totalText} from the first ${thing} to the last.`,
+    },
+  ]
+  const nudges: SpacingNudge[] = [
+    { step: 0, wrong: String(count), message: `That counts the ${things}. A gap is the space between two ${things}: hop along the line and count the hops.` },
+    {
+      step: 1,
+      wrong: formatMixed(toMixed(wrongTotal)),
+      message: `That treats every ${thing} as a gap. Look at the line: how many gaps are there between the first and the last ${thing}?`,
+    },
+  ]
+  return { plan, gaps, last: count, facts: [`${count} ${things} in a row`, `One gap is ${lengthText}`, `The ${things} are spread evenly`], given, stages, nudges }
 }
