@@ -682,6 +682,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** a line graph (kept as a possible second view); an automatic warm-up when step 2 is wrong (rejected: kids who see the idea should not be slowed); letting the AI write the steps (rejected, as in D-81).
 - **Status:** Active. Real AI reading of these problems is untested.
 
+### D-86: Tutor: things-in-a-row problems (number line) and "What is given"
+- **Date:** 2026-11
+- **Source:** User (a balloon-spacing homework problem the bar model could not explain)
+- **Decision:** A problem about things in a row with equal gaps (balloons, trees, poles) is read by the AI only as a shape (`spacing`: the thing, a known distance between two positions or the length of one gap, and the long distance to the last one). Code builds the steps (count the gaps, one gap, gaps to the last one, which number is last), checks each with the fraction engine and draws a number line (`SpacingLine.vue`): dots are the things, arcs are the gaps, so the "gaps + 1" slip is visible. The line shows only what she has earned; the unknown end is a dashed arrow ending in "?". A wrong answer that matches a known slip (counting things instead of gaps, forgetting to count from the start) gets a nudge that points at the picture and never contains the answer. The rough work pad starts with a number line behind it (a toggle), and the understand screen shows "What is given", built by code from the shape. No bar model for these problems. Generic follow-up question ladders were rejected as too generic.
+- **Alternatives:** a bar model (hides things versus gaps); a ladder of generic guiding questions for every step (rejected by the user); AI-written "given" lines for every problem (not done yet: they need a check that no number is an answer).
+- **Status:** Active. Real AI reading of these problems is untested; circles (gaps equal things) and "how many in all" with no near pair beyond the gap case are not covered.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?

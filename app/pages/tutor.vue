@@ -9,6 +9,7 @@ import { useScratchStore } from '../stores/scratch'
 import { buildBarStages, stageAt } from '../utils/fractionBar'
 import { buildUnitPlan } from '../utils/unitBar'
 import { buildRatePlan } from '../utils/rateBar'
+import { buildSpacingPlan } from '../utils/spacing'
 
 useHead({ title: 'Tutor · MathSprout' })
 
@@ -27,11 +28,23 @@ const barStages = computed(() => {
   if (!plan) return null
   if (plan.unit) return buildUnitPlan(plan.unit, plan.whole)?.stages ?? null
   if (plan.rate) return buildRatePlan(plan.rate, plan.whole)?.stages ?? null
+  // Things in a row get a number line, never a bar: a bar would hide the difference between things and gaps.
+  if (plan.spacing) return null
   return buildBarStages(plan)
 })
 /** The bar she has earned so far: the latest stage whose step she has answered. */
 const stageSoFar = computed(() => (barStages.value && store.stepIndex > 0 ? stageAt(barStages.value, store.stepIndex - 1) : null))
 const stageNow = computed(() => (barStages.value ? stageAt(barStages.value, store.stepIndex) : null))
+/** The number line for a things-in-a-row problem, or null when this problem is not that kind. */
+const spacing = computed(() => (store.plan?.spacing ? buildSpacingPlan(store.plan.spacing) : null))
+/** What she has earned so far: the line after her latest answered step, or the givens before the first. */
+const spacingStage = computed(() => (spacing.value ? (spacing.value.stages[store.stepIndex - 1] ?? spacing.value.given) : null))
+/** A nudge for a common slip, shown only after she gives that exact wrong answer on that step. */
+const spacingNudge = computed(() => {
+  const wrong = store.lastWrongAnswer.trim()
+  if (!spacing.value || !wrong || store.state === 'attempt') return ''
+  return spacing.value.nudges.find((n) => n.step === store.stepIndex && n.wrong === wrong)?.message ?? ''
+})
 const barReplay = ref(0)
 const answerKind = ref<'whole' | 'fraction' | 'mixed'>('mixed')
 const ANSWER_KINDS = [
@@ -285,9 +298,16 @@ function another() {
       <p v-if="store.confidence === 'low'" class="text-center text-xl font-semibold text-amber-950" role="status">
         I am not sure I read this right. If it looks wrong, tap “This isn’t my problem”.
       </p>
-      <PracticeProblemCard :problem="store.problem" :hide-operation="true" />
+      <PracticeProblemCard v-if="!spacing" :problem="store.problem" :hide-operation="true" />
       <p v-if="store.problemText && !store.plan" class="text-center text-lg text-slate-700">{{ store.problemText }}</p>
-      <TutorStepVisual :problem="store.problem" mode="question" />
+      <section v-if="spacing" aria-label="What is given" class="space-y-3 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <h2 class="text-xl font-bold text-slate-900">What is given</h2>
+        <ul class="list-disc space-y-1 pl-6 text-xl text-slate-900">
+          <li v-for="fact in spacing.facts" :key="fact">{{ fact }}</li>
+        </ul>
+        <TutorSpacingLine :stage="spacing.given" label="The things in a row on a number line" />
+      </section>
+      <TutorStepVisual v-else :problem="store.problem" mode="question" />
 
       <div v-if="!store.plan && !store.understanding.text && !store.understanding.loading">
         <button type="button" :class="secondary" @click="store.explainQuestion()">I don’t understand the question</button>
@@ -354,7 +374,11 @@ function another() {
       <p v-if="hintNumber" class="text-xl font-semibold text-slate-800">Hint {{ hintNumber }} of 3</p>
       <!-- In a multi-step problem the hint sits under the question and above the numbers. -->
       <PracticeProblemCard v-if="store.state !== 'teach'" :problem="store.problem" />
-      <TutorStepVisual v-if="store.state !== 'teach'" :problem="store.problem" mode="step" />
+      <section v-if="spacingStage && store.state !== 'teach'" aria-label="The number line" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <h2 class="text-xl font-bold text-slate-900">Picture the row</h2>
+        <TutorSpacingLine :stage="spacingStage" label="The things in a row on a number line" />
+      </section>
+      <TutorStepVisual v-if="store.state !== 'teach' && !spacing" :problem="store.problem" mode="step" />
       <section
         v-if="stageSoFar && store.state !== 'teach'"
         aria-label="The bar model so far"
@@ -388,6 +412,7 @@ function another() {
 
       <!-- The hint sits right above the answer boxes, so she never scrolls between them. -->
       <TutorHelpMessages />
+      <p v-if="spacingNudge" class="rounded-2xl border-2 border-indigo-700 bg-indigo-50 p-4 text-2xl text-slate-900" role="status">{{ spacingNudge }}</p>
 
       <form class="space-y-4" @submit.prevent="check">
         <p v-if="store.state === 'attempt'" class="text-center text-xl font-semibold">Try it first. What is your answer?</p>
@@ -427,7 +452,11 @@ function another() {
       <p class="text-center text-2xl text-slate-900">
         {{ store.stepLabel }} <span class="font-bold">{{ store.acceptedAnswer }}</span>
       </p>
-      <section v-if="stageNow" aria-label="The bar model" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+      <section v-if="spacing && spacing.stages[store.stepIndex]" aria-label="The number line" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <h2 class="text-xl font-bold text-slate-900">See it on the number line</h2>
+        <TutorSpacingLine :stage="spacing.stages[store.stepIndex]!" label="The things in a row on a number line" />
+      </section>
+      <section v-else-if="stageNow" aria-label="The bar model" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="text-xl font-bold text-slate-900">See it in a bar model</h2>
           <button
@@ -553,7 +582,7 @@ function another() {
     aria-label="Rough work"
     class="fixed inset-x-0 bottom-0 z-20 max-h-[48vh] overflow-y-auto rounded-t-2xl border-t-4 border-slate-700 bg-emerald-50 p-4 shadow-2xl lg:sticky lg:top-4 lg:max-h-none lg:overflow-visible lg:rounded-2xl lg:border-4 lg:shadow-md"
   >
-    <PracticeScratchPad :page-key="padKey" @close="scratch.toggle()" />
+    <PracticeScratchPad :key="store.plan?.spacing ? 'line' : 'plain'" :page-key="padKey" :number-line="Boolean(store.plan?.spacing)" @close="scratch.toggle()" />
   </aside>
   </div>
 </template>

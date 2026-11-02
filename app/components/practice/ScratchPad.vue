@@ -15,11 +15,12 @@ import {
 /** Resolution multiplier so lines stay sharp on tablets. */
 const SCALE = 2
 
-const props = defineProps<{ pageKey: string }>()
+const props = defineProps<{ pageKey: string; /** Starts with a ruled number line behind the page, for things-in-a-row problems. */ numberLine?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const scratch = useScratchStore()
 const canvas = ref<HTMLCanvasElement | null>(null)
+const showLine = ref(props.numberLine ?? false)
 
 let drawing: Stroke | null = null
 let activePointer: number | null = null
@@ -138,6 +139,15 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
       </button>
     </div>
 
+    <button
+      type="button"
+      :class="[toolButton, showLine ? 'bg-slate-900 text-white' : 'bg-white text-slate-900 ring-2 ring-slate-600 hover:bg-slate-100']"
+      :aria-pressed="showLine"
+      @click="showLine = !showLine"
+    >
+      Number line
+    </button>
+
     <div class="flex gap-2" role="group" aria-label="Fix mistakes">
       <button type="button" :class="actionButton" :disabled="!scratch.canUndo(pageKey)" @click="scratch.undo(pageKey)">
         Undo
@@ -159,6 +169,7 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
       :height="PAGE_HEIGHT * SCALE"
       role="img"
       aria-label="Rough work page. Draw with a finger, a pen or a mouse."
+      :class="{ 'paper-line': showLine }"
       class="paper mx-auto block aspect-square h-[28vh] w-auto max-w-full touch-none select-none rounded-xl border-2 border-slate-700 bg-white sm:h-[40vh] lg:h-auto lg:w-full"
       @contextmenu.prevent
       @pointerdown="onDown"
@@ -179,5 +190,16 @@ const actionButton = `${toolButton} bg-white text-slate-900 ring-2 ring-slate-60
     linear-gradient(to right, rgb(148 163 184 / 0.35) 1px, transparent 1px),
     linear-gradient(to bottom, rgb(148 163 184 / 0.35) 1px, transparent 1px);
   background-size: 5% 4%;
+}
+/* A ruled number line across the middle with a tick for every grid column, for counting gaps and things. */
+.paper-line {
+  background-image:
+    linear-gradient(to bottom, transparent calc(50% - 1.5px), rgb(15 23 42) calc(50% - 1.5px), rgb(15 23 42) calc(50% + 1.5px), transparent calc(50% + 1.5px)),
+    repeating-linear-gradient(to right, rgb(15 23 42) 0 2px, transparent 2px 5%),
+    linear-gradient(to right, rgb(148 163 184 / 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(148 163 184 / 0.35) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 8%, 5% 4%, 5% 4%;
+  background-position: 0 0, 0 50%, 0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, repeat, repeat;
 }
 </style>
