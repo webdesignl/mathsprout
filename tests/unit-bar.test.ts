@@ -4,6 +4,7 @@ import { resolvePlan, similarPlan, type UnitSpec } from '../app/utils/plan'
 import { buildUnitPlan, withUnit } from '../app/utils/unitBar'
 import { stageAt } from '../app/utils/fractionBar'
 import { readProblem } from '../server/utils/tutor/read'
+import { modelReadSchema } from '../server/utils/tutor/schemas'
 import { fakeClient } from './tutor-helpers'
 
 /** Original: Mia spends 1/3 on a bike; of the rest, 1/4 on books and 1/8 on snacks; $60 is left. */
@@ -75,5 +76,24 @@ describe('reading an unknown-whole problem', () => {
     const { client } = fakeClient(reply)
     const result = await readProblem(client, { text: 'x' })
     expect(result).toMatchObject({ ok: true, plan: { steps: [{}, {}, {}, {}, {}], whole: 'the whole' } })
+  })
+})
+
+describe('the model reply is checked early', () => {
+  const reply = (share: string, amount: string) => ({
+    unknownTotal: { groups: [{ takes: [{ share }] }], left: { amount } },
+    problemText: 'x',
+    confidence: 'high',
+  })
+  it('accepts a proper fraction share and a positive amount, with spaces around them', () => {
+    expect(modelReadSchema.safeParse(reply('1/4', '250')).success).toBe(true)
+    expect(modelReadSchema.safeParse(reply(' 3/5 ', ' 4 2/3 ')).success).toBe(true)
+  })
+  it('refuses a share that is not a proper fraction and an amount that is not above zero', () => {
+    expect(modelReadSchema.safeParse(reply('3/2', '250')).success).toBe(false)
+    expect(modelReadSchema.safeParse(reply('1/0', '250')).success).toBe(false)
+    expect(modelReadSchema.safeParse(reply('one quarter', '250')).success).toBe(false)
+    expect(modelReadSchema.safeParse(reply('1/4', '0')).success).toBe(false)
+    expect(modelReadSchema.safeParse(reply('1/4', 'lots')).success).toBe(false)
   })
 })
