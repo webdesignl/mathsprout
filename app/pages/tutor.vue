@@ -8,6 +8,7 @@ import { opSymbol, type AnyOp } from '../utils/fraction'
 import { useScratchStore } from '../stores/scratch'
 import { buildBarStages, stageAt } from '../utils/fractionBar'
 import { buildUnitPlan } from '../utils/unitBar'
+import { buildRatePlan } from '../utils/rateBar'
 
 useHead({ title: 'Tutor · MathSprout' })
 
@@ -24,7 +25,9 @@ const answer = ref<AnswerBoxes>(empty())
 const barStages = computed(() => {
   const plan = store.plan
   if (!plan) return null
-  return plan.unit ? (buildUnitPlan(plan.unit, plan.whole)?.stages ?? null) : buildBarStages(plan)
+  if (plan.unit) return buildUnitPlan(plan.unit, plan.whole)?.stages ?? null
+  if (plan.rate) return buildRatePlan(plan.rate, plan.whole)?.stages ?? null
+  return buildBarStages(plan)
 })
 /** The bar she has earned so far: the latest stage whose step she has answered. */
 const stageSoFar = computed(() => (barStages.value && store.stepIndex > 0 ? stageAt(barStages.value, store.stepIndex - 1) : null))
@@ -360,6 +363,12 @@ function another() {
         <h2 class="text-xl font-bold text-slate-900">What we found so far</h2>
         <TutorFractionBar :stage="stageSoFar" still />
       </section>
+      <details v-if="store.plan?.rate && store.stepIndex === 1 && store.state !== 'teach'" class="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <summary class="min-h-11 cursor-pointer text-xl font-bold text-slate-900">Try an easier one first (optional)</summary>
+        <div class="pt-3">
+          <TutorWarmUp :days="Number(store.plan.rate.first.days)" />
+        </div>
+      </details>
       <details v-if="barStages" class="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
         <summary class="min-h-11 cursor-pointer text-xl font-bold text-slate-900">Draw your own bar model (optional)</summary>
         <div class="pt-3">

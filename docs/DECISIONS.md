@@ -675,6 +675,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** let the AI write the steps (rejected: it must not do the maths and a long plan is easy to get wrong); solve by units only with no fraction steps (rejected: the app teaches the fraction steps too); more than two groups (later, if real problems need it).
 - **Status:** Active. Real AI reading of these problems is untested (the demo has none).
 
+### D-82: Tutor: same-amount-each-day problems (day strip) and an optional warm-up
+- **Date:** 2026-10
+- **Source:** User (their way of solving a home-work oil problem)
+- **Decision:** A problem where the same amount is used each day (a fraction left after some days, an amount left after some more) is read by the AI only as a shape (`sameRate`). `app/utils/rateBar.ts` builds six steps in the order a child thinks them (what fraction was used; how many days to use all of it = days ÷ fraction used; the day number now; days left; amount per day; the whole), checks each with the fraction engine and draws a day strip, one stage per answered step. A step whose days do not divide into whole cells keeps its steps and loses only the picture. Code-built plans may have six steps (the AI still writes at most five). On the "days to use all of it" step an optional "Try an easier one first" row asks the same question with half the jar used, checks the answer by code and then shows the half-and-half picture. A developer page, `/dev/models`, previews the three picture types and loads a sample into the Tutor with no AI, and `docs/LOCAL_CHECK_MODELS.md` says how to check each PR.
+- **Alternatives:** a line graph (kept as a possible second view); an automatic warm-up when step 2 is wrong (rejected: kids who see the idea should not be slowed); letting the AI write the steps (rejected, as in D-81).
+- **Status:** Active. Real AI reading of these problems is untested.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
