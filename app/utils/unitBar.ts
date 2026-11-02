@@ -238,8 +238,10 @@ function unitStages(
   const perUnit = formatMixed(toMixed(simplify(perUnitResult.value)))
   const amountText = withUnit(formatMixed(amount), spec.left.unit)
   const totalText = withUnit(formatMixed(toMixed(total)), spec.left.unit)
+  // The left part is found by where it sits, not by object identity, so a copy of the marks would still match.
+  const isLeft = (m: BarMark) => m.start === leftMark.start && m.count === leftMark.count && m.tone === leftMark.tone
   const finalMarks: BarMark[] = lastAfter.marks.map((m) =>
-    m === leftMark ? { ...m, phase: 1 as const, label: `${leftCells} unit${leftCells === 1 ? '' : 's'} = ${amountText}` } : { ...m, phase: 1 as const },
+    isLeft(m) ? { ...m, phase: 1 as const, label: `${leftCells} unit${leftCells === 1 ? '' : 's'} = ${amountText}` } : { ...m, phase: 1 as const },
   )
   finalMarks.push(mark(leftMark.start, 1, leftMark.tone, `1 unit = ${withUnit(perUnit, spec.left.unit)}`, false, 2))
   stages.push({

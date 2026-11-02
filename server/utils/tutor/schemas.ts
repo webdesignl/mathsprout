@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { AnyProblem } from '../../../app/utils/fraction'
+import { parseMixed, type AnyProblem } from '../../../app/utils/fraction'
 
 /** The most a typed or photographed number can be, so nothing overflows the engine. */
 const MAX_WHOLE = 99
@@ -38,19 +38,36 @@ const textInput = z.object({
 /** Either a photo or typed text, not both and not neither. */
 export const readInputSchema = z.union([imageInput, textInput])
 
-/** An unknown-whole problem: takes in groups, then an amount left. Code builds the steps and the answer. */
+/** A proper fraction such as 1/4 (more than 0, less than 1), checked by the fraction engine's parser. */
+const properFractionText = (text: string) => {
+  const m = parseMixed(text)
+  return m !== null && m.whole === 0 && m.num > 0 && m.num < m.den
+}
+/** A positive whole or mixed number such as 250 or 4 2/3. */
+const positiveNumberText = (text: string) => {
+  const m = parseMixed(text)
+  return m !== null && m.whole * m.den + m.num > 0
+}
+
+/**
+ * An unknown-whole problem: takes in groups, then an amount left. Code builds the steps and the answer.
+ * The shares and the amount are checked here so a badly written one is refused early; buildUnitPlan checks again.
+ */
 export const modelUnknownTotalSchema = z.object({
   unknownTotal: z.object({
     whole: z.string().max(80).optional(),
     groups: z
       .array(
         z.object({
-          takes: z.array(z.object({ share: z.string().max(30), name: z.string().max(80).optional() })).min(1).max(3),
+          takes: z
+            .array(z.object({ share: z.string().max(30).refine(properFractionText, 'a share is a fraction like 1/4'), name: z.string().max(80).optional() }))
+            .min(1)
+            .max(3),
         }),
       )
       .min(1)
       .max(2),
-    left: z.object({ amount: z.string().max(30), unit: z.string().max(6).optional(), name: z.string().max(80).optional() }),
+    left: z.object({ amount: z.string().max(30).refine(positiveNumberText, 'the amount left is a number above zero'), unit: z.string().max(6).optional(), name: z.string().max(80).optional() }),
   }),
   problemText: z.string().max(600),
   confidence: z.enum(['high', 'low']),
