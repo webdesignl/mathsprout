@@ -19,6 +19,7 @@ The PRs are stacked, so each branch includes the one before it.
 | 2 | `feature/tutor-unit-bar` | Work backwards (unit bar) |
 | 3 | `feature/tutor-rate-day-strip` | Same amount each day (day strip, warm-up, preview page) |
 | 4 | `feature/deepcheck-word-problem-models` | Three word-problem rules (R19 to R21) under Fraction multiplication and division in Deep Check: 15 quiz items, 6 Olympiad challenges, drawn bar models |
+| 5 | `feature/tutor-deepcheck-links` | Links from the Tutor to those rules, quizzes and challenges |
 
 ```bash
 git checkout feature/tutor-rate-day-strip
@@ -98,3 +99,20 @@ Also run the tests, which check every answer against the fraction engine:
 ```bash
 npm run test:run -- tests/deep-check.test.ts
 ```
+
+
+## Tutor to Deep Check links (branch `feature/tutor-deepcheck-links`)
+
+Use <http://localhost:3000/dev/models> to load a sample into the Tutor (see above), then solve it.
+
+1. **While stuck:** after the first wrong answer or "I'm stuck", a **Look at the rule: …** button appears under the hint. Tap it: the rule's picture opens right there, and **Close the rule** closes it. Your answer boxes stay as they were.
+2. **After the last step:** a card **Practise this idea: …** has three links:
+   - **Look at the rule** opens that rule in Deep Check.
+   - **Quick quiz** starts that rule's five questions.
+   - **Try an Olympiad problem** opens the first challenge for that rule.
+3. The right rule for each sample:
+   - Part of the rest: **R19 Of the rest**, challenge C9.
+   - Work backwards (unit bar): **R20 Work backwards from what is left**, challenge C11.
+   - Same amount each day: **R21 The same amount each day**, challenge C13.
+4. **No links for other problems:** a one-step problem, or a multi-step problem with no model, shows no practice card and no "Look at the rule" button.
+5. You can also type the links by hand: `/deep-check?rule=R19&mode=learn`, `/deep-check?rule=R20&mode=quiz` and `/deep-check?challenge=C13`. A wrong rule or challenge id is ignored and the usual Deep Check home opens.

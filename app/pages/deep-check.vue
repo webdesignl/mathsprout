@@ -27,9 +27,14 @@ async function loadProgress() {
     .limit(400)
   lines.value = (data ?? []) as AttemptLine[]
 }
+const route = useRoute()
 onMounted(() => {
   store.goHome()
   void loadProgress()
+  // A link from the Tutor opens a rule, its quiz or a challenge. Anything unknown is ignored by the store.
+  const { rule, mode, challenge } = route.query
+  if (typeof challenge === 'string') store.openChallenge(challenge)
+  else if (typeof rule === 'string') mode === 'quiz' ? store.startRule(rule) : store.openLearn(rule)
 })
 watch(() => store.view, (view) => view === 'home' && loadProgress())
 const progress = computed(() => deepCheckProgress(lines.value))

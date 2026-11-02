@@ -689,6 +689,13 @@ How to add one: copy the template, give it the next number (`D-NN`), and link th
 - **Alternatives:** a separate topic (the first version, replaced on review); a sixth item type for every rule (rejected: it would change mastery for all 18 existing rules); checking the drawing against exact cell positions (rejected: the order of the colours does not matter for understanding).
 - **Status:** Active.
 
+### D-84: Tutor links to the matching Deep Check rule
+- **Date:** 2026-10
+- **Source:** User
+- **Decision:** Code works out which of R19, R20 or R21 a Tutor plan teaches from its shape (`modelRuleId`: a plan with a `rate` is R21, a `unit` is R20, a plan the fraction bar can draw is R19; anything else has none). When she needs help (a hint or the teaching step), a "Look at the rule" button shows the rule's picture in place, without leaving the problem. After the last step (or at the "try one like it" offer) a "Practise this idea" card links to the rule, its quick quiz and the first Olympiad challenge for that rule. Deep Check reads `?rule=…&mode=learn|quiz` and `?challenge=…` when it opens, and ignores unknown ids. Nothing about the child is sent in a link.
+- **Alternatives:** open Deep Check automatically after a wrong step (rejected: it would take her out of the problem); have the AI choose the rule (rejected: code can tell from the plan, and a wrong rule would mislead).
+- **Status:** Active.
+
 ## Open questions
 
 - Persist ideas, parent reviews and drawings (local storage now, Supabase later)?
