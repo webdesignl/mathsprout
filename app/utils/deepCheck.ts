@@ -11,6 +11,7 @@ import {
   type BarTarget,
   type Item,
   type ItemType,
+  type ModelTarget,
   type ReverseCheck,
   type Rule,
 } from '../data/deepCheck'
@@ -207,6 +208,27 @@ export function gradeBars(target: BarTarget, state: BarState): Grade {
   }
   if (target.proper && state.pieces >= state.den) return { status: 'wrong', message: 'The amount is right, but there are still enough pieces to fill another bar. Regroup them.' }
   return { status: 'correct' }
+}
+
+/** The parts of a bar model she drew: one entry per part, a colour number or null for white. */
+export type ModelState = Array<number | null>
+
+/** The bar must have the right number of parts, and the coloured groups the right sizes (any colours, any order). */
+export function gradeModel(target: ModelTarget, parts: ModelState): Grade {
+  if (parts.length !== target.cells) return { status: 'wrong', message: `Cut the bar into ${target.cells} equal parts.` }
+  const sizes = new Map<number, number>()
+  for (const c of parts) if (c !== null) sizes.set(c, (sizes.get(c) ?? 0) + 1)
+  const got = [...sizes.values()].sort((a, b) => b - a)
+  const want = [...target.groups].sort((a, b) => b - a)
+  if (got.length === 0) return { status: 'wrong', message: 'Colour some parts first.' }
+  return got.length === want.length && got.every((n, i) => n === want[i])
+    ? { status: 'correct' }
+    : { status: 'wrong', message: 'The colours do not show the right amounts yet.' }
+}
+
+/** A "draw it" item that uses the bar model instead of the bar builder. */
+export function isModelDraw(item: Item): item is Extract<Item, { type: 'draw'; model: ModelTarget }> {
+  return item.type === 'draw' && 'model' in item
 }
 
 /** "3 6/5" for the bars on screen. */

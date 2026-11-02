@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useTutorStore } from '../../stores/tutor'
-import { buildBarStages, stageAt } from '../../utils/fractionBar'
-import { buildRatePlan } from '../../utils/rateBar'
-import { buildUnitPlan } from '../../utils/unitBar'
+import { stageAt } from '../../utils/fractionBar'
+import { SAMPLES } from '../../utils/modelSamples'
 import { createTutorApi } from '../../utils/tutorApi'
-import type { Plan } from '../../utils/plan'
 
 // A developer tool: it only exists while developing (see nuxt.config.ts, which drops every /dev route
 // from production builds). This check is a second lock.
@@ -15,45 +13,8 @@ if (!import.meta.dev) {
 
 useHead({ title: 'Word-problem models · MathSprout', meta: [{ name: 'robots', content: 'noindex' }] })
 
-interface Sample {
-  id: string
-  title: string
-  story: string
-  plan: Plan
-  stages: ReturnType<typeof buildBarStages>
-}
-
-/** Original problems for each type, so the pictures can be checked without the AI. */
-const STORY = {
-  rest: 'A library has some books. 3/4 of them are story books. 1/3 of the books that are not story books are about animals. What fraction of all the books are about animals?',
-  unit: 'Mia spent 1/3 of her savings on a bike. Of what was left she spent 1/4 on books and 1/8 on snacks. She had $60 left. How much were her savings at first?',
-  rate: 'A battery runs a lamp the same number of hours each day. 3/4 of the charge is left after 4 days. After 3 more days, 2 1/2 hours of light are left. How many hours of light did the full battery give?',
-}
-
-const restPlan: Plan = {
-  whole: 'the books',
-  steps: [
-    { op: 'subtract', a: '1', b: '3/4', label: 'What fraction of the books are not story books?', bName: 'story books', name: 'not story books' },
-    { op: 'multiply', a: 'r1', b: '1/3', label: 'What fraction of all the books are about animals?', name: 'about animals' },
-  ],
-}
-const unit = buildUnitPlan(
-  {
-    groups: [{ takes: [{ share: '1/3', name: 'bike' }] }, { takes: [{ share: '1/4', name: 'books' }, { share: '1/8', name: 'snacks' }] }],
-    left: { amount: '60', unit: '$', name: 'kept' },
-  },
-  'her savings',
-)!
-const rate = buildRatePlan({ first: { days: '4', left: '3/4' }, second: { days: '3', amountLeft: '2 1/2' }, unit: 'hours' }, 'the battery')!
-
-const samples: Sample[] = [
-  { id: 'rest', title: 'Part of the rest', story: STORY.rest, plan: restPlan, stages: buildBarStages(restPlan) },
-  { id: 'unit', title: 'Work backwards (unit bar)', story: STORY.unit, plan: unit.plan, stages: unit.stages },
-  { id: 'rate', title: 'Same amount each day (day strip)', story: STORY.rate, plan: rate.plan, stages: rate.stages },
-]
-
 const which = ref('rest')
-const sample = computed(() => samples.find((s) => s.id === which.value)!)
+const sample = computed(() => SAMPLES.find((s) => s.id === which.value)!)
 const step = ref(0)
 const replay = ref(0)
 const stage = computed(() => (sample.value.stages ? stageAt(sample.value.stages, step.value) : null))
@@ -92,7 +53,7 @@ const button =
 
     <div class="flex flex-wrap gap-2" role="group" aria-label="Problem type">
       <button
-        v-for="s in samples"
+        v-for="s in SAMPLES"
         :key="s.id"
         type="button"
         :aria-pressed="which === s.id"

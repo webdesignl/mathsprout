@@ -264,6 +264,7 @@ const scoreMessage = computed(() => {
           @choice="store.answerChoice($event)"
           @reverse="typed($event)"
           @draw="store.answerDraw($event)"
+          @model="store.answerModel($event)"
         />
       </div>
 

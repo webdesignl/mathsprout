@@ -14,9 +14,11 @@ const COLOURS = [
   { id: 4, name: 'purple', cls: 'bg-violet-300' },
 ] as const
 
+const props = withDefaults(defineProps<{ start?: number; checkLabel?: string; locked?: boolean }>(), { start: 4 })
+const emit = defineEmits<{ submit: [parts: Array<number | null>] }>()
+
 /** One place for the starting number of parts, used by the first draw and by Start again. */
-const START_CELLS = 4
-const blank = () => Array<number | null>(START_CELLS).fill(null)
+const blank = () => Array<number | null>(props.start).fill(null)
 
 /** A colour is found by its id, never by its position in the list. */
 const colourOf = (id: number | null) => COLOURS.find((c) => c.id === id)
@@ -43,6 +45,7 @@ function cutEach(by: number) {
 }
 
 function paint(i: number) {
+  if (props.locked) return
   cells.value = cells.value.map((c, k) => (k === i ? (c === pen.value ? null : pen.value) : c))
 }
 
@@ -116,6 +119,17 @@ const small =
       </label>
     </div>
 
-    <button type="button" :class="small" @click="clear">Start again</button>
+    <div class="flex flex-wrap gap-3">
+      <button
+        v-if="checkLabel"
+        type="button"
+        :disabled="locked"
+        class="inline-flex min-h-12 items-center rounded-xl bg-emerald-700 px-6 text-lg font-bold text-white hover:bg-emerald-800 disabled:opacity-60"
+        @click="emit('submit', cells)"
+      >
+        {{ checkLabel }}
+      </button>
+      <button type="button" :class="small" :disabled="locked" @click="clear">Start again</button>
+    </div>
   </div>
 </template>

@@ -35,6 +35,8 @@ export type Frame =
   | { kind: 'steps'; title: string; lines: { tone: 'wrong' | 'right' | 'plain'; text: string }[]; caption: string }
   /** Keep, change, flip, with a balance showing why it works. */
   | { kind: 'flow'; steps: { word: string; text: string }[]; result: string; balance: { left: string; right: string }; caption: string }
+  /** A picture from the Tutor's word-problem models (see app/utils/modelSamples.ts), after the given step. */
+  | { kind: 'model'; sample: 'rest' | 'unit' | 'rate'; step: number; caption: string }
 
 export interface Rule {
   id: string
@@ -62,6 +64,14 @@ export interface BarTarget {
   proper?: boolean
   /** Must be exactly this many bars and pieces (for regrouping). */
   exact?: { wholes: number; pieces: number }
+}
+
+/** A drawn bar model: the bar must be cut into `cells` parts, and the coloured groups must have these sizes (in any order and colours). */
+export interface ModelTarget {
+  /** How many parts the bar starts with. */
+  start: number
+  cells: number
+  groups: number[]
 }
 
 export type ReverseCheck =
@@ -96,6 +106,8 @@ export type Item =
   | (ItemBase & { type: 'oddOneOut'; options: string[]; answer: number })
   | (ItemBase & { type: 'reverse'; check: ReverseCheck; format: string })
   | (ItemBase & { type: 'draw'; start: BarStart; dens: number[]; target: BarTarget })
+  /** Draw it with the bar model: cut, colour and label. Code checks the cuts and the colours. */
+  | (ItemBase & { type: 'draw'; model: ModelTarget })
 
 export const RULES: Rule[] = [
   {
@@ -459,6 +471,60 @@ export const RULES: Rule[] = [
       },
     ],
   },
+  {
+    id: 'R19',
+    title: 'Of the rest',
+    statement: '“Of the rest” means a fraction of what is LEFT, not of the whole. Find the rest first (the whole minus the part used), then take the fraction of that.',
+    misconception: '“1/3 of the rest is the same as 1/3 of the whole.”',
+    frames: [
+      {
+        kind: 'model',
+        sample: 'rest',
+        step: 0,
+        caption: '3/4 of the books are story books. The part that is not story books is what is left: 1 part out of 4.',
+      },
+      {
+        kind: 'model',
+        sample: 'rest',
+        step: 1,
+        caption: 'Each part is cut into 3, so the bar has 12 parts. 1/3 of the 3 small parts that are left is 1 small part: 1/12 of all the books.',
+      },
+    ],
+  },
+  {
+    id: 'R20',
+    title: 'Work backwards from what is left',
+    statement: 'When the amount that is LEFT is known, it is worth a fraction of the whole. Find what fraction is left, then divide the amount by that fraction to find the whole.',
+    misconception: '“Multiply the amount that is left by the fraction.”',
+    frames: [
+      {
+        kind: 'model',
+        sample: 'unit',
+        step: 3,
+        caption: 'Mia’s bar is cut into equal units. The units that are left are worth $60, so one unit is $60 divided by the number of units. All the units make her savings.',
+      },
+    ],
+  },
+  {
+    id: 'R21',
+    title: 'The same amount each day',
+    statement: 'If the same amount is used each day, a fraction used in some days tells how long it all lasts: divide the days by the fraction used. Then one day is a unit you can share the amount out with.',
+    misconception: '“If 2/5 is used in 6 days, all of it lasts 6 × 2/5 days.”',
+    frames: [
+      {
+        kind: 'model',
+        sample: 'rate',
+        step: 1,
+        caption: '1/4 of the charge is used in 4 days. Each quarter is 4 days, so all 4 quarters take 16 days. The strip has one block for each day.',
+      },
+      {
+        kind: 'model',
+        sample: 'rate',
+        step: 4,
+        caption: 'The days left share the amount that is left equally, so that gives the amount for one day. All the days together make the whole.',
+      },
+    ],
+  },
 ]
 
 /** The topics the rules sit under. A group with no rules yet shows "coming soon". */
@@ -479,8 +545,8 @@ export const RULE_GROUPS: RuleGroup[] = [
   {
     id: 'muldiv',
     title: 'Fraction multiplication and division',
-    summary: 'Setting up mixed numbers, what multiplying and dividing by fractions mean, the shortcuts, and the greatest-product plan.',
-    ruleIds: ['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18'],
+    summary: 'Setting up mixed numbers, what multiplying and dividing by fractions mean, the shortcuts, the greatest-product plan, and word problems with bar models.',
+    ruleIds: ['R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19', 'R20', 'R21'],
   },
 ]
 
@@ -1333,6 +1399,141 @@ export const ITEMS: Item[] = [
     target: { den: 3, total: 2 },
     explanation: 'The smaller digit goes on top so the fraction is proper: 2/3.',
   },
+
+  // ---------------- R19: of the rest ----------------
+  {
+    id: 'R19-asn', ruleId: 'R19', type: 'asn',
+    prompt: 'A shop sells 2/5 of its pens. Then it sells 1/3 of the pens that are left. The second sale is smaller than 1/3 of all the pens.',
+    hint: 'Compare what the second sale is a part of with all of the pens. Which group is bigger?',
+    answer: 'always',
+    explanation: 'The second sale is 1/3 of what was left, and what was left is smaller than all of the pens. Here it is 1/3 of 3/5, which is 1/5 of the pens, smaller than 1/3.',
+  },
+  {
+    id: 'R19-spot', ruleId: 'R19', type: 'spotMistake',
+    prompt: 'A shop sold 2/5 of its cakes in the morning. In the afternoon it sold 1/2 of the cakes that were left. Kai says the afternoon sale was 1/2 of 2/5 of all the cakes. What is Kai’s mistake?',
+    hint: 'Which group of cakes was the afternoon sale a part of: the ones sold earlier, or the ones still in the shop?',
+    options: [
+      'Kai took 1/2 of the cakes sold in the morning, but it should be 1/2 of the cakes that were left.',
+      'Kai should have added 2/5 and 1/2.',
+      'Kai should have taken 1/2 of all the cakes.',
+      'There is no mistake.',
+    ],
+    answer: 0,
+    explanation: 'After the morning, 3/5 of the cakes were left. The afternoon sale is 1/2 of those 3/5, which is 3/10 of all the cakes. Kai used 2/5, the morning sale, by mistake.',
+  },
+  {
+    id: 'R19-odd', ruleId: 'R19', type: 'oddOneOut',
+    prompt: 'A club has 2/3 of its members in the choir. 1/4 of the members who are NOT in the choir play the guitar. Which one does not show the fraction of all the members who play the guitar?',
+    hint: 'First find the fraction of the members who are not in the choir. The guitar players are a part of that group.',
+    options: ['1/4 × (1 − 2/3)', '1/4 of 1/3', '1/4 × 2/3', '1/12'],
+    answer: 2,
+    explanation: 'The members not in the choir are 1 − 2/3 = 1/3 of the club. The guitar players are 1/4 of that: 1/4 × 1/3 = 1/12. Multiplying 1/4 by 2/3 takes a part of the choir instead, which is 1/6.',
+  },
+  {
+    id: 'R19-rev', ruleId: 'R19', type: 'reverse',
+    prompt: '2/3 of a club are in the choir. 1/4 of the members who are not in the choir play the guitar. Type the fraction of all the members who play the guitar.',
+    hint: 'Find the fraction who are not in the choir first. The guitar players are a part of that group, not of the whole club.',
+    check: { kind: 'fractionEquals', target: '1/12' },
+    format: 'Write one fraction.',
+    explanation: 'The members not in the choir are 1/3 of the club. The guitar players are 1/4 of 1/3, which is 1/12 of all the members.',
+  },
+  {
+    id: 'R19-draw', ruleId: 'R19', type: 'draw',
+    prompt: 'Cut the bar into 12 equal parts. Colour 3/4 of the bar. Then colour 1/3 of the parts that are NOT coloured yet, in a new colour.',
+    hint: 'First work out how many parts 3/4 of the bar is. Then count the parts left over and take a third of those.',
+    model: { start: 4, cells: 12, groups: [9, 1] },
+    explanation: '3/4 of 12 parts is 9 parts. 3 parts are left, and 1/3 of those is 1 part. So 9 parts are one colour, 1 part is another colour, and 2 parts stay white.',
+  },
+
+  // ---------------- R20: work backwards from what is left ----------------
+  {
+    id: 'R20-asn', ruleId: 'R20', type: 'asn',
+    prompt: 'Part of a rope is cut off. The length of rope that is left is shorter than the whole rope.',
+    hint: 'Think about what the whole rope is made of. What did the cut take away?',
+    answer: 'always',
+    explanation: 'The whole rope is the part that was cut off plus the part that is left. So the part that is left is always shorter than the whole.',
+  },
+  {
+    id: 'R20-spot', ruleId: 'R20', type: 'spotMistake',
+    prompt: '1/4 of the water in a tank is used. 30 litres are left. Sam says the tank held 30 × 3/4 litres. What is Sam’s mistake?',
+    hint: 'Is 30 litres the whole tank, or only a part of it? What do you do to a part to find the whole?',
+    options: [
+      'Sam multiplied, but 30 litres is 3/4 of the tank, so he should divide 30 by 3/4.',
+      'Sam should add 30 and 3/4.',
+      'Sam should multiply 30 by 1/4.',
+      'There is no mistake.',
+    ],
+    answer: 0,
+    explanation: '1/4 was used, so 3/4 of the tank is left, and that is 30 litres. To find the whole, divide: 30 ÷ 3/4 = 40 litres. Multiplying by 3/4 makes the number smaller, but the whole tank must hold more than what is left.',
+  },
+  {
+    id: 'R20-odd', ruleId: 'R20', type: 'oddOneOut',
+    prompt: '2/5 of the coins are taken out of a jar and 18 coins are left. Which one does not equal the number of coins that were in the jar?',
+    hint: 'The coins that are left are a fraction of the whole jar. Which fraction? Then ask how big the whole jar is.',
+    options: ['18 ÷ 3/5', '18 × 5/3', '18 × 3/5', '18 ÷ 3 × 5'],
+    answer: 2,
+    explanation: '2/5 were taken out, so 3/5 are left, and 18 is 3/5 of the coins. The whole is 18 ÷ 3/5 = 30. Multiplying 18 by 3/5 finds 3/5 of 18, which goes the wrong way.',
+  },
+  {
+    id: 'R20-rev', ruleId: 'R20', type: 'reverse',
+    prompt: '2/5 of the coins are taken out of a jar. Type the fraction of the coins that are left.',
+    hint: 'The whole jar is one whole. If some is taken out, what is left of that whole?',
+    check: { kind: 'fractionEquals', target: '3/5' },
+    format: 'Write one fraction.',
+    explanation: 'The whole jar is 1, or 5/5. Taking away 2/5 leaves 5/5 − 2/5 = 3/5 of the coins.',
+  },
+  {
+    id: 'R20-draw', ruleId: 'R20', type: 'draw',
+    prompt: 'The bar is a whole jar of coins. Cut it into 5 equal parts. Colour the 2 parts that are taken out. The parts that are left hold 18 coins.',
+    hint: 'Each part is the same size. How many parts are taken out, and how many parts are left?',
+    model: { start: 1, cells: 5, groups: [2] },
+    explanation: 'The jar is in fifths: 2 parts are taken out and 3 parts are left. The 3 parts hold 18 coins, so each part holds 6 coins and the whole jar held 30.',
+  },
+
+  // ---------------- R21: the same amount each day ----------------
+  {
+    id: 'R21-asn', ruleId: 'R21', type: 'asn',
+    prompt: 'A tank is emptied at the same speed each day. 1/4 of the water is used in 3 days. All of the water lasts longer than 3 days.',
+    hint: 'If one part of the water takes 3 days, what about all of the parts together?',
+    answer: 'always',
+    explanation: 'All of the water is more than 1/4 of it, and the same amount goes each day, so all of it lasts longer than 3 days. Here it lasts 12 days.',
+  },
+  {
+    id: 'R21-spot', ruleId: 'R21', type: 'spotMistake',
+    prompt: 'A bottle of juice is used at the same speed each day. 1/3 of it is used in 4 days. Ria says all the juice lasts 4 × 1/3 days. What is Ria’s mistake?',
+    hint: 'Should all of the juice last longer or shorter than the days that only a third of it lasts?',
+    options: [
+      'Ria multiplied, but 4 days is 1/3 of the time, so all the juice lasts 4 ÷ 1/3 days.',
+      'Ria should add 4 and 1/3.',
+      'Ria should divide 1/3 by 4.',
+      'The speed changes, so it cannot be found.',
+    ],
+    answer: 0,
+    explanation: '1/3 takes 4 days, so 3 thirds take 3 × 4 = 12 days. That is 4 ÷ 1/3. Multiplying 4 by 1/3 gives fewer days than 4, but all of the juice must last longer.',
+  },
+  {
+    id: 'R21-odd', ruleId: 'R21', type: 'oddOneOut',
+    prompt: '1/5 of a box of tea lasts 2 days. Which one does not show how many days all of the tea lasts?',
+    hint: 'All of the tea is more than 1/5 of it. Should the number of days be bigger or smaller than 2?',
+    options: ['2 × 5', '2 ÷ 1/5', '2 × 1/5', '5 groups of 2 days'],
+    answer: 2,
+    explanation: '5 fifths last 5 × 2 = 10 days, which is 2 ÷ 1/5. The option 2 × 1/5 is only 2/5 of a day, far less than 2 days.',
+  },
+  {
+    id: 'R21-rev', ruleId: 'R21', type: 'reverse',
+    prompt: '1/5 of a box of tea lasts 2 days, at the same speed each day. Type how many days all of the tea lasts.',
+    hint: 'How many fifths make all of the tea? Each fifth lasts the same number of days.',
+    check: { kind: 'fractionEquals', target: '10' },
+    format: 'Write a whole number of days.',
+    explanation: 'Five fifths make the whole box, and each fifth lasts 2 days. So all of the tea lasts 5 × 2 = 10 days.',
+  },
+  {
+    id: 'R21-draw', ruleId: 'R21', type: 'draw',
+    prompt: 'The bar is a whole box of tea, with one block for each day it lasts. Colour the blocks for the 2 days that use up the first 1/5 of the tea. Cut the bar into the right number of day blocks first.',
+    hint: 'If 2 days is one fifth of all the days, how many days are there in all? Make that many blocks.',
+    model: { start: 5, cells: 10, groups: [2] },
+    explanation: '2 days is one fifth, so all 5 fifths take 10 days. The bar has 10 blocks and 2 of them are coloured.',
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -1495,5 +1696,74 @@ export const CHALLENGES: Challenge[] = [
     ],
     explanation:
       'Greatest product: 8 × 4 2/3 = 112/3 = 37 1/3. Smallest product: 2 × 4 3/8 = 70/8 = 8 3/4. Greatest quotient: 8 ÷ 2 3/4 = 32/11 = 2 10/11. Smallest quotient: 2 ÷ 8 3/4 = 8/35.',
+  },
+  {
+    id: 'C9',
+    title: 'The Ticket Table',
+    groupId: 'muldiv',
+    ruleIds: ['R19'],
+    story:
+      'A school fair sold 2/5 of its tickets on Friday. On Saturday it sold 1/4 of the tickets that were still left. What fraction of all the tickets were sold on Saturday? And what fraction of all the tickets were still not sold after Saturday?',
+    hints: ['Saturday’s sales are a part of the tickets left on Friday night, not a part of all the tickets. Find the fraction left first.'],
+    fields: [
+      { id: 'sat', label: 'Fraction of all the tickets sold on Saturday', kind: 'number', answer: '3/20', format: 'Write the fraction in simplest form.', simplest: true },
+      { id: 'left', label: 'Fraction of all the tickets not sold after Saturday', kind: 'number', answer: '9/20', format: 'Write the fraction in simplest form.', simplest: true },
+    ],
+    explanation: 'After Friday, 3/5 were left. Saturday sold 1/4 of 3/5 = 3/20. Not sold: 1 − 2/5 − 3/20 = 20/20 − 8/20 − 3/20 = 9/20.',
+  },
+  {
+    id: 'C10',
+    title: 'The Baker’s Flour',
+    groupId: 'muldiv',
+    ruleIds: ['R19'],
+    story:
+      'A baker used 3/8 of the flour for bread. Of the flour that was left, 2/5 was used for cakes and 1/5 for pies. What fraction of all the flour was still left at the end?',
+    hints: ['Cakes and pies are both parts of the flour that was left after the bread, so find that fraction first.'],
+    fields: [{ id: 'left', label: 'Fraction of all the flour left', kind: 'number', answer: '1/4', format: 'Write the fraction in simplest form.', simplest: true }],
+    explanation: 'After the bread, 5/8 was left. Cakes: 2/5 of 5/8 = 1/4. Pies: 1/5 of 5/8 = 1/8. Left: 5/8 − 1/4 − 1/8 = 5/8 − 2/8 − 1/8 = 2/8 = 1/4.',
+  },
+  {
+    id: 'C11',
+    title: 'The Orchard Sale',
+    groupId: 'muldiv',
+    ruleIds: ['R19', 'R20'],
+    story:
+      'A farmer sold 1/2 of the apples he picked. Then he gave 1/3 of the apples that were left to a school. He had 24 apples left. How many apples did he pick?',
+    hints: ['Find what fraction of the apples he had left at the end. Then 24 apples are worth that fraction of all of them.'],
+    fields: [{ id: 'total', label: 'Apples he picked', kind: 'number', answer: '72', format: 'Write a whole number of apples.' }],
+    explanation: 'After selling, 1/2 was left. He gave away 1/3 of that, so 2/3 of 1/2 = 1/3 of all the apples was left. 24 apples are 1/3, so all the apples are 24 ÷ 1/3 = 72.',
+  },
+  {
+    id: 'C12',
+    title: 'Nina’s Savings',
+    groupId: 'muldiv',
+    ruleIds: ['R19', 'R20'],
+    story:
+      'Nina spent 1/5 of her savings on a book. Of what was left she spent 3/8 on a game. She had $25 left. How many dollars did she save at first?',
+    hints: ['The game was paid for out of what was left after the book. Find the fraction of all her savings that is left at the end.'],
+    fields: [{ id: 'total', label: 'Dollars saved at first', kind: 'number', answer: '50', format: 'Write a whole number of dollars.' }],
+    explanation: 'After the book, 4/5 was left. The game cost 3/8 of 4/5 = 3/10. Left: 4/5 − 3/10 = 1/2. $25 is 1/2 of her savings, so she saved 25 ÷ 1/2 = $50.',
+  },
+  {
+    id: 'C13',
+    title: 'The Pump',
+    groupId: 'muldiv',
+    ruleIds: ['R21'],
+    story:
+      'A pump empties a tank at the same speed each hour. After 2 hours, 4/5 of the water is left. After 3 more hours, 6 litres are left. How many litres were in the tank at first?',
+    hints: ['Find how many hours the pump needs to empty the whole tank. Then see how many of those hours are still to come after the 5 hours.'],
+    fields: [{ id: 'total', label: 'Litres in the tank at first', kind: 'number', answer: '12', format: 'Write a whole number of litres.' }],
+    explanation: '1/5 was pumped out in 2 hours, so all of it takes 2 ÷ 1/5 = 10 hours. After 5 hours, 5 hours are left and 6 litres remain, so 1 hour is 6/5 litres. In 10 hours: 10 × 6/5 = 12 litres.',
+  },
+  {
+    id: 'C14',
+    title: 'The Rice Bag',
+    groupId: 'muldiv',
+    ruleIds: ['R21'],
+    story:
+      'A family eats the same amount of rice each day. After 2 days, 5/6 of the rice in a bag is left. After 4 more days, 4 1/2 kilograms are left. How many kilograms of rice were in the bag at first?',
+    hints: ['Find how many days the whole bag lasts. Then work out how many days are left after the 6 days that have gone.'],
+    fields: [{ id: 'total', label: 'Kilograms of rice at first', kind: 'number', answer: '9', format: 'Write the number of kilograms.' }],
+    explanation: '1/6 is eaten in 2 days, so the bag lasts 2 ÷ 1/6 = 12 days. After 6 days, 6 days are left and 4 1/2 kg remain, so one day is 3/4 kg. In 12 days: 12 × 3/4 = 9 kg.',
   },
 ]

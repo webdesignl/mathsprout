@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AsnAnswer, Item } from '../../data/deepCheck'
-import type { BarState, Grade } from '../../utils/deepCheck'
+import type { BarState, Grade, ModelState } from '../../utils/deepCheck'
 import type { Feedback } from '../../stores/deepCheck'
 
 const props = defineProps<{ item: Item; feedback: Feedback | null }>()
@@ -9,6 +9,7 @@ const emit = defineEmits<{
   choice: [index: number]
   reverse: [text: string]
   draw: [state: BarState]
+  model: [parts: ModelState]
 }>()
 
 const locked = computed(() => props.feedback !== null)
@@ -96,6 +97,14 @@ function optionClass(chosen: boolean, isAnswer: boolean) {
     </form>
 
     <!-- Draw it -->
+    <TutorBarSketch
+      v-else-if="'model' in item"
+      :key="item.id"
+      :start="item.model.start"
+      check-label="Check my drawing"
+      :locked="locked"
+      @submit="emit('model', $event)"
+    />
     <DeepCheckBarBuilder v-else :start="item.start" :dens="item.dens" :locked="locked" @submit="emit('draw', $event)" />
   </div>
 </template>
