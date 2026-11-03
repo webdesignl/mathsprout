@@ -32,7 +32,11 @@ const LEGEND = {
   object: 'bg-indigo-700 text-white',
   gap: 'bg-amber-100 text-amber-950 ring-1 ring-amber-700',
 } as const
-/** One chip for each kind of piece in the row, saying what it is and how long (or "?" for a gap not found yet). */
+/**
+ * One chip for each kind of piece in the row, saying what it is and how long (or "?" for a gap not found yet).
+ * Taking the first block of a kind is right: every margin has the same width, every object the same width and name,
+ * and every gap the same size, because the builder draws them from one value each (see buildFramePlan).
+ */
 const legend = computed(() =>
   (['margin', 'object', 'gap'] as const).flatMap((kind) => {
     const b = props.stage.blocks.find((x) => x.kind === kind)
