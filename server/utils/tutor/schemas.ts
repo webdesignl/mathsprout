@@ -85,12 +85,28 @@ export const modelSameRateSchema = z.object({
   confidence: z.enum(['high', 'low']),
 })
 
+/** A spacing problem (marks at equal gaps: balloons, trees, poles, stairs): positions, gaps and distances. */
+export const modelSpacingSchema = z.object({
+  spacing: z.object({
+    thing: z.string().max(30).optional(),
+    plural: z.string().max(30).optional(),
+    unit: z.string().max(12).optional(),
+    gap: z.string().max(30).optional(),
+    near: z.object({ from: z.string().max(3), to: z.string().max(3), distance: z.string().max(30) }).optional(),
+    far: z.object({ from: z.string().max(3), distance: z.string().max(30) }).optional(),
+    count: z.string().max(3).optional(),
+  }),
+  problemText: z.string().max(600),
+  confidence: z.enum(['high', 'low']),
+})
+
 /** What the model returns when it reads a problem. */
 export const modelReadSchema = z.union([
   z.object({ unsupported: z.literal(true) }),
   // Placed before the others: its own shape is checked first, so a plan with steps never matches it by accident.
   modelUnknownTotalSchema,
   modelSameRateSchema,
+  modelSpacingSchema,
   z.object({
     operation: z.enum(OPERATIONS),
     operands: z.array(z.string().max(30)).min(2).max(6),
