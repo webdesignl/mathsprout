@@ -1,4 +1,4 @@
-import { divide, formatMixed, multiply, parseMixed, simplify, toFraction, toMixed, type Fraction } from './fraction'
+import { divide, formatMixed, multiply, parseMixed, simplify, subtract, toFraction, toMixed, type Fraction } from './fraction'
 import { resolvePlan, type Plan, type PlanStep, type SpacingSpec } from './plan'
 import { withUnit } from './unitBar'
 
@@ -70,10 +70,31 @@ export interface SpacingPlan {
   /** The picture after each step has been answered. */
   stages: SpacingStage[]
   nudges: SpacingNudge[]
+  /** Set for margins-and-widths problems: these pictures replace `given` and `stages`. */
+  frame?: { given: FrameStage; stages: FrameStage[] }
+}
+
+/** One piece of a row with margins: a margin, an object or a gap. Positions are in the row's own units. */
+export interface FrameBlock {
+  from: number
+  to: number
+  kind: 'margin' | 'object' | 'gap'
+  label: string
+}
+
+export interface FrameStage {
+  blocks: FrameBlock[]
+  /** A bracket over part of the row, with its length in words. */
+  braces: Array<{ from: number; to: number; label: string; tone: number }>
+  /** What she has worked out so far, one short line each. */
+  facts: string[]
+  caption: string
 }
 
 export function buildSpacingPlan(spec: SpacingSpec): SpacingPlan | null {
   const thing = spec.thing?.trim() || 'mark'
+  if (spec.edge !== undefined || spec.size !== undefined) return buildFramePlan(spec, thing)
+  if (spec.ask === 'gaps') return buildFitPlan(spec, thing)
   if (spec.count !== undefined) return spec.total !== undefined ? buildGapPlan(spec, thing) : buildDistancePlan(spec, thing)
   if (!spec.far) return null
   const things = spec.plural?.trim() || pluralOf(thing)
@@ -352,4 +373,191 @@ function buildGapPlan(spec: SpacingSpec, thing: string): SpacingPlan | null {
     })
   }
   return { plan, gaps, last: count, facts: [`${count} ${things} in a row, one at each end`, `Length from the first to the last: ${totalText}`, `The ${things} are spread evenly`], given, stages, nudges }
+}
+
+/** "How many gaps of 7/8 inch fit in 8 3/4 inches?" The question stops at the gaps; the marks are one more. */
+function buildFitPlan(spec: SpacingSpec, thing: string): SpacingPlan | null {
+  const unit = spec.unit?.trim()
+  const gap = parseMixed(spec.gap ?? '')
+  const total = parseMixed(spec.far?.distance ?? '')
+  if (!gap || !total || toFraction(gap).numerator <= 0 || toFraction(total).numerator <= 0) return null
+  const gapLength = simplify(toFraction(gap))
+  const fits = divide(simplify(toFraction(total)), gapLength)
+  // It must fit a whole number of times; leftovers need a step the engine cannot check.
+  if (!fits.ok || simplify(fits.value).denominator !== 1) return null
+  const gaps = simplify(fits.value).numerator
+  if (gaps < 1 || gaps + 1 > MAX_POSITION) return null
+
+  const steps: PlanStep[] = [
+    { op: 'divide', a: spec.far!.distance.trim(), b: spec.gap!.trim(), label: 'How many gaps of that size fit in the whole length?' },
+  ]
+  const plan: Plan = { steps, spacing: spec }
+  const check = resolvePlan(plan)
+  if (!check.ok) return null
+  const got = toFraction(check.results[0]!)
+  if (got.denominator !== 1 || got.numerator !== gaps) return null
+
+  const lengthText = withUnit(formatMixed(toMixed(gapLength)), unit)
+  const totalText = withUnit(formatMixed(toMixed(simplify(toFraction(total)))), unit)
+  const firstGap: SpacingArc = { from: 1, to: 2, label: `1 gap = ${lengthText}`, side: 'above', tone: 0 }
+  const marks = gaps + 1
+  const dots: SpacingDot[] =
+    marks <= MAX_DOTS
+      ? Array.from({ length: marks }, (_, i) => ({ at: i + 1, tone: i === 0 || i === marks - 1 ? (0 as const) : (2 as const) }))
+      : [{ at: 1, tone: 0 }, { at: marks, tone: 0 }]
+  const given: SpacingStage = {
+    dots: [{ at: 1, label: 'start', tone: 0 }],
+    arcs: [],
+    open: { from: 1, label: totalText },
+    caption: `The whole length is ${totalText}, and every gap is ${lengthText}. How many gaps fit?`,
+  }
+  const stages: SpacingStage[] = [
+    {
+      dots,
+      arcs: [firstGap, { from: 1, to: marks, label: `${gaps} gaps = ${totalText}`, side: 'below', tone: 3 }],
+      caption: `${gaps} gaps of ${lengthText} each fill ${totalText}. The dots are the ${pluralOf(thing)}: one more than the gaps.`,
+    },
+  ]
+  const nudges: SpacingNudge[] = [
+    { step: 0, wrong: String(marks), message: `That counts the dots. A gap is the space between two ${pluralOf(thing)}: how many hops are there along the line?` },
+  ]
+  return { plan, gaps, last: marks, facts: [`Whole length: ${totalText}`, `One gap: ${lengthText}`], given, stages, nudges }
+}
+
+const num = (f: Fraction) => f.numerator / f.denominator
+
+/**
+ * "Three pictures, 2 feet wide each, on a board 10 1/4 feet wide, with a margin of 1/2 foot at each end: how much
+ * space between them?" The margins and the object widths come out of the length first, and what is left is shared by
+ * the gaps, which are one fewer than the objects. Code builds every step and a picture of the row; the AI only
+ * reads the numbers.
+ */
+function buildFramePlan(spec: SpacingSpec, thing: string): SpacingPlan | null {
+  const things = spec.plural?.trim() || pluralOf(thing)
+  const unit = spec.unit?.trim()
+  const count = wholeNumber(spec.count ?? '')
+  const total = parseMixed(spec.total ?? '')
+  const edge = spec.edge === undefined ? null : parseMixed(spec.edge)
+  const size = spec.size === undefined ? null : parseMixed(spec.size)
+  if (count === null || count < 2 || !total || toFraction(total).numerator <= 0) return null
+  if (spec.edge !== undefined && (!edge || toFraction(edge).numerator <= 0)) return null
+  if (spec.size !== undefined && (!size || toFraction(size).numerator <= 0)) return null
+
+  const gaps = count - 1
+  const fmt = (f: Fraction) => withUnit(formatMixed(toMixed(simplify(f))), unit)
+  const T = simplify(toFraction(total))
+  const E = edge ? simplify(toFraction(edge)) : null
+  const S = size ? simplify(toFraction(size)) : null
+  const margins = E ? simplify(multiply({ numerator: 2, denominator: 1 }, E)) : null
+  const objects = S ? simplify(multiply({ numerator: count, denominator: 1 }, S)) : null
+
+  // The steps, in the order a child would think them. `refOf` remembers which step holds each result.
+  const steps: PlanStep[] = []
+  const refOf: Record<string, string> = {}
+  const push = (key: string, step: PlanStep) => {
+    steps.push(step)
+    refOf[key] = `r${steps.length}`
+  }
+  push('gaps', { op: 'subtract', a: String(count), b: '1', label: `How many gaps are there between the ${things}?` })
+  if (E) push('margins', { op: 'add', a: spec.edge!.trim(), b: spec.edge!.trim(), label: 'How much space do the two margins take up together?' })
+  if (S) push('objects', { op: 'multiply', a: String(count), b: spec.size!.trim(), label: `How wide are all the ${things} together?` })
+  let left = spec.total!.trim()
+  let leftValue = T
+  if (E) {
+    push('afterMargins', { op: 'subtract', a: left, b: refOf.margins!, label: 'How much of the length is left after the margins?' })
+    left = refOf.afterMargins!
+    leftValue = simplify(subtract(leftValue, margins!))
+  }
+  if (S) {
+    push('forGaps', { op: 'subtract', a: left, b: refOf.objects!, label: `How much space is left for the gaps after the ${things}?` })
+    left = refOf.forGaps!
+    leftValue = simplify(subtract(leftValue, objects!))
+  }
+  if (toFraction(leftValue).numerator <= 0) return null
+  push('gap', { op: 'divide', a: left, b: refOf.gaps!, label: 'How wide is each gap?' })
+
+  const plan: Plan = { steps, spacing: spec }
+  const check = resolvePlan(plan)
+  if (!check.ok) return null
+  const share = divide(leftValue, { numerator: gaps, denominator: 1 })
+  if (!share.ok) return null
+  const gapValue = simplify(share.value)
+  const got = toFraction(check.results.at(-1)!)
+  if (got.numerator * gapValue.denominator !== gapValue.numerator * got.denominator) return null
+
+  // The row, drawn to scale from the finished answer; only the labels are held back until a step finds them.
+  const e = E ? num(E) : 0
+  const s = S ? num(S) : 0
+  const g = num(gapValue)
+  const length = num(T)
+  const build = (labelGap: string, marginLabel: string, objectLabel: string): FrameBlock[] => {
+    const blocks: FrameBlock[] = []
+    let at = 0
+    if (E) blocks.push({ from: 0, to: e, kind: 'margin', label: marginLabel })
+    at = e
+    for (let i = 0; i < count; i++) {
+      blocks.push({ from: at, to: at + s, kind: 'object', label: objectLabel })
+      at += s
+      if (i < count - 1) {
+        blocks.push({ from: at, to: at + g, kind: 'gap', label: labelGap })
+        at += g
+      }
+    }
+    if (E) blocks.push({ from: at, to: at + e, kind: 'margin', label: marginLabel })
+    return blocks
+  }
+  const middle = { from: e, to: length - e }
+  const totalBrace = { from: 0, to: length, label: fmt(T), tone: 0 }
+
+  const given: FrameStage = {
+    blocks: build('?', E ? fmt(E) : '', S ? fmt(S) : ''),
+    braces: [totalBrace],
+    facts: [],
+    caption: `${count} ${things} in a row${E ? ', with a margin at each end' : ''}${S ? `, each ${fmt(S)} wide` : ''}. The whole length is ${fmt(T)}. How wide is each gap between them?`,
+  }
+
+  const stages: FrameStage[] = []
+  const facts: string[] = []
+  let braces = [totalBrace]
+  const stageFor = (fact: string, caption: string, gapLabel: string, nextBraces = braces): FrameStage => {
+    facts.push(fact)
+    braces = nextBraces
+    return { blocks: build(gapLabel, E ? fmt(E) : '', S ? fmt(S) : ''), braces, facts: [...facts], caption }
+  }
+  stages.push(stageFor(`${gaps} gaps`, `${count} ${things} have one fewer gap: count the spaces between them.`, 'gap'))
+  if (E) stages.push(stageFor(`Both margins: ${fmt(margins!)}`, `A margin of ${fmt(E)} at each end takes ${fmt(margins!)}.`, 'gap'))
+  if (S) stages.push(stageFor(`All the ${things}: ${fmt(objects!)}`, `${count} ${things} of ${fmt(S)} each take ${fmt(objects!)}.`, 'gap'))
+  let running = T
+  if (E) {
+    running = simplify(subtract(running, margins!))
+    stages.push(stageFor(`Left after the margins: ${fmt(running)}`, `Take the margins off the length: ${fmt(running)} is left between them.`, 'gap', [totalBrace, { ...middle, label: fmt(running), tone: 1 }]))
+  }
+  if (S) {
+    running = simplify(subtract(running, objects!))
+    stages.push(stageFor(`Left for the gaps: ${fmt(running)}`, `Take the ${things} off too: ${fmt(running)} is left to share among the gaps.`, 'gap', [totalBrace, { ...middle, label: `${fmt(running)} for gaps`, tone: 3 }]))
+  }
+  stages.push(stageFor(`Each gap: ${fmt(gapValue)}`, `${gaps} equal gaps share ${fmt(running)}, so each gap is ${fmt(gapValue)}.`, fmt(gapValue)))
+
+  const nudges: SpacingNudge[] = [
+    { step: 0, wrong: String(count), message: `That counts the ${things}. A gap is the space between two ${things}: count the spaces in the picture.` },
+  ]
+  const lastIndex = steps.length - 1
+  const unshared = divide(T, { numerator: gaps, denominator: 1 })
+  if (unshared.ok && (E || S)) {
+    nudges.push({
+      step: lastIndex,
+      wrong: formatMixed(toMixed(simplify(unshared.value))),
+      message: `That shares the whole length. Look at the picture: the margins${S ? ` and the ${things} themselves` : ''} are not gap space.`,
+    })
+  }
+  return {
+    plan,
+    gaps,
+    last: count,
+    facts: [`${count} ${things}${E ? ' with a margin at each end' : ''}`, `Length of the row: ${fmt(T)}`, ...(E ? [`Margin at each end: ${fmt(E)}`] : []), ...(S ? [`Each ${thing} is ${fmt(S)} wide`] : [])],
+    given: { dots: [], arcs: [], caption: given.caption },
+    stages: [],
+    nudges,
+    frame: { given, stages },
+  }
 }

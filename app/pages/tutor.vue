@@ -37,8 +37,6 @@ const stageSoFar = computed(() => (barStages.value && store.stepIndex > 0 ? stag
 const stageNow = computed(() => (barStages.value ? stageAt(barStages.value, store.stepIndex) : null))
 /** The number line for a things-in-a-row problem, or null when this problem is not that kind. */
 const spacing = computed(() => (store.plan?.spacing ? buildSpacingPlan(store.plan.spacing) : null))
-/** What she has earned so far: the line after her latest answered step, or the givens before the first. */
-const spacingStage = computed(() => (spacing.value ? (spacing.value.stages[store.stepIndex - 1] ?? spacing.value.given) : null))
 /** A nudge for a common slip, shown only after she gives that exact wrong answer on that step. */
 const spacingNudge = computed(() => {
   const wrong = store.lastWrongAnswer.trim()
@@ -307,9 +305,9 @@ function another() {
         </ul>
       </section>
       <!-- The picture sits with the question and the choice of operation, so she can look at it while she decides. -->
-      <section v-if="spacing && spacingStage" aria-label="The number line" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+      <section v-if="spacing" aria-label="The picture" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
         <h2 class="text-xl font-bold text-slate-900">{{ store.stepIndex === 0 ? 'Picture the row' : 'What we found so far' }}</h2>
-        <TutorSpacingLine :stage="spacingStage" label="The things in a row on a number line" />
+        <TutorSpacingPicture :built="spacing" :done="store.stepIndex" />
       </section>
       <TutorStepVisual v-else :problem="store.problem" mode="question" />
 
@@ -378,9 +376,9 @@ function another() {
       <p v-if="hintNumber" class="text-xl font-semibold text-slate-800">Hint {{ hintNumber }} of 3</p>
       <!-- In a multi-step problem the hint sits under the question and above the numbers. -->
       <PracticeProblemCard v-if="store.state !== 'teach'" :problem="store.problem" />
-      <section v-if="spacingStage && store.state !== 'teach'" aria-label="The number line" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-        <h2 class="text-xl font-bold text-slate-900">Picture the row</h2>
-        <TutorSpacingLine :stage="spacingStage" label="The things in a row on a number line" />
+      <section v-if="spacing && store.state !== 'teach'" aria-label="The picture" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <h2 class="text-xl font-bold text-slate-900">{{ store.stepIndex === 0 ? 'Picture the row' : 'What we found so far' }}</h2>
+        <TutorSpacingPicture :built="spacing" :done="store.stepIndex" />
       </section>
       <TutorStepVisual v-if="store.state !== 'teach' && !spacing" :problem="store.problem" mode="step" />
       <section
@@ -456,9 +454,9 @@ function another() {
       <p class="text-center text-2xl text-slate-900">
         {{ store.stepLabel }} <span class="font-bold">{{ store.acceptedAnswer }}</span>
       </p>
-      <section v-if="spacing && spacing.stages[store.stepIndex]" aria-label="The number line" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-        <h2 class="text-xl font-bold text-slate-900">See it on the number line</h2>
-        <TutorSpacingLine :stage="spacing.stages[store.stepIndex]!" label="The things in a row on a number line" />
+      <section v-if="spacing" aria-label="The picture" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <h2 class="text-xl font-bold text-slate-900">See it in the picture</h2>
+        <TutorSpacingPicture :built="spacing" :done="store.stepIndex + 1" />
       </section>
       <section v-else-if="stageNow" aria-label="The bar model" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-2">

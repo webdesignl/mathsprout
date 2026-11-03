@@ -56,6 +56,8 @@ export interface RateSpec {
  * - find the last mark: `far` is where counting starts and the distance from there to the last mark, and the length
  *   of one gap is given (`gap`) or worked out from two known marks (`near`).
  * - find the distance: `count` marks in all and the length of one `gap`.
+ * - find how many gaps fit: `gap` and `far.distance` with `ask: 'gaps'` (the answer is whole when they fit exactly).
+ * - find the gap with margins and object widths taken out first: `count`, `total` and `edge` and/or `size`.
  * - find the gap: `count` marks in all and the `total` distance from the first mark to the last.
  * Code turns it into steps and a number line (see spacing.ts); the AI only reads the shape and a word for the mark.
  */
@@ -71,6 +73,11 @@ export interface SpacingSpec {
   count?: string
   /** The distance from the first mark to the last, when the question is how long one gap is (with `count`). */
   total?: string
+  /** "How many gaps fit?": with `gap` and `far.distance`, the question stops at the number of gaps. */
+  ask?: 'gaps'
+  /** A margin at each end of the row, and the width of each object, for "how wide is each gap between the objects?" (with `count` and `total`). */
+  edge?: string
+  size?: string
 }
 
 export interface Plan {
@@ -110,7 +117,8 @@ function operandOf(text: string, results: MixedNumber[]): MixedNumber | 'referen
 
 /** The steps of the plan as real problems with real numbers, and the engine's answer to each one. */
 export function resolvePlan(plan: Plan): PlanCheck {
-  if (plan.steps.length < MIN_PLAN_STEPS || plan.steps.length > MAX_PLAN_STEPS) return { ok: false, reason: 'steps' }
+  // A spacing question may stop after one step ("how many gaps fit?").
+  if (plan.steps.length < (plan.spacing ? 1 : MIN_PLAN_STEPS) || plan.steps.length > MAX_PLAN_STEPS) return { ok: false, reason: 'steps' }
 
   const problems: AnyProblem[] = []
   const results: MixedNumber[] = []
