@@ -98,6 +98,20 @@ describe('the word for the mark does not matter', () => {
     expect(built.stages[0]!.arcs.some((a) => a.label.includes('27'))).toBe(false)
   })
 
+  it('finds the gap from the number of marks and the whole length: five posts on a 5 1/4 foot board', () => {
+    const built = buildSpacingPlan({ thing: 'post', unit: 'feet', count: '5', total: '5 1/4' })!
+    const check = resolvePlan(built.plan)
+    // 4 gaps; 5 1/4 / 4 = 1 5/16.
+    expect(check.ok && check.results.map((r) => formatMixed(r))).toEqual(['4', '1 5/16'])
+    expect(built.stages).toHaveLength(2)
+    expect(built.stages[1]!.arcs.some((a) => a.label === '1 gap = 1 5/16 feet')).toBe(true)
+    expect(built.given.arcs.some((a) => a.label.includes('5/16'))).toBe(false)
+    expect(built.nudges.map((n) => n.wrong)).toEqual(['5', '1 1/20'])
+    for (const n of built.nudges) expect(n.message).not.toMatch(/\b(4|5\/16)\b/)
+    expect(buildSpacingPlan({ count: '1', total: '5' })).toBeNull()
+    expect(buildSpacingPlan({ count: '5', total: '0' })).toBeNull()
+  })
+
   it('nudges the usual slips for the distance question without giving the answer', () => {
     const built = buildSpacingPlan({ thing: 'tree', unit: 'm', count: '12', gap: '2 1/2' })!
     expect(built.nudges.map((n) => n.wrong)).toEqual(['12', '30'])

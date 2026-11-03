@@ -305,7 +305,6 @@ function another() {
         <ul class="list-disc space-y-1 pl-6 text-xl text-slate-900">
           <li v-for="fact in spacing.facts" :key="fact">{{ fact }}</li>
         </ul>
-        <TutorSpacingLine :stage="spacing.given" label="The things in a row on a number line" />
       </section>
       <TutorStepVisual v-else :problem="store.problem" mode="question" />
 

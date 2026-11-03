@@ -74,7 +74,7 @@ export interface SpacingPlan {
 
 export function buildSpacingPlan(spec: SpacingSpec): SpacingPlan | null {
   const thing = spec.thing?.trim() || 'mark'
-  if (spec.count !== undefined) return buildDistancePlan(spec, thing)
+  if (spec.count !== undefined) return spec.total !== undefined ? buildGapPlan(spec, thing) : buildDistancePlan(spec, thing)
   if (!spec.far) return null
   const things = spec.plural?.trim() || pluralOf(thing)
   const unit = spec.unit?.trim()
@@ -290,4 +290,66 @@ function buildDistancePlan(spec: SpacingSpec, thing: string): SpacingPlan | null
     },
   ]
   return { plan, gaps, last: count, facts: [`${count} ${things} in a row`, `One gap is ${lengthText}`, `The ${things} are spread evenly`], given, stages, nudges }
+}
+
+/** "A board 5 1/4 feet long has 5 posts, one at each end. How far apart are two posts?" Gaps are one fewer than marks. */
+function buildGapPlan(spec: SpacingSpec, thing: string): SpacingPlan | null {
+  const things = spec.plural?.trim() || pluralOf(thing)
+  const unit = spec.unit?.trim()
+  const count = wholeNumber(spec.count ?? '')
+  const total = parseMixed(spec.total ?? '')
+  if (count === null || count < 2 || !total || toFraction(total).numerator <= 0) return null
+  const gaps = count - 1
+  const steps: PlanStep[] = [
+    { op: 'subtract', a: String(count), b: '1', label: `How many gaps are there between the ${things}?` },
+    { op: 'divide', a: spec.total!.trim(), b: 'r1', label: `How far apart are two ${things} next to each other?` },
+  ]
+  const plan: Plan = { steps, spacing: spec }
+  const check = resolvePlan(plan)
+  if (!check.ok) return null
+  const totalFraction = simplify(toFraction(total))
+  const each = divide(totalFraction, { numerator: gaps, denominator: 1 })
+  if (!each.ok) return null
+  const eachFraction = simplify(each.value)
+  const got = toFraction(check.results.at(-1)!)
+  if (got.numerator * eachFraction.denominator !== eachFraction.numerator * got.denominator) return null
+
+  const totalText = withUnit(formatMixed(toMixed(totalFraction)), unit)
+  const eachText = withUnit(formatMixed(toMixed(eachFraction)), unit)
+  const wrong = divide(totalFraction, { numerator: count, denominator: 1 })
+  const dots = (): SpacingDot[] => {
+    const all = count <= MAX_DOTS ? Array.from({ length: count }, (_, i) => ({ at: i + 1, tone: 2 as const })) : []
+    const named = new Map<number, SpacingDot>()
+    for (const d of [...all, { at: 1, label: 'first', tone: 0 as const }, { at: count, label: 'last', tone: 0 as const }]) named.set(d.at, d)
+    return [...named.values()].sort((p, q) => p.at - q.at)
+  }
+  const whole: SpacingArc = { from: 1, to: count, label: totalText, side: 'below', tone: 0 }
+  const given: SpacingStage = {
+    dots: dots(),
+    arcs: [whole, { from: 1, to: 2, label: '1 gap = ?', side: 'above', tone: 3 }],
+    caption: `${count} ${things} stand in a row, the first at the start and the last at the end. The row is ${totalText} long. How far apart are two ${things} next to each other?`,
+  }
+  const stages: SpacingStage[] = [
+    {
+      dots: dots(),
+      arcs: [whole, { from: 1, to: count, label: `${gaps} gaps`, side: 'above', tone: 1 }],
+      caption: `Count the spaces between the ${things}, not the ${things}: the first ${thing} has no gap before it.`,
+    },
+    {
+      dots: dots(),
+      arcs: [whole, { from: 1, to: 2, label: `1 gap = ${eachText}`, side: 'above', tone: 3 }],
+      caption: `${gaps} equal gaps share ${totalText}, so each gap is ${eachText}.`,
+    },
+  ]
+  const nudges: SpacingNudge[] = [
+    { step: 0, wrong: String(count), message: `That counts the ${things}. A gap is the space between two ${things}: hop along the line and count the hops.` },
+  ]
+  if (wrong.ok) {
+    nudges.push({
+      step: 1,
+      wrong: formatMixed(toMixed(simplify(wrong.value))),
+      message: `That shares the length between every ${thing}, but the length is shared by the gaps. How many gaps are there on the line?`,
+    })
+  }
+  return { plan, gaps, last: count, facts: [`${count} ${things} in a row, one at each end`, `Length from the first to the last: ${totalText}`, `The ${things} are spread evenly`], given, stages, nudges }
 }

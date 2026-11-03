@@ -56,6 +56,7 @@ export interface RateSpec {
  * - find the last mark: `far` is where counting starts and the distance from there to the last mark, and the length
  *   of one gap is given (`gap`) or worked out from two known marks (`near`).
  * - find the distance: `count` marks in all and the length of one `gap`.
+ * - find the gap: `count` marks in all and the `total` distance from the first mark to the last.
  * Code turns it into steps and a number line (see spacing.ts); the AI only reads the shape and a word for the mark.
  */
 export interface SpacingSpec {
@@ -68,6 +69,8 @@ export interface SpacingSpec {
   far?: { from: string; distance: string }
   /** How many marks there are in all, when the question is how far it is from the first to the last. */
   count?: string
+  /** The distance from the first mark to the last, when the question is how long one gap is (with `count`). */
+  total?: string
 }
 
 export interface Plan {

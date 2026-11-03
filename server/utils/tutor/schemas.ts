@@ -95,6 +95,7 @@ export const modelSpacingSchema = z.object({
     near: z.object({ from: z.string().max(3), to: z.string().max(3), distance: z.string().max(30) }).optional(),
     far: z.object({ from: z.string().max(3), distance: z.string().max(30) }).optional(),
     count: z.string().max(3).optional(),
+    total: z.string().max(30).optional(),
   }),
   problemText: z.string().max(600),
   confidence: z.enum(['high', 'low']),
