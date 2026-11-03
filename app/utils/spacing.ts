@@ -79,6 +79,8 @@ export interface FrameBlock {
   from: number
   to: number
   kind: 'margin' | 'object' | 'gap'
+  /** What it is called on the picture ("margin", "gap", or the word for the object). */
+  name: string
   label: string
 }
 
@@ -493,17 +495,17 @@ function buildFramePlan(spec: SpacingSpec, thing: string): SpacingPlan | null {
   const build = (labelGap: string, marginLabel: string, objectLabel: string): FrameBlock[] => {
     const blocks: FrameBlock[] = []
     let at = 0
-    if (E) blocks.push({ from: 0, to: e, kind: 'margin', label: marginLabel })
+    if (E) blocks.push({ from: 0, to: e, kind: 'margin', name: 'margin', label: marginLabel })
     at = e
     for (let i = 0; i < count; i++) {
-      blocks.push({ from: at, to: at + s, kind: 'object', label: objectLabel })
+      blocks.push({ from: at, to: at + s, kind: 'object', name: thing, label: objectLabel })
       at += s
       if (i < count - 1) {
-        blocks.push({ from: at, to: at + g, kind: 'gap', label: labelGap })
+        blocks.push({ from: at, to: at + g, kind: 'gap', name: 'gap', label: labelGap })
         at += g
       }
     }
-    if (E) blocks.push({ from: at, to: at + e, kind: 'margin', label: marginLabel })
+    if (E) blocks.push({ from: at, to: at + e, kind: 'margin', name: 'margin', label: marginLabel })
     return blocks
   }
   const middle = { from: e, to: length - e }
