@@ -306,6 +306,11 @@ function another() {
           <li v-for="fact in spacing.facts" :key="fact">{{ fact }}</li>
         </ul>
       </section>
+      <!-- The picture sits with the question and the choice of operation, so she can look at it while she decides. -->
+      <section v-if="spacing && spacingStage" aria-label="The number line" class="space-y-2 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <h2 class="text-xl font-bold text-slate-900">{{ store.stepIndex === 0 ? 'Picture the row' : 'What we found so far' }}</h2>
+        <TutorSpacingLine :stage="spacingStage" label="The things in a row on a number line" />
+      </section>
       <TutorStepVisual v-else :problem="store.problem" mode="question" />
 
       <div v-if="!store.plan && !store.understanding.text && !store.understanding.loading">
