@@ -27,10 +27,22 @@ const widthOf = (b: { from: number; to: number }) => Math.max(x(b.to) - x(b.from
 const anyOutside = computed(() => props.stage.blocks.some((b) => widthOf(b) <= 90 * k.value))
 /** The value's size, shrunk so a long label such as "1 5/8 feet" stays inside its block. */
 const fit = (b: { from: number; to: number; label: string }) => Math.min(28 * k.value, (widthOf(b) * 0.92) / Math.max(b.label.length * 0.56, 1))
+const LEGEND = {
+  margin: 'bg-slate-300 text-slate-900',
+  object: 'bg-indigo-700 text-white',
+  gap: 'bg-amber-100 text-amber-950 ring-1 ring-amber-700',
+} as const
+/** One chip for each kind of piece in the row, saying what it is and how long (or "?" for a gap not found yet). */
+const legend = computed(() =>
+  (['margin', 'object', 'gap'] as const).flatMap((kind) => {
+    const b = props.stage.blocks.find((x) => x.kind === kind)
+    return b ? [{ kind, cls: LEGEND[kind], text: b.label ? `${b.name}: ${b.label}` : b.name }] : []
+  }),
+)
 const anchorOf = (i: number) => (i === 0 ? 'start' : i === props.stage.blocks.length - 1 ? 'end' : 'middle')
 const belowY = computed(() => TOP + HEIGHT + 20 + (anyOutside.value ? 70 * k.value : 0))
 const wide = computed(() => props.stage.blocks.length > 13)
-const k = computed(() => (wide.value ? 1 : 1.3))
+const k = computed(() => (wide.value ? 1 : 1.6))
 </script>
 
 <template>
@@ -65,6 +77,7 @@ const k = computed(() => (wide.value ? 1 : 1.3))
             stroke-width="3"
             :stroke-dasharray="b.kind === 'gap' && b.label === '?' ? '10 7' : undefined"
           />
+          <g class="hidden sm:inline">
           <template v-if="widthOf(b) > 90 * k">
             <text :x="x(b.from) + widthOf(b) / 2" :y="TOP + HEIGHT / 2 - 6 * k" text-anchor="middle" :font-size="22 * k" font-weight="600" :fill="b.kind === 'object' ? '#e0e7ff' : '#475569'">{{ b.name }}</text>
             <text :x="x(b.from) + widthOf(b) / 2" :y="TOP + HEIGHT / 2 + 26 * k" text-anchor="middle" :font-size="fit(b)" font-weight="800" :fill="b.kind === 'object' ? '#ffffff' : '#1e293b'">{{ b.label }}</text>
@@ -74,13 +87,13 @@ const k = computed(() => (wide.value ? 1 : 1.3))
             <text :x="x(b.from) + widthOf(b) / 2" :y="TOP + HEIGHT + 16 + 24 * k" :text-anchor="anchorOf(i)" :font-size="22 * k" font-weight="600" fill="#475569">{{ b.name }}</text>
             <text v-if="b.label" :x="x(b.from) + widthOf(b) / 2" :y="TOP + HEIGHT + 16 + 52 * k" :text-anchor="anchorOf(i)" :font-size="28 * k" font-weight="800" fill="#1e293b">{{ b.label }}</text>
           </template>
+          </g>
         </g>
       </svg>
     </div>
-    <ul class="flex flex-wrap gap-2" aria-label="Kinds of space">
-      <li class="rounded-lg bg-slate-300 px-2 py-1 text-base font-semibold text-slate-900">margin</li>
-      <li class="rounded-lg bg-indigo-700 px-2 py-1 text-base font-semibold text-white">object</li>
-      <li class="rounded-lg bg-amber-100 px-2 py-1 text-base font-semibold text-amber-950 ring-1 ring-amber-700">gap</li>
+    <!-- On a phone the words would be too small inside the picture, so each colour is explained here instead. -->
+    <ul class="flex flex-wrap gap-2" aria-label="What each colour is">
+      <li v-for="item in legend" :key="item.kind" :class="['rounded-lg px-3 py-1 text-lg font-semibold', item.cls]">{{ item.text }}</li>
     </ul>
     <ul v-if="stage.facts.length" class="list-disc space-y-1 pl-6 text-xl text-slate-900" aria-label="What we found so far">
       <li v-for="fact in stage.facts" :key="fact">{{ fact }}</li>
