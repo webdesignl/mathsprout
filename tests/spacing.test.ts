@@ -98,6 +98,20 @@ describe('the word for the mark does not matter', () => {
     expect(built.stages[0]!.arcs.some((a) => a.label.includes('27'))).toBe(false)
   })
 
+  it('finds the gap from the number of marks and the whole length: five posts on a 5 1/4 foot board', () => {
+    const built = buildSpacingPlan({ thing: 'post', unit: 'feet', count: '5', total: '5 1/4' })!
+    const check = resolvePlan(built.plan)
+    // 4 gaps; 5 1/4 / 4 = 1 5/16.
+    expect(check.ok && check.results.map((r) => formatMixed(r))).toEqual(['4', '1 5/16'])
+    expect(built.stages).toHaveLength(2)
+    expect(built.stages[1]!.arcs.some((a) => a.label === '1 gap = 1 5/16 feet')).toBe(true)
+    expect(built.given.arcs.some((a) => a.label.includes('5/16'))).toBe(false)
+    expect(built.nudges.map((n) => n.wrong)).toEqual(['5', '1 1/20'])
+    for (const n of built.nudges) expect(n.message).not.toMatch(/\b(4|5\/16)\b/)
+    expect(buildSpacingPlan({ count: '1', total: '5' })).toBeNull()
+    expect(buildSpacingPlan({ count: '5', total: '0' })).toBeNull()
+  })
+
   it('nudges the usual slips for the distance question without giving the answer', () => {
     const built = buildSpacingPlan({ thing: 'tree', unit: 'm', count: '12', gap: '2 1/2' })!
     expect(built.nudges.map((n) => n.wrong)).toEqual(['12', '30'])
@@ -127,10 +141,80 @@ describe('reading a things-in-a-row problem', () => {
     expect(result).toMatchObject({ ok: true, plan: { steps: [{}, {}] } })
   })
 
+  it('reads the margins shape and the how-many-gaps-fit shape', async () => {
+    const frame = JSON.stringify({ spacing: { thing: 'picture', unit: 'feet', count: '3', total: '10 1/4', edge: '1/2', size: '2' }, problemText: 'A wall story.', confidence: 'high' })
+    expect(await readProblem(fakeClient(frame).client, { text: 'x' })).toMatchObject({ ok: true, plan: { steps: [{}, {}, {}, {}, {}, {}] } })
+    const fit = JSON.stringify({ spacing: { unit: 'inches', gap: '7/8', far: { from: '1', distance: '8 3/4' }, ask: 'gaps' }, problemText: 'A sidebar story.', confidence: 'high' })
+    expect(await readProblem(fakeClient(fit).client, { text: 'x' })).toMatchObject({ ok: true, plan: { steps: [{}] } })
+  })
+
   it('refuses a reply whose gaps do not fit', async () => {
     const reply = JSON.stringify({ spacing: { ...LANTERNS, far: { from: '2', distance: '12 1/2' } }, problemText: 'x', confidence: 'high' })
     const { client } = fakeClient(reply, reply)
     const result = await readProblem(client, { text: 'x' })
     expect(result.ok).toBe(false)
+  })
+})
+
+describe('how many gaps fit', () => {
+  it('stops at the gaps when the length divides exactly', () => {
+    // 8 3/4 in / 7/8 in = 10 gaps (11 marks).
+    const built = buildSpacingPlan({ unit: 'inches', gap: '7/8', far: { from: '1', distance: '8 3/4' }, ask: 'gaps' })!
+    expect(built.plan.steps).toHaveLength(1)
+    const check = resolvePlan(built.plan)
+    expect(check.ok && check.results.map((r) => formatMixed(r))).toEqual(['10'])
+    expect(built.given.caption).not.toMatch(/\b10\b/)
+    expect(built.stages[0]!.arcs.some((a) => a.label.startsWith('10 gaps'))).toBe(true)
+    expect(built.nudges.map((n) => n.wrong)).toEqual(['11'])
+  })
+
+  it('refuses a length that does not divide exactly', () => {
+    expect(buildSpacingPlan({ gap: '7/8', far: { from: '1', distance: '9' }, ask: 'gaps' })).toBeNull()
+  })
+})
+
+describe('margins and object widths come out first', () => {
+  /** Original: 3 pictures 2 feet wide on a board 10 1/4 feet wide, a margin of 1/2 foot at each end. */
+  const BOARD: SpacingSpec = { thing: 'picture', unit: 'feet', count: '3', total: '10 1/4', edge: '1/2', size: '2' }
+
+  it('builds the chain: gaps, margins, widths, what is left, then the gap', () => {
+    const built = buildSpacingPlan(BOARD)!
+    expect(built.plan.steps.map((s) => s.op)).toEqual(['subtract', 'add', 'multiply', 'subtract', 'subtract', 'divide'])
+    const check = resolvePlan(built.plan)
+    // 2 gaps; margins 1; pictures 6; 10 1/4 - 1 = 9 1/4; 9 1/4 - 6 = 3 1/4; 3 1/4 / 2 = 1 5/8.
+    expect(check.ok && check.results.map((r) => formatMixed(r))).toEqual(['2', '1', '6', '9 1/4', '3 1/4', '1 5/8'])
+    expect(built.frame!.stages).toHaveLength(6)
+  })
+
+  it('works with only margins, or only object widths', () => {
+    const margins = buildSpacingPlan({ ...BOARD, size: undefined })!
+    expect(margins.plan.steps).toHaveLength(4)
+    const widths = buildSpacingPlan({ ...BOARD, edge: undefined })!
+    expect(widths.plan.steps).toHaveLength(4)
+  })
+
+  it('draws to scale and holds the answer back until the last step', () => {
+    const built = buildSpacingPlan(BOARD)!
+    const frame = built.frame!
+    const gapLabels = (s: { blocks: Array<{ kind: string; label: string }> }) => s.blocks.filter((b) => b.kind === 'gap').map((b) => b.label)
+    expect(gapLabels(frame.given)).toEqual(['?', '?'])
+    expect(frame.stages.slice(0, -1).every((s) => !gapLabels(s).some((l) => l.includes('5/8')))).toBe(true)
+    expect(gapLabels(frame.stages.at(-1)!)).toEqual(['1 5/8 feet', '1 5/8 feet'])
+    // 1/2 + 2 + 1 5/8 + 2 + 1 5/8 + 2 + 1/2 = 10 1/4
+    expect(frame.given.blocks.at(-1)!.to).toBeCloseTo(10.25)
+    expect(frame.given.caption).not.toContain('5/8')
+  })
+
+  it('nudges sharing the whole length, without the answer', () => {
+    const built = buildSpacingPlan(BOARD)!
+    expect(built.nudges.map((n) => n.wrong)).toEqual(['3', '5 1/8'])
+    for (const n of built.nudges) expect(n.message).not.toMatch(/5\/8|\b9 1\/4\b/)
+  })
+
+  it('refuses when nothing is left for the gaps, or the numbers are bad', () => {
+    expect(buildSpacingPlan({ ...BOARD, total: '7' })).toBeNull()
+    expect(buildSpacingPlan({ ...BOARD, total: '6' })).toBeNull()
+    expect(buildSpacingPlan({ ...BOARD, count: '1' })).toBeNull()
+    expect(buildSpacingPlan({ ...BOARD, edge: '0' })).toBeNull()
   })
 })

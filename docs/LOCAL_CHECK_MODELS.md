@@ -70,7 +70,10 @@ Pick "Things in a row (number line)" on `/dev/models`, step through, then "Use t
 - No answer appears early: the 19th lantern is only drawn after the last step is answered.
 - Wrong answers to step 1 of 4 ("4") and the last step ("17" or "18") each show a nudge about the picture, never the answer.
 - "Rough work" opens with a number line behind the pad; "Number line" switches it off.
+- Also try the gap question: 5 posts, 5 1/4 feet total, so 4 gaps and 1 5/16 feet.
 - Also try the distance question in the Tutor by typing a reply through the AI or a test: 12 marks, gap 2 1/2 m, so 11 gaps and 27 1/2 m.
+- Also try "Margins and widths (row)" on `/dev/models`: 3 paintings of 2 feet on a 10 1/4 foot wall with 1/2 foot margins; the gap is 1 5/8 feet. The gaps stay "?" until the last step.
+- How many gaps fit: 8 3/4 inches with 7/8 inch gaps is 10 gaps; a length that does not divide exactly is refused.
 - There is no bar model on these screens. Check at 375px: words stay readable and the page does not scroll sideways.
 
 ## In every case

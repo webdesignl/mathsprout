@@ -23,13 +23,14 @@ interface Sample {
   plan: Plan
   stages: ReturnType<typeof buildBarStages>
   /** Things-in-a-row problems draw a number line instead of a bar. */
-  line?: ReturnType<typeof buildSpacingPlan>
+  line?: NonNullable<ReturnType<typeof buildSpacingPlan>>
 }
 
 /** Original problems for each type, so the pictures can be checked without the AI. */
 const STORY = {
   rest: 'A library has some books. 3/4 of them are story books. 1/3 of the books that are not story books are about animals. What fraction of all the books are about animals?',
   unit: 'Mia spent 1/3 of her savings on a bike. Of what was left she spent 1/4 on books and 1/8 on snacks. She had $60 left. How much were her savings at first?',
+  frame: 'Three paintings hang in a row on a wall 10 1/4 feet wide. Each painting is 2 feet wide. There is a margin of 1/2 foot at each end of the wall. How much equal space is there between the paintings?',
   spacing: 'Lanterns hang in a row with the same gap between each. The 2nd lantern to the 5th lantern is 2 1/4 m apart. The 2nd lantern to the last lantern is 12 3/4 m. Which number lantern is the last one?',
   rate: 'A battery runs a lamp the same number of hours each day. 3/4 of the charge is left after 4 days. After 3 more days, 2 1/2 hours of light are left. How many hours of light did the full battery give?',
 }
@@ -52,11 +53,14 @@ const rate = buildRatePlan({ first: { days: '4', left: '3/4' }, second: { days: 
 
 const spacing = buildSpacingPlan({ thing: 'lantern', unit: 'm', near: { from: '2', to: '5', distance: '2 1/4' }, far: { from: '2', distance: '12 3/4' } })!
 
+const frame = buildSpacingPlan({ thing: 'painting', unit: 'feet', count: '3', total: '10 1/4', edge: '1/2', size: '2' })!
+
 const samples: Sample[] = [
   { id: 'rest', title: 'Part of the rest', story: STORY.rest, plan: restPlan, stages: buildBarStages(restPlan) },
   { id: 'unit', title: 'Work backwards (unit bar)', story: STORY.unit, plan: unit.plan, stages: unit.stages },
   { id: 'rate', title: 'Same amount each day (day strip)', story: STORY.rate, plan: rate.plan, stages: rate.stages },
   { id: 'spacing', title: 'Things in a row (number line)', story: STORY.spacing, plan: spacing.plan, stages: null, line: spacing },
+  { id: 'frame', title: 'Margins and widths (row)', story: STORY.frame, plan: frame.plan, stages: null, line: frame },
 ]
 
 const which = ref('rest')
@@ -120,7 +124,7 @@ const button =
         <span class="text-base font-semibold text-slate-800">Answered through step {{ step + 1 }} of {{ sample.plan.steps.length }}</span>
       </div>
       <p class="text-base text-slate-700">Step {{ step + 1 }}: {{ sample.plan.steps[step]!.label }}</p>
-      <TutorSpacingLine v-if="sample.line" :stage="sample.line.stages[step]!" label="Things in a row" />
+      <TutorSpacingPicture v-if="sample.line" :built="sample.line" :done="step + 1" />
       <TutorFractionBar v-else-if="stage" :stage="stage" :replay="replay" :still="stage.step !== step" />
       <p v-else class="text-base text-slate-700">No picture yet at this step (it appears after a later step).</p>
       <p v-if="!sample.stages && !sample.line" class="text-base font-semibold text-red-800">This sample has no picture, which is a bug.</p>

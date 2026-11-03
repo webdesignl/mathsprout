@@ -42,7 +42,7 @@ const arcPath = (from: number, to: number, side: 'above' | 'below') => {
 const arcMid = (a: { from: number; to: number; side: 'above' | 'below' }) => {
   const dir = a.side === 'above' ? -1 : 1
   const lift = Math.min(90, 30 + (a.to - a.from) * 3)
-  return { x: (x(a.from) + x(a.to)) / 2, y: LINE_Y + dir * (BASE + lift) + (a.side === 'above' ? -14 : 34) }
+  return { x: (x(a.from) + x(a.to)) / 2, y: LINE_Y + dir * (BASE + lift) + (a.side === 'above' ? -14 : 22 + 32 * k.value) }
 }
 const anchor = (n: number) => (x(n) > WIDTH - 170 ? 'end' : x(n) < 170 ? 'start' : 'middle')
 const numbered = (d: { at: number; label?: string }) => !crowded.value || Boolean(d.label)
@@ -95,7 +95,7 @@ const numbered = (d: { at: number; label?: string }) => !crowded.value || Boolea
           <text :x="x(axisMax)" :y="LINE_Y + 9" text-anchor="middle" font-size="26" font-weight="800" fill="#b45309">?</text>
           <text
             :x="(x(stage.open.from) + x(axisMax)) / 2"
-            :y="LINE_Y + BASE + 104"
+            :y="LINE_Y + BASE + 72 + 32 * k"
             text-anchor="middle"
             :font-size="32 * k"
             font-weight="700"
